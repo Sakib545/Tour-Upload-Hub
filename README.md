@@ -48,6 +48,18 @@ npm start          # → http://localhost:3000
 1. In your project: **APIs & Services → Library**.
 2. Search for **Google Drive API** → open it → **Enable**.
 
+### Easiest authentication: service account (no refresh token)
+
+1. Open **IAM & Admin → Service Accounts → Create service account**.
+2. Name it `tour-upload-hub`, finish creation, then open it.
+3. Open **Keys → Add key → Create new key → JSON** and download the key.
+4. Share the destination Google Drive folder with the JSON file's
+   `client_email` as **Editor**.
+5. Put the complete minified JSON value in `GOOGLE_SERVICE_ACCOUNT_JSON`.
+
+When this variable is set, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
+`GOOGLE_REFRESH_TOKEN` are not required. Keep the JSON key secret.
+
 ---
 
 ## 4. Create credentials (OAuth client)
