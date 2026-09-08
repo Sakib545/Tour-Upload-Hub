@@ -36,6 +36,7 @@
       <div class="stats-row">
         <div class="card stat-card"><div class="stat-num" id="statFiles">–</div><div class="stat-label">Files uploaded</div></div>
         <div class="card stat-card"><div class="stat-num" id="statSize">–</div><div class="stat-label">Total size</div></div>
+        <div class="card stat-card"><div class="stat-num" id="statSplit">–</div><div class="stat-label">Photos / Videos</div></div>
         <div class="card stat-card"><div class="stat-num small" id="statFolder">–</div><div class="stat-label">Drive folder</div></div>
       </div>
 
@@ -53,6 +54,13 @@
             <span class="toggle" aria-hidden="true"></span>
           </label>
           <p class="muted-text note">Changes apply instantly. They reset to the ENABLE_UPLOADS / GALLERY_VISIBLE env defaults after a Railway redeploy.</p>
+        </section>
+
+        <section class="card admin-section">
+          <h2>Open in Drive</h2>
+          <p class="muted-text">Photos and videos are stored in their own sub-folders. Open one and use Drive's
+            “Download” to grab everything as a zip.</p>
+          <div class="folder-links" id="folderLinks"></div>
         </section>
 
         <section class="card admin-section">

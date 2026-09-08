@@ -9,6 +9,10 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   never sits in server memory or on Railway's ephemeral disk.
 - Mobile-first Bengali UI ("Tour Memories") with PIN gate, admin dashboard, optional
   public gallery, and QR-code sharing.
+- **Photos and videos land in separate Drive sub-folders** (`Photos/`, `Videos/`),
+  created automatically — so grabbing just the videos is one click in Drive.
+- **One-tap downloads**: every gallery tile has a download button, several files can be
+  selected and pulled at once, and the admin gets direct links to each Drive folder.
 
 ---
 
@@ -48,7 +52,12 @@ npm start          # → http://localhost:3000
 1. In your project: **APIs & Services → Library**.
 2. Search for **Google Drive API** → open it → **Enable**.
 
-### Easiest authentication: service account (no refresh token)
+### Pick ONE authentication method
+
+Either the **service account** below (simplest) **or** the OAuth refresh token in
+sections 4–5. You do not need both.
+
+### Option A — service account (no refresh token)
 
 1. Open **IAM & Admin → Service Accounts → Create service account**.
 2. Name it `tour-upload-hub`, finish creation, then open it.
@@ -62,7 +71,10 @@ When this variable is set, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
 
 ---
 
-## 4. Create credentials (OAuth client)
+## 4. Option B — create credentials (OAuth client)
+
+*Skip sections 4–5 entirely if you set `GOOGLE_SERVICE_ACCOUNT_JSON` above.*
+
 
 1. **APIs & Services → OAuth consent screen**.
    - User type: **External** (any Google account works; you'll approve it yourself).
@@ -77,7 +89,7 @@ When this variable is set, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
      GOOGLE_CLIENT_SECRET=xxxx
      ```
 
-> **Why Desktop-app OAuth and not a service account?**
+> **When is OAuth the better choice?**
 > A service account is a separate "robot" account — to write into your personal folder you
 > would have to share the folder with that robot email. OAuth uses **your own account** with
 > a stored refresh token, which is simpler and matches "a folder owned by me".
@@ -128,9 +140,12 @@ See `.env.example` for the full commented list. Essentials:
 | `PORT` | no | Default `3000` (Railway sets this itself) |
 | `PUBLIC_SITE_URL` | yes (for QR) | Public HTTPS URL, e.g. `https://my-tour.up.railway.app` |
 | `GOOGLE_DRIVE_FOLDER_ID` | **yes** | Destination folder ID |
-| `GOOGLE_CLIENT_ID` | **yes** | OAuth client id |
-| `GOOGLE_CLIENT_SECRET` | **yes** | OAuth client secret |
-| `GOOGLE_REFRESH_TOKEN` | **yes** | From step 5 |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | option A | Full service-account key, one line |
+| `GOOGLE_CLIENT_ID` | option B | OAuth client id |
+| `GOOGLE_CLIENT_SECRET` | option B | OAuth client secret |
+| `GOOGLE_REFRESH_TOKEN` | option B | From step 5 |
+| `SEPARATE_MEDIA_FOLDERS` | no | `true` (default): photos → `Photos/`, videos → `Videos/` |
+| `PHOTOS_FOLDER_NAME` / `VIDEOS_FOLDER_NAME` | no | Sub-folder names (default `Photos` / `Videos`) |
 | `ADMIN_PASSWORD` | **yes** | Password for `/admin` |
 | `TOUR_UPLOAD_PIN` | no | If set, visitors must enter it before uploading |
 | `ENABLE_GALLERY` | no | `true`/`false`, default `true` |
@@ -256,6 +271,10 @@ share with the tour group.
 - **Auth tokens are signed and stateless** (HMAC, purpose-scoped, expiring) — no server
   session store to leak. Admin and authentication responses are sent `Cache-Control:
   no-store`; errors never include credentials, Drive session URLs or stack traces.
+- **Thumbnails are proxied, never hot-linked.** Drive's own `thumbnailLink` is not
+  readable by a visitor's browser for a private folder, so previews are fetched
+  server-side with the access token and served from your own origin (also keeping the
+  PIN gate in force for every preview).
 - **Gallery safety:** normal visitors get read-only thumbnails/lightbox. There is no
   edit/delete control anywhere for visitors. The gallery proxy verifies each file really
   lives in your folder before serving it, so random Drive file IDs can't be probed.
@@ -279,7 +298,8 @@ npm run check     # syntax-check every JS file
 npm audit
 ```
 
-Covered: PIN auth + expiry, gallery access with/without PIN, upload-disabled mode,
+Covered: photo/video sub-folder routing, download filenames, PIN auth + expiry,
+gallery access with/without PIN, upload-disabled mode,
 valid/invalid file signatures, normal 308→201 chunk flow, partial chunk acceptance,
 duplicate chunk re-send, `UNKNOWN_UPLOAD`/`OUT_OF_ORDER`/network/stall/session-loss
 recovery, active-session limits, simultaneous duplicate filenames, and preview

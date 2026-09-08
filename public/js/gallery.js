@@ -1,29 +1,39 @@
 'use strict';
 
-/* Gallery page: lazy grid + fullscreen lightbox, powered by Drive data via the backend. */
+/* Gallery page: filterable grid, one-tap downloads, fullscreen lightbox. */
 
 (function () {
   const PIN_KEY = 'tourPinToken';
 
   const grid = $('#galleryGrid');
+  const skeleton = $('#gallerySkeleton');
+  const bar = $('#galleryBar');
   const status = $('#galleryStatus');
   const lightbox = $('#lightbox');
   const stage = $('#lbStage');
   const captionEl = $('#lbCaption');
+  const lbDownload = $('#lbDownload');
   const pinGate = $('#pinGate');
   const pinForm = $('#pinForm');
   const pinInput = $('#pinInput');
   const pinSubmit = $('#pinSubmit');
   const pinError = $('#pinError');
+  const btnSelect = $('#btnSelect');
+  const btnDownload = $('#btnDownload');
 
-  let items = [];
+  let items = [];        // everything the server returned
+  let shown = [];        // what the current filter shows (lightbox order)
+  let filter = 'all';
   let current = -1;
-  let loadedSrc = ''; // guard: avoid re-setting the same media element repeatedly
+  let selecting = false;
+  const picked = new Set();
 
-  /* ── PIN gate (shared token from the upload page) ─────────── */
+  /* ── PIN gate (shared token with the upload page) ─────────── */
 
   function showPinGate(message) {
     pinGate.hidden = false;
+    skeleton.hidden = true;
+    status.hidden = true;
     pinError.hidden = !message;
     if (message) pinError.textContent = message;
     pinInput.value = '';
@@ -39,6 +49,9 @@
       const data = await api('/api/verify-pin', { method: 'POST', body: { pin } });
       sessionStorage.setItem(PIN_KEY, data.token);
       pinGate.hidden = true;
+      status.hidden = false;
+      status.textContent = 'ছবি লোড হচ্ছে…';
+      showSkeleton();
       load();
     } catch (err) {
       pinError.hidden = false;
@@ -52,51 +65,28 @@
   pinForm.addEventListener('submit', submitPin);
 
   function failStatus(message) {
+    skeleton.hidden = true;
+    status.hidden = false;
     status.style.color = 'var(--danger)';
     status.textContent = message;
   }
 
-  /* ── Grid ─────────────────────────────────────────────────── */
+  /* ── Loading placeholders ─────────────────────────────────── */
 
-  function tileFor(item, index) {
-    const tile = document.createElement('div');
-    tile.className = 'g-item';
-    tile.setAttribute('role', 'button');
-    tile.tabIndex = 0;
-
-    const fallback = document.createElement('div');
-    fallback.className = 'g-fallback';
-    fallback.textContent = item.isVideo ? '🎬' : '🖼️';
-    tile.appendChild(fallback);
-
-    if (item.thumb) {
-      const img = document.createElement('img');
-      img.alt = '';
-      img.classList.add('lazy');
-      img.loading = 'lazy';
-      img.dataset.src = item.thumb;
-      img.addEventListener('error', () => img.remove());
-      tile.appendChild(img);
-      lazyObserver.observe(img);
-    } else if (item.isImage) {
-      // No Drive thumbnail (e.g. some HEIC) — show the tile; lightbox can still try.
-      tile.classList.add('has-media');
+  function showSkeleton(n = 12) {
+    skeleton.textContent = '';
+    skeleton.hidden = false;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('div');
+      s.className = 'skeleton';
+      s.style.animationDelay = (i * 0.05).toFixed(2) + 's';
+      frag.appendChild(s);
     }
-
-    if (item.isVideo) {
-      const badge = document.createElement('span');
-      badge.className = 'g-video-badge';
-      badge.textContent = '▶ ভিডিও';
-      tile.appendChild(badge);
-    }
-
-    const open = () => openLightbox(index);
-    tile.addEventListener('click', open);
-    tile.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
-    });
-    return tile;
+    skeleton.appendChild(frag);
   }
+
+  /* ── Grid ─────────────────────────────────────────────────── */
 
   const lazyObserver = new IntersectionObserver(
     (entries) => {
@@ -114,19 +104,158 @@
     { rootMargin: '400px' }
   );
 
-  /* ── Lightbox ─────────────────────────────────────────────── */
+  function tileFor(item, index) {
+    const tile = document.createElement('div');
+    tile.className = 'g-item';
+    tile.setAttribute('role', 'button');
+    tile.tabIndex = 0;
+    tile.style.animationDelay = Math.min(index * 0.025, 0.5).toFixed(3) + 's';
 
-  function mediaSource(item) {
-    // Drive thumbnailLink is a universal JPEG — perfect for viewing. Fall back to
-    // the authenticated proxy for files Drive could not thumbnail (e.g. some HEIC).
-    return item.thumb || item.src;
+    const fallback = document.createElement('div');
+    fallback.className = 'g-fallback';
+    fallback.textContent = item.isVideo ? '🎬' : '🖼️';
+    tile.appendChild(fallback);
+
+    if (item.thumb) {
+      const img = document.createElement('img');
+      img.alt = '';
+      img.classList.add('lazy');
+      img.loading = 'lazy';
+      img.dataset.src = item.thumb;
+      img.addEventListener('error', () => img.remove());
+      tile.appendChild(img);
+      lazyObserver.observe(img);
+    }
+
+    if (item.isVideo) {
+      const badge = document.createElement('span');
+      badge.className = 'g-video-badge';
+      badge.textContent = '▶ ভিডিও';
+      tile.appendChild(badge);
+    }
+
+    // One-tap download, without opening the file first.
+    const dl = document.createElement('a');
+    dl.className = 'g-dl';
+    dl.href = item.download;
+    dl.setAttribute('download', item.name);
+    dl.title = 'এই ফাইলটি Download করুন';
+    dl.textContent = '⬇';
+    dl.addEventListener('click', (ev) => ev.stopPropagation());
+    tile.appendChild(dl);
+
+    const check = document.createElement('span');
+    check.className = 'g-check';
+    check.textContent = '✓';
+    tile.appendChild(check);
+
+    const activate = () => {
+      if (selecting) togglePick(item, tile);
+      else openLightbox(index);
+    };
+    tile.addEventListener('click', activate);
+    tile.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
+    });
+    return tile;
   }
 
+  function render() {
+    shown = items.filter((it) => {
+      if (filter === 'photo') return !it.isVideo;
+      if (filter === 'video') return it.isVideo;
+      return true;
+    });
+    grid.textContent = '';
+    if (!shown.length) {
+      status.hidden = false;
+      status.textContent =
+        filter === 'video' ? 'এখনো কোনো ভিডিও নেই।' : 'এখনো কোনো ছবি নেই।';
+      return;
+    }
+    status.hidden = true;
+    const frag = document.createDocumentFragment();
+    shown.forEach((item, i) => frag.appendChild(tileFor(item, i)));
+    grid.appendChild(frag);
+  }
+
+  /* ── Filters ──────────────────────────────────────────────── */
+
+  function setFilter(next) {
+    filter = next;
+    for (const chip of $$('.chip[data-filter]')) {
+      chip.classList.toggle('is-on', chip.dataset.filter === next);
+    }
+    clearPicks();
+    render();
+  }
+
+  for (const chip of $$('.chip[data-filter]')) {
+    chip.addEventListener('click', () => setFilter(chip.dataset.filter));
+  }
+
+  /* ── Selecting & downloading ──────────────────────────────── */
+
+  function refreshDownloadBtn() {
+    const n = picked.size;
+    btnDownload.hidden = !selecting;
+    btnDownload.disabled = n === 0;
+    btnDownload.textContent = n ? `⬇ Download (${n})` : '⬇ Download';
+  }
+
+  function togglePick(item, tile) {
+    if (picked.has(item.id)) picked.delete(item.id);
+    else picked.add(item.id);
+    tile.classList.toggle('is-picked', picked.has(item.id));
+    refreshDownloadBtn();
+  }
+
+  function clearPicks() {
+    picked.clear();
+    for (const t of $$('.g-item.is-picked')) t.classList.remove('is-picked');
+    refreshDownloadBtn();
+  }
+
+  btnSelect.addEventListener('click', () => {
+    selecting = !selecting;
+    grid.classList.toggle('is-selecting', selecting);
+    btnSelect.classList.toggle('is-on', selecting);
+    btnSelect.textContent = selecting ? 'বাতিল করুন' : 'নির্বাচন করুন';
+    clearPicks();
+  });
+
+  /**
+   * Browsers throttle bursts of downloads, so files are pulled one at a time
+   * with a short gap. The visitor sees the progress in a toast.
+   */
+  async function downloadMany(list) {
+    if (!list.length) return;
+    toast(`${list.length}টি ফাইল Download শুরু হয়েছে…`);
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      const a = document.createElement('a');
+      a.href = item.download;
+      a.download = item.name;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await sleep(900);
+    }
+    toast('Download শেষ — ফোনের Downloads ফোল্ডার দেখুন ✅');
+  }
+
+  btnDownload.addEventListener('click', () => {
+    const list = shown.filter((it) => picked.has(it.id));
+    downloadMany(list);
+  });
+
+  /* ── Lightbox ─────────────────────────────────────────────── */
+
   function renderLightbox() {
-    const item = items[current];
+    const item = shown[current];
     if (!item) return;
     stage.textContent = '';
-    loadedSrc = '';
 
     if (item.isVideo) {
       const video = document.createElement('video');
@@ -134,29 +263,31 @@
       video.autoplay = true;
       video.playsInline = true;
       if (item.thumb) video.poster = item.thumb;
-      video.src = item.src; // proxy supports Range so seeking works
+      video.src = item.src; // the proxy supports Range, so seeking works
       stage.appendChild(video);
-      loadedSrc = item.src;
       video.addEventListener('error', () => {
         if (video.src) { video.removeAttribute('src'); video.load(); }
-        captionEl.textContent = 'ভিডিওটি এখানে দেখা যাচ্ছে না।';
+        captionEl.textContent = 'ভিডিওটি এখানে দেখা যাচ্ছে না — Download করে দেখুন।';
       }, { once: true });
     } else {
       const img = document.createElement('img');
-      const src = mediaSource(item);
+      // The proxied thumbnail is a browser-friendly JPEG even for HEIC files;
+      // the original is the fallback when Drive could not render one.
+      const first = item.thumb || item.src;
       img.alt = item.name;
-      img.src = src;
-      loadedSrc = src;
+      img.src = first;
       img.addEventListener('error', () => {
-        if (img.src === item.src) {
-          captionEl.textContent = 'এই ছবিটি ব্রাউজারে দেখা যাচ্ছে না (HEIC হতে পারে)।';
+        if (img.src.endsWith(item.src) || first === item.src) {
+          captionEl.textContent = 'এই ছবিটি ব্রাউজারে দেখা যাচ্ছে না — Download করে দেখুন।';
         } else {
-          // thumb failed → try the authenticated original
           img.src = item.src;
         }
       }, { once: true });
       stage.appendChild(img);
     }
+
+    lbDownload.href = item.download;
+    lbDownload.setAttribute('download', item.name);
 
     const parts = [item.name];
     if (item.uploader) parts.push(`— ${item.uploader}`);
@@ -165,8 +296,8 @@
   }
 
   function openLightbox(index) {
-    if (!items.length) return;
-    current = (index + items.length) % items.length;
+    if (!shown.length) return;
+    current = (index + shown.length) % shown.length;
     lightbox.hidden = false;
     document.body.style.overflow = 'hidden';
     renderLightbox();
@@ -180,8 +311,8 @@
   }
 
   function step(dir) {
-    if (!items.length) return;
-    current = (current + dir + items.length) % items.length;
+    if (!shown.length) return;
+    current = (current + dir + shown.length) % shown.length;
     renderLightbox();
   }
 
@@ -219,18 +350,25 @@
       );
       return;
     }
+    skeleton.hidden = true;
+    skeleton.textContent = '';
     items = data.items || [];
     if (!items.length) {
+      status.hidden = false;
       status.textContent = 'এখনো কোনো ছবি নেই — প্রথম ছবিটি Upload করুন!';
       return;
     }
-    status.hidden = true;
-    const frag = document.createDocumentFragment();
-    items.forEach((item, i) => frag.appendChild(tileFor(item, i)));
-    grid.appendChild(frag);
+    const photos = items.filter((i) => !i.isVideo).length;
+    $('#nAll').textContent = items.length;
+    $('#nPhotos').textContent = photos;
+    $('#nVideos').textContent = items.length - photos;
+    bar.hidden = false;
+    refreshDownloadBtn();
+    render();
   }
 
   async function boot() {
+    showSkeleton();
     let cfg = null;
     try {
       cfg = await api('/api/config');

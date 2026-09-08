@@ -36,22 +36,27 @@ function fileMeta(f) {
     createdTime: f.createdTime,
     description: f.description || '',
     parents: f.parents,
-    thumbnailLink: f.thumbnailLink || null,
+    thumbnailLink: f.thumbnailLink || `https://thumb.mock/${f.id}=s220`,
     webViewLink: `https://drive.google.com/file/d/${f.id}/view`,
   };
 }
 
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+
 async function startDriveMock() {
   const files = [];            // completed uploads (Drive's source of truth)
+  const folders = [];          // sub-folders created by the app (Photos/Videos)
   const sessions = new Map();  // sid -> { committed, total, name, mimeType, description, parents }
   const state = {
     putCount: 0,
     sessionCount: 0,
     nextPutFault: null,
     files: () => files.map(fileMeta),
+    folders: () => folders.map((f) => ({ id: f.id, name: f.name, parents: f.parents })),
     sessionsCount: () => sessions.size,
     reset() {
       files.length = 0;
+      folders.length = 0;
       sessions.clear();
       state.putCount = 0;
       state.sessionCount = 0;
@@ -78,27 +83,57 @@ async function startDriveMock() {
 
       if (req.method === 'GET' && path === '/drive/v3/files') {
         const q = (u.searchParams.get('q') || '').replace(/\+/g, ' ');
-        // name-equality queries (used for unique-name checks)
+        const wantsFolders = q.includes(`mimeType = '${FOLDER_MIME}'`);
+        const parentIds = Array.from(q.matchAll(/'([^']+)' in parents/g)).map((m) => m[1]);
         const nameMatch = /name = '([^']*)'/.exec(q);
-        let result = files;
-        if (nameMatch) result = files.filter((f) => f.name === nameMatch[1]);
-        // media listing used by the gallery
         const mediaOnly = /mimeType contains '(image|video)\//.test(q);
-        if (mediaOnly) {
-          result = files.filter((f) => /^(image|video)\//.test(f.mimeType));
+
+        let result = wantsFolders ? folders : files;
+        if (parentIds.length) {
+          result = result.filter((f) =>
+            (f.parents || []).some((pid) => parentIds.includes(pid))
+          );
         }
+        if (nameMatch) result = result.filter((f) => f.name === nameMatch[1]);
+        if (mediaOnly) result = result.filter((f) => /^(image|video)\//.test(f.mimeType));
+
         const sorted = [...result].sort((a, b) => (a.createdTime < b.createdTime ? 1 : -1));
-        return json(res, 200, { files: sorted.slice(0, 1000).map(fileMeta), nextPageToken: null });
+        const mapped = sorted.slice(0, 1000).map((f) =>
+          wantsFolders ? { id: f.id, name: f.name, mimeType: FOLDER_MIME } : fileMeta(f)
+        );
+        return json(res, 200, { files: mapped, nextPageToken: null });
+      }
+
+      // Plain (non-resumable) create — the app only uses this for sub-folders.
+      if (req.method === 'POST' && path === '/drive/v3/files' && !u.searchParams.get('uploadType')) {
+        const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
+        if (body.mimeType !== FOLDER_MIME) {
+          return json(res, 400, { error: { code: 400, message: 'unsupported create' } });
+        }
+        const folder = {
+          id: 'fld_' + crypto.randomBytes(6).toString('hex'),
+          name: body.name,
+          mimeType: FOLDER_MIME,
+          parents: Array.isArray(body.parents) ? body.parents : [FOLDER_ID],
+          createdTime: new Date().toISOString(),
+        };
+        folders.push(folder);
+        return json(res, 200, { id: folder.id, name: folder.name, mimeType: FOLDER_MIME });
       }
 
       if (req.method === 'GET' && path.startsWith('/drive/v3/files/')) {
         const fileId = decodeURIComponent(path.slice('/drive/v3/files/'.length));
-        const isFolder = fileId === FOLDER_ID;
-        if (isFolder) {
+        if (fileId === FOLDER_ID) {
           return json(res, 200, {
             id: FOLDER_ID,
             name: 'Mock Tour Folder',
-            mimeType: 'application/vnd.google-apps.folder',
+            mimeType: FOLDER_MIME,
+          });
+        }
+        const sub = folders.find((x) => x.id === fileId);
+        if (sub) {
+          return json(res, 200, {
+            id: sub.id, name: sub.name, mimeType: FOLDER_MIME, parents: sub.parents,
           });
         }
         const f = files.find((x) => x.id === fileId);
@@ -299,4 +334,4 @@ async function startDriveMock() {
   };
 }
 
-module.exports = { startDriveMock, FOLDER_ID };
+module.exports = { startDriveMock, FOLDER_ID, FOLDER_MIME };

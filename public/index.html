@@ -57,9 +57,12 @@
           <p class="muted-text" id="noFilesText">এখনও কোনো ছবি নির্বাচন করা হয়নি</p>
           <div class="pick-row">
             <button type="button" class="btn btn-primary btn-lg" id="btnPick">ছবি / ভিডিও বাছাই করুন</button>
-            <button type="button" class="btn btn-ghost btn-lg" id="btnCamera" title="ক্যামেরা দিয়ে ছবি তুলুন">📷 ক্যামেরা</button>
           </div>
-          <p class="drop-hint">অথবা এখানে ফাইল টেনে আনুন</p>
+          <div class="pick-row">
+            <button type="button" class="btn btn-ghost" id="btnCamera" title="ক্যামেরা দিয়ে ছবি তুলুন">📷 ছবি তুলুন</button>
+            <button type="button" class="btn btn-ghost" id="btnVideo" title="ক্যামেরা দিয়ে ভিডিও করুন">🎥 ভিডিও করুন</button>
+          </div>
+          <p class="drop-hint">অথবা ফাইল এখানে টেনে আনুন / Paste করুন</p>
         </div>
 
         <div id="pickRow" class="pick-row top-row" hidden>
@@ -77,13 +80,10 @@
           </div>
         </div>
 
-        <div class="action-row" id="actionRow" hidden>
-          <button type="button" class="btn btn-primary btn-lg btn-block" id="btnStart">Upload করুন</button>
-        </div>
-
         <input type="file" id="fileInput" multiple
                accept="image/*,video/*,.heic,.heif,.mov,.m4v,.3gp,.3g2" hidden />
         <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
+        <input type="file" id="videoInput" accept="video/*" capture="environment" hidden />
       </section>
 
       <!-- Success / failure banner -->
@@ -101,11 +101,17 @@
     <p class="footer-brand">Tour Memories</p>
   </footer>
 
-  <!-- Uploader name bar -->
-  <div class="name-bar" id="nameBar">
-    <input class="input" id="uploaderName" maxlength="60" placeholder="আপনার নাম লিখুন (ঐচ্ছিক)" />
+  <!-- Bottom dock: your name + the Upload button, always within thumb reach -->
+  <div class="dock" id="dock" hidden>
+    <div class="dock-inner">
+      <input class="input" id="uploaderName" maxlength="60" placeholder="আপনার নাম লিখুন (ঐচ্ছিক)" />
+      <button type="button" class="btn btn-primary btn-lg btn-block" id="btnStart" hidden>
+        <span id="btnStartLabel">Upload করুন</span>
+      </button>
+    </div>
   </div>
 
+  <div class="confetti-root" id="confettiRoot" aria-hidden="true"></div>
   <div class="toast-root" id="toastRoot" aria-live="polite"></div>
 
   <script src="/js/common.js"></script>

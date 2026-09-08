@@ -45,6 +45,9 @@ async function start({ env = {} } = {}) {
 
   const mock = await startDriveMock();
   drive.setEndpoints({ api: mock.base, upload: mock.base, token: `${mock.base}/token` });
+  // Several tests in one file share the module registry — make sure sub-folder
+  // ids from a previous mock never leak into this one.
+  drive.resetFolderCache();
 
   const app = createApp();
   const server = app.listen(0, '127.0.0.1');

@@ -32,7 +32,17 @@
       <p class="form-error" id="pinError" hidden></p>
     </section>
 
+    <div class="gallery-bar" id="galleryBar" hidden>
+      <button type="button" class="chip is-on" id="chipAll" data-filter="all">সব <span class="chip-n" id="nAll"></span></button>
+      <button type="button" class="chip" id="chipPhotos" data-filter="photo">ছবি <span class="chip-n" id="nPhotos"></span></button>
+      <button type="button" class="chip" id="chipVideos" data-filter="video">ভিডিও <span class="chip-n" id="nVideos"></span></button>
+      <span class="bar-spacer"></span>
+      <button type="button" class="chip" id="btnSelect">নির্বাচন করুন</button>
+      <button type="button" class="btn btn-primary" id="btnDownload" hidden>⬇ Download</button>
+    </div>
+
     <p class="muted-text center" id="galleryStatus">ছবি লোড হচ্ছে…</p>
+    <div class="gallery-grid" id="gallerySkeleton" aria-hidden="true"></div>
     <div class="gallery-grid" id="galleryGrid"></div>
   </main>
 
@@ -43,6 +53,9 @@
     <button class="lb-nav lb-next" id="lbNext" aria-label="পরের">›</button>
     <div class="lb-stage" id="lbStage"></div>
     <div class="lb-caption" id="lbCaption"></div>
+    <div class="lb-bar">
+      <a class="btn btn-primary" id="lbDownload" download href="#">⬇ এই ফাইলটি Download করুন</a>
+    </div>
   </div>
 
   <div class="toast-root" id="toastRoot" aria-live="polite"></div>

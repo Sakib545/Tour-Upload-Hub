@@ -30,12 +30,21 @@ function createApp() {
       index: 'index.html',
       etag: true,
       maxAge: process.env.NODE_ENV === 'production' ? '10m' : 0,
+      setHeaders(res, filePath) {
+        // HTML shells must never be served stale after a redeploy — only the
+        // fingerprint-free assets (css/js) get the short cache window.
+        if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+      },
     })
   );
 
   // Short pretty URLs
-  app.get(['/admin', '/admin/'], (req, res) => res.sendFile(path.join(publicDir, 'admin.html')));
-  app.get(['/gallery', '/gallery/'], (req, res) => res.sendFile(path.join(publicDir, 'gallery.html')));
+  const sendPage = (file) => (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(publicDir, file));
+  };
+  app.get(['/admin', '/admin/'], sendPage('admin.html'));
+  app.get(['/gallery', '/gallery/'], sendPage('gallery.html'));
 
   app.use('/api', apiRouter);
   app.use('/api', adminRouter);

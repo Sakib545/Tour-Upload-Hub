@@ -45,6 +45,19 @@ const uploadChunks = rateLimit({
   handler: json429,
 });
 
+/**
+ * Gallery media (thumbnails + originals). A single visitor scrolling a
+ * 300-item gallery legitimately makes hundreds of requests, so the generic
+ * `light` limiter (300 / 15 min) would lock them out mid-scroll.
+ */
+const media = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 4000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: json429,
+});
+
 /** Admin dashboard API. */
 const adminApi = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -54,4 +67,4 @@ const adminApi = rateLimit({
   handler: json429,
 });
 
-module.exports = { light, pinVerify, adminLogin, uploadChunks, adminApi };
+module.exports = { light, pinVerify, adminLogin, uploadChunks, adminApi, media };

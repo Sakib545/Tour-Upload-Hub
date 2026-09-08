@@ -34,10 +34,14 @@ function validId(id) {
 /**
  * Register a new upload session.
  * meta: { total, name, mimeType, uploader, ip, sessionUri }
- * cancel: async best-effort cleanup (abort Drive session + release filename
- *         reservation). Invoked on failure / cancellation / idle eviction.
+ * cancel:  async best-effort cleanup (abort the Drive session + release the
+ *          filename reservation). Invoked on failure / cancellation / idle
+ *          eviction — i.e. whenever the upload did NOT finish.
+ * release: releases ONLY the filename reservation, leaving the Drive session
+ *          alone. Invoked by complete(), because the file is already stored:
+ *          aborting its session there would be wrong.
  */
-function create(id, meta, cancel) {
+function create(id, meta, cancel, release) {
   if (!validId(id)) {
     const err = new Error('invalid upload id');
     err.code = 'INVALID_UPLOAD_ID';
@@ -62,6 +66,7 @@ function create(id, meta, cancel) {
     createdAt: Date.now(),
     lastActiveAt: Date.now(),
     cancel: typeof cancel === 'function' ? cancel : null,
+    release: typeof release === 'function' ? release : null,
   });
   return sessions.get(id);
 }
@@ -106,8 +111,10 @@ function complete(id, { fileId, name, total } = {}) {
   const s = sessions.get(id);
   const finalName = name || (s && s.name) || '';
   const finalTotal = total || (s && s.total) || 0;
-  if (s && typeof s.cancel === 'function') {
-    try { s.cancel(); } catch (e) { /* ignore */ }
+  // Release the display-name reservation only — the bytes are already at
+  // Drive, so the session must NOT be deleted here.
+  if (s && typeof s.release === 'function') {
+    try { s.release(); } catch (e) { /* ignore */ }
   }
   sessions.delete(id);
   if (fileId) {

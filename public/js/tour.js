@@ -30,8 +30,10 @@
     noFilesText: $('#noFilesText'),
     btnPick: $('#btnPick'),
     btnCamera: $('#btnCamera'),
+    btnVideo: $('#btnVideo'),
     fileInput: $('#fileInput'),
     cameraInput: $('#cameraInput'),
+    videoInput: $('#videoInput'),
     pickRow: $('#pickRow'),
     btnAddMore: $('#btnAddMore'),
     selSummary: $('#selSummary'),
@@ -40,12 +42,17 @@
     batchBar: $('#batchBar'),
     batchLabel: $('#batchLabel'),
     batchPct: $('#batchPct'),
-    actionRow: $('#actionRow'),
+    dock: $('#dock'),
     btnStart: $('#btnStart'),
+    btnStartLabel: $('#btnStartLabel'),
     banner: $('#banner'),
     galleryLinkWrap: $('#galleryLinkWrap'),
     uploaderName: $('#uploaderName'),
+    confettiRoot: $('#confettiRoot'),
   };
+
+  const reducedMotion =
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const getToken = () => sessionStorage.getItem(PIN_KEY) || '';
   const getUploader = () => el.uploaderName.value.trim();
@@ -83,16 +90,53 @@
 
   const STATUS_TEXT = {
     pending: 'অপেক্ষা…',
-    done: '✓ সম্পন্ন',
+    done: 'সম্পন্ন',
     error: '',
   };
 
   /* ── Banner / toast ───────────────────────────────────────── */
 
-  function showBanner(kind, title, actions) {
+  /** A tick that draws itself — the visual confirmation of "safely stored". */
+  function checkMark(className) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    if (className) svg.setAttribute('class', className);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M4 12.5 L9.5 18 L20 6');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  const CONFETTI_COLORS = ['#0ea5e9', '#6366f1', '#10b981', '#f59e0b', '#ec4899'];
+
+  /** One short burst when a whole batch lands. Purely decorative. */
+  function celebrate() {
+    if (reducedMotion || !el.confettiRoot) return;
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < 36; i++) {
+      const bit = document.createElement('i');
+      bit.className = 'confetti-bit';
+      bit.style.left = Math.random() * 100 + '%';
+      bit.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      bit.style.setProperty('--dx', (Math.random() * 200 - 100).toFixed(0) + 'px');
+      bit.style.setProperty('--rot', (Math.random() * 720 - 360).toFixed(0) + 'deg');
+      bit.style.animationDelay = (Math.random() * 0.25).toFixed(2) + 's';
+      frag.appendChild(bit);
+    }
+    el.confettiRoot.appendChild(frag);
+    setTimeout(() => { el.confettiRoot.textContent = ''; }, 2200);
+  }
+
+  function showBanner(kind, title, actions, { tick = false } = {}) {
     el.banner.hidden = false;
     el.banner.className = 'banner ' + kind;
     el.banner.textContent = '';
+    if (tick) {
+      const ring = document.createElement('div');
+      ring.className = 'banner-check';
+      ring.appendChild(checkMark());
+      el.banner.appendChild(ring);
+    }
     const p = document.createElement('p');
     p.style.margin = '0';
     p.innerHTML = title; // only our own static strings, never user data
@@ -120,19 +164,34 @@
   function thumbNode(entry) {
     const wrap = document.createElement('div');
     wrap.className = 'file-thumb';
-    if (entry.type === 'video') {
-      wrap.textContent = '🎬';
-      return wrap;
-    }
-    if (!entry.url) {
-      wrap.textContent = '🖼️';
+    // Which Drive folder this file is heading for.
+    const kind = document.createElement('span');
+    kind.className = 'file-kind';
+    kind.textContent = entry.type === 'video' ? 'VID' : 'PIC';
+    if (entry.type === 'video' || !entry.url) {
+      const icon = document.createElement('span');
+      icon.textContent = entry.type === 'video' ? '🎬' : '🖼️';
+      wrap.appendChild(icon);
+      wrap.appendChild(kind);
       return wrap;
     }
     const img = document.createElement('img');
     img.alt = '';
     img.src = entry.url;
     wrap.appendChild(img);
+    wrap.appendChild(kind);
     return wrap;
+  }
+
+  /** Let the row animate out before it disappears from the list. */
+  function removeEntry(id) {
+    const cached = rowEls.get(id);
+    if (cached && !reducedMotion) {
+      cached.row.classList.add('is-leaving');
+      setTimeout(() => engine.remove(id), 180);
+      return;
+    }
+    engine.remove(id);
   }
 
   function buildRow(entry) {
@@ -165,7 +224,7 @@
     remove.className = 'file-remove';
     remove.title = 'বাদ দিন';
     remove.textContent = '✕';
-    remove.addEventListener('click', () => engine.remove(entry.id));
+    remove.addEventListener('click', () => removeEntry(entry.id));
 
     row.append(thumb, info, status, remove);
     return { row, fill, status };
@@ -176,15 +235,20 @@
     if (!cached) return;
     const { row, fill, status } = cached;
 
-    if (entry.status === 'done') row.classList.add('is-done');
+    row.classList.toggle('is-done', entry.status === 'done');
+    row.classList.toggle('is-error', entry.status === 'error');
+    row.classList.toggle('is-uploading', entry.status === 'uploading');
 
     // The object URL is revoked only on completion — swap the live preview for
     // an icon exactly then. While pending/uploading (and on failure, where the
     // thumbnail must stay for retry) the <img> is preserved.
     if (entry.status === 'done') {
       const thumb = row.querySelector('.file-thumb');
-      if (thumb && thumb.firstElementChild && thumb.firstElementChild.tagName === 'IMG') {
-        thumb.textContent = entry.type === 'video' ? '🎬' : '🖼️';
+      const img = thumb && thumb.querySelector('img');
+      if (img) {
+        const icon = document.createElement('span');
+        icon.textContent = entry.type === 'video' ? '🎬' : '🖼️';
+        thumb.replaceChild(icon, img);
       }
     }
 
@@ -197,8 +261,13 @@
       status.className = 'file-status st-wait';
       status.textContent = STATUS_TEXT.pending;
     } else if (entry.status === 'done') {
-      status.className = 'file-status st-done';
-      status.textContent = STATUS_TEXT.done;
+      if (!cached.doneShown) {
+        status.className = 'file-status st-done';
+        status.textContent = '';
+        status.appendChild(checkMark('tick'));
+        status.appendChild(document.createTextNode(STATUS_TEXT.done));
+        cached.doneShown = true;
+      }
     } else if (entry.status === 'error') {
       status.className = 'file-status st-error';
       status.textContent = errorText(entry.errorCode);
@@ -254,16 +323,37 @@
     return sent;
   }
 
+  function setStartLabel(text, spinning) {
+    el.btnStartLabel.textContent = '';
+    if (spinning) {
+      const sp = document.createElement('span');
+      sp.className = 'spinner';
+      el.btnStartLabel.appendChild(sp);
+    }
+    el.btnStartLabel.appendChild(document.createTextNode(text));
+  }
+
   function refreshTotals() {
     const t = totals();
     const empty = t.count === 0;
+    const waiting = engine.entries.filter((e) => e.status === 'pending' || e.status === 'error').length;
 
     el.emptyState.hidden = !empty;
     el.fileList.hidden = empty;
     el.pickRow.hidden = empty;
-    el.actionRow.hidden = empty || engine.running;
+
+    // The Upload button lives in the bottom dock so it is always in reach.
+    const showStart = !empty && (engine.running || waiting > 0);
+    if (showStart && el.btnStart.hidden) {
+      el.btnStart.hidden = false;
+      el.btnStart.classList.add('is-new');
+      setTimeout(() => el.btnStart.classList.remove('is-new'), 400);
+    } else if (!showStart) {
+      el.btnStart.hidden = true;
+    }
     el.btnStart.disabled = empty || engine.running;
-    el.btnStart.textContent = engine.running ? 'Upload হচ্ছে…' : 'Upload করুন';
+    if (engine.running) setStartLabel('Upload হচ্ছে…', true);
+    else setStartLabel(`Upload করুন (${waiting})`, false);
     el.btnPick.disabled = false;
     el.btnAddMore.disabled = false;
 
@@ -294,10 +384,21 @@
 
     if (bad === 0) {
       const n = entries.length;
-      showBanner('ok big', `<span class="heart">❤️</span> আপনার ছবি সফলভাবে Upload হয়েছে — ${n}টি ফাইল`, [
-        { label: 'ঠিক আছে', kind: 'btn-outline', fn: () => { engine.clearFinished(); hideBanner(); } },
-        { label: '+ আরও ফাইল যোগ করুন', kind: 'btn-primary', fn: () => { engine.clearFinished(); hideBanner(); el.btnPick.focus(); } },
-      ]);
+      const photos = entries.filter((e) => e.type !== 'video').length;
+      const videos = n - photos;
+      const where = videos
+        ? `${photos}টি ছবি ও ${videos}টি ভিডিও আলাদা ফোল্ডারে জমা হয়েছে`
+        : `${n}টি ছবি Drive-এ জমা হয়েছে`;
+      celebrate();
+      showBanner(
+        'ok big',
+        `<span class="heart">❤️</span> Upload সম্পন্ন — ${where}`,
+        [
+          { label: 'ঠিক আছে', kind: 'btn-outline', fn: () => { engine.clearFinished(); hideBanner(); } },
+          { label: '+ আরও ফাইল যোগ করুন', kind: 'btn-primary', fn: () => { engine.clearFinished(); hideBanner(); el.fileInput.click(); } },
+        ],
+        { tick: true }
+      );
     } else if (ok > 0) {
       showBanner('bad', 'Upload সম্পূর্ণ হয়নি। আবার চেষ্টা করুন।', [
         { label: 'ব্যর্থ ফাইল আবার চেষ্টা করুন', kind: 'btn-primary', fn: retryAll },
@@ -325,6 +426,7 @@
     if (pinHit) {
       engine.clearAll();
       el.uploadPanel.hidden = true;
+      el.dock.hidden = true;
       showGate('PIN-এর মেয়াদ শেষ হয়েছে — আবার PIN দিন।');
       return;
     }
@@ -404,13 +506,16 @@
     el.emptyState.style.opacity = disabled ? '0.4' : '1';
     el.btnPick.disabled = disabled;
     el.btnCamera.disabled = disabled;
+    el.btnVideo.disabled = disabled;
     el.btnAddMore.disabled = disabled;
     el.dropzoneCard.style.pointerEvents = disabled ? 'none' : 'auto';
+    el.dock.hidden = disabled;
   }
 
   function showUploadUi() {
     el.pinGate.hidden = true;
     el.uploadPanel.hidden = false;
+    el.dock.hidden = false;
     el.uploadsDisabled.hidden = !(cfg && !cfg.uploadsEnabled);
     setDisabledUi(cfg ? !cfg.uploadsEnabled : false);
   }
@@ -487,14 +592,22 @@
     el.btnPick.addEventListener('click', () => el.fileInput.click());
     el.btnAddMore.addEventListener('click', () => el.fileInput.click());
     el.btnCamera.addEventListener('click', () => el.cameraInput.click());
+    el.btnVideo.addEventListener('click', () => el.videoInput.click());
 
-    el.fileInput.addEventListener('change', () => {
-      addPicked(el.fileInput.files);
-      el.fileInput.value = '';
-    });
-    el.cameraInput.addEventListener('change', () => {
-      addPicked(el.cameraInput.files);
-      el.cameraInput.value = '';
+    for (const input of [el.fileInput, el.cameraInput, el.videoInput]) {
+      input.addEventListener('change', () => {
+        addPicked(input.files);
+        input.value = '';
+      });
+    }
+
+    // Paste straight from the clipboard (desktop screenshots, copied photos).
+    document.addEventListener('paste', (ev) => {
+      const files = ev.clipboardData && ev.clipboardData.files;
+      if (files && files.length) {
+        ev.preventDefault();
+        addPicked(files);
+      }
     });
 
     // Drag & drop (desktop)

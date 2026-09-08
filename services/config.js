@@ -30,6 +30,11 @@ const cfg = {
 
   google: {
     folderId: str(env.GOOGLE_DRIVE_FOLDER_ID, ''),
+    // Photos and videos are filed into their own sub-folders inside the
+    // destination folder, so downloading "just the videos" is one click in Drive.
+    separateMediaFolders: bool(env.SEPARATE_MEDIA_FOLDERS, true),
+    photosFolderName: str(env.PHOTOS_FOLDER_NAME, 'Photos'),
+    videosFolderName: str(env.VIDEOS_FOLDER_NAME, 'Videos'),
     serviceAccountJson: str(env.GOOGLE_SERVICE_ACCOUNT_JSON, ''),
     clientId: str(env.GOOGLE_CLIENT_ID, ''),
     clientSecret: str(env.GOOGLE_CLIENT_SECRET, ''),
@@ -129,6 +134,9 @@ function publicConfig(state) {
     pinRequired: cfg.pinEnabled,
     maxFileSizeMB: cfg.maxFileSizeMB,
     maxFilesPerUpload: cfg.maxFilesPerUpload,
+    separateMediaFolders: cfg.google.separateMediaFolders,
+    photosFolderName: cfg.google.photosFolderName,
+    videosFolderName: cfg.google.videosFolderName,
     chunkMB: cfg.chunkBytes / (1024 * 1024),
     maxFileBytes: cfg.maxFileBytes,
     maxFilesPerUploadBytesLabel: `${cfg.maxFileSizeMB} MB`,

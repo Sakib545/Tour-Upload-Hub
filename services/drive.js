@@ -225,15 +225,104 @@ function streamRequest(urlStr, method, headers) {
 
 /* ── Folder helpers ───────────────────────────────────────────── */
 
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+
 async function getFolderMeta() {
   return apiJson('GET', `/drive/v3/files/${encodeURIComponent(cfg.google.folderId)}`, {
     query: '?fields=id,name,mimeType&supportsAllDrives=true',
   });
 }
 
-/** Returns true if at least one non-trashed file with this exact name exists in the folder. */
-async function nameExistsInFolder(name) {
-  const q = `'${escapeDriveQuery(cfg.google.folderId)}' in parents and name = '${escapeDriveQuery(name)}' and trashed = false`;
+/* ── Photos / Videos sub-folders ──────────────────────────────── */
+
+// Resolved once and cached: { photos, videos } (ids) or null while unavailable.
+let mediaFolders = null;
+let mediaFoldersInflight = null;
+
+async function findChildFolder(name) {
+  const q =
+    `'${escapeDriveQuery(cfg.google.folderId)}' in parents and ` +
+    `name = '${escapeDriveQuery(name)}' and ` +
+    `mimeType = '${FOLDER_MIME}' and trashed = false`;
+  const data = await apiJson('GET', '/drive/v3/files', {
+    query: `?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id,name)&supportsAllDrives=true`,
+  });
+  const hit = Array.isArray(data.files) ? data.files[0] : null;
+  return (hit && hit.id) || null;
+}
+
+async function createChildFolder(name) {
+  const data = await apiJson('POST', '/drive/v3/files', {
+    query: '?fields=id&supportsAllDrives=true',
+    body: { name, mimeType: FOLDER_MIME, parents: [cfg.google.folderId] },
+  });
+  if (!data || !data.id) {
+    throw new DriveError('DRIVE_ERROR', 'could not create sub-folder', { status: 500 });
+  }
+  return data.id;
+}
+
+async function resolveChildFolder(name) {
+  const found = await findChildFolder(name);
+  if (found) return found;
+  return createChildFolder(name);
+}
+
+/**
+ * Make sure the "Photos" and "Videos" sub-folders exist and return their ids.
+ * Never throws: if Drive is unhappy we fall back to the root folder so an
+ * upload is never blocked by folder housekeeping.
+ */
+async function ensureMediaFolders() {
+  if (!cfg.google.separateMediaFolders) return null;
+  if (mediaFolders) return mediaFolders;
+  if (mediaFoldersInflight) return mediaFoldersInflight;
+  mediaFoldersInflight = (async () => {
+    try {
+      const photos = await resolveChildFolder(cfg.google.photosFolderName);
+      const videos = await resolveChildFolder(cfg.google.videosFolderName);
+      mediaFolders = { photos, videos };
+      logger.info('drive: media sub-folders ready', { photos, videos });
+      return mediaFolders;
+    } catch (e) {
+      logger.warn('drive: could not prepare media sub-folders, using the root folder', {
+        code: e && e.code,
+      });
+      return null;
+    } finally {
+      mediaFoldersInflight = null;
+    }
+  })();
+  return mediaFoldersInflight;
+}
+
+/** Destination folder id for one upload, based on its MIME type. */
+async function folderIdForMime(mimeType) {
+  const folders = await ensureMediaFolders();
+  if (!folders) return cfg.google.folderId;
+  const m = String(mimeType || '').toLowerCase();
+  if (m.startsWith('video/')) return folders.videos;
+  if (m.startsWith('image/')) return folders.photos;
+  return cfg.google.folderId;
+}
+
+/** Every folder a gallery/admin file is allowed to live in. */
+function allowedParents() {
+  const ids = [cfg.google.folderId];
+  if (mediaFolders) ids.push(mediaFolders.photos, mediaFolders.videos);
+  return ids.filter(Boolean);
+}
+
+/** Test/dev hook: forget the resolved sub-folder ids. */
+function resetFolderCache() {
+  mediaFolders = null;
+  mediaFoldersInflight = null;
+}
+
+/** Returns true if at least one non-trashed file with this exact name exists. */
+async function nameExistsInFolder(name, parentId) {
+  const parent = parentId || cfg.google.folderId;
+  const q = `'${escapeDriveQuery(parent)}' in parents and name = '${escapeDriveQuery(name)}' and trashed = false`;
   const data = await apiJson('GET', '/drive/v3/files', {
     query: `?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id)&supportsAllDrives=true`,
   });
@@ -242,7 +331,7 @@ async function nameExistsInFolder(name) {
 
 /* ── Resumable upload sessions ────────────────────────────────── */
 
-async function createResumableSession({ name, mimeType, size, description }) {
+async function createResumableSession({ name, mimeType, size, description, parentId, retry = true }) {
   const headers = await authHeaders();
   headers['x-upload-content-type'] = mimeType;
   headers['x-upload-content-length'] = String(size);
@@ -251,7 +340,7 @@ async function createResumableSession({ name, mimeType, size, description }) {
   const body = JSON.stringify({
     name,
     description,
-    parents: [cfg.google.folderId],
+    parents: [parentId || cfg.google.folderId],
   });
 
   const url = `${ep('upload')}/drive/v3/files?uploadType=resumable&supportsAllDrives=true`;
@@ -264,9 +353,10 @@ async function createResumableSession({ name, mimeType, size, description }) {
     });
   }
   const text = await res.text().catch(() => '');
-  if (res.status === 401) {
+  if (res.status === 401 && retry) {
+    // Bounded: exactly one retry with a freshly minted token, never a loop.
     await refreshAccessToken(true);
-    return createResumableSession({ name, mimeType, size, description });
+    return createResumableSession({ name, mimeType, size, description, parentId, retry: false });
   }
   if (!res.ok) {
     throw mapApiError(res.status, text, 'DRIVE_ERROR');
@@ -424,7 +514,14 @@ async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) 
   if (kinds === 'media') {
     mimeFilter = " and (mimeType contains 'image/' or mimeType contains 'video/')";
   }
-  const baseQ = `'${escapeDriveQuery(cfg.google.folderId)}' in parents and trashed = false${mimeFilter}`;
+  // Files uploaded before sub-folders existed still live in the root folder,
+  // so every listing spans the root AND the Photos / Videos sub-folders.
+  await ensureMediaFolders().catch(() => null);
+  const parentsClause = allowedParents()
+    .map((id) => `'${escapeDriveQuery(id)}' in parents`)
+    .join(' or ');
+  const baseQ =
+    `(${parentsClause}) and trashed = false and mimeType != '${FOLDER_MIME}'${mimeFilter}`;
 
   const files = [];
   let pageToken = null;
@@ -447,13 +544,41 @@ async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) 
       break;
     }
   }
+  if (files.length > cap) {
+    truncated = true;
+    files.length = cap;
+  }
   return { files, truncated };
 }
 
 async function getFileMeta(fileId) {
   return apiJson('GET', `/drive/v3/files/${encodeURIComponent(fileId)}`, {
-    query: '?fields=id,name,mimeType,parents,size&supportsAllDrives=true',
+    query: '?fields=id,name,mimeType,parents,size,thumbnailLink&supportsAllDrives=true',
   });
+}
+
+/**
+ * Fetch a Drive-generated thumbnail as a Buffer.
+ * Drive's `thumbnailLink` is NOT publicly readable for files in a private
+ * folder, so the browser can never load it directly — the server fetches it
+ * with the access token and serves the bytes itself.
+ * Returns null when Drive has no usable thumbnail (some HEIC files, etc.).
+ */
+async function fetchThumbnail(thumbnailLink, size = 640) {
+  if (!thumbnailLink) return null;
+  const url = String(thumbnailLink).replace(/=s\d+(-c)?$/, `=s${size}`);
+  const headers = await authHeaders();
+  let res;
+  try {
+    res = await fetch(url, { headers });
+  } catch (e) {
+    return null;
+  }
+  if (!res.ok) return null;
+  const type = res.headers.get('content-type') || 'image/jpeg';
+  if (!type.startsWith('image/')) return null;
+  const buf = Buffer.from(await res.arrayBuffer());
+  return buf.length ? { buffer: buf, contentType: type } : null;
 }
 
 /**
@@ -515,7 +640,9 @@ async function verifyAccess() {
       return { ok: false, code: 'NOT_A_FOLDER', msg: 'GOOGLE_DRIVE_FOLDER_ID is not a folder' };
     }
     logger.info('drive: folder access OK', { folder: meta.name });
-    return { ok: true, name: meta.name, code: 'OK' };
+    // Prepare the Photos / Videos sub-folders up front (best effort).
+    const folders = await ensureMediaFolders().catch(() => null);
+    return { ok: true, name: meta.name, code: 'OK', mediaFolders: !!folders };
   } catch (e) {
     logger.error('drive: folder access check failed', { code: e.code, msg: e.message });
     return { ok: false, code: e.code, msg: e.message };
@@ -528,7 +655,12 @@ module.exports = {
   setEndpoints,
   parseRangeOffset,
   getFolderMeta,
+  ensureMediaFolders,
+  folderIdForMime,
+  allowedParents,
+  resetFolderCache,
   nameExistsInFolder,
+  fetchThumbnail,
   createResumableSession,
   putChunk,
   probeSession,

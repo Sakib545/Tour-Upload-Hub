@@ -56,7 +56,14 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
   });
 
   let totalSize = 0;
-  for (const f of files) totalSize += Number(f.size) || 0;
+  let photoCount = 0;
+  let videoCount = 0;
+  for (const f of files) {
+    totalSize += Number(f.size) || 0;
+    const mime = String(f.mimeType || '');
+    if (mime.startsWith('image/')) photoCount += 1;
+    else if (mime.startsWith('video/')) videoCount += 1;
+  }
 
   const recent = files.slice(0, 50).map((f) => {
     const meta = sanitize.parseDescription(f.description);
@@ -74,8 +81,28 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
   let folder = '';
   try { folder = await folderName(); } catch (e) { logger.warn('admin: folder name lookup failed', { code: e.code }); }
 
+  // Direct links so the admin can open (and bulk-download) each sub-folder.
+  let folderLinks = null;
+  try {
+    const ids = await drive.ensureMediaFolders();
+    if (ids) {
+      folderLinks = {
+        photos: `https://drive.google.com/drive/folders/${ids.photos}`,
+        videos: `https://drive.google.com/drive/folders/${ids.videos}`,
+      };
+    }
+  } catch (e) { /* sub-folders are optional */ }
+
   res.json({
-    stats: { totalFiles: files.length, totalSize, folderName: folder },
+    stats: {
+      totalFiles: files.length,
+      totalSize,
+      folderName: folder,
+      photoCount,
+      videoCount,
+    },
+    folderLinks,
+    rootFolderUrl: `https://drive.google.com/drive/folders/${cfg.google.folderId}`,
     recent,
     settings: state.settings,
     drive: state.driveHealth,

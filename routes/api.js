@@ -181,7 +181,9 @@ async function reconcileWithDrive(res, entry, id) {
   }
   if (confirmed === entry.total) {
     // Google reports the file is complete but no 201 reached us — Drive is the
-    // source of truth, treat it as done.
+    // source of truth, treat it as done and retire the session (otherwise it
+    // lingers against the capacity caps until idle eviction aborts it).
+    uploads.complete(id, { fileId: null, name: entry.name, total: entry.total });
     sendJson(res, 200, { done: true, file: { id: null, name: entry.name, size: entry.total } });
     return;
   }
@@ -330,8 +332,9 @@ function sniffPrep(req, sniffLen) {
   const bodyStream = new PassThrough();
   const bufs = [];
   let have = 0;
-  let bodyEnded = false;
   let done = false;
+  let heldForSniff = false;  // paused while we validate and open the session
+  let heldForDrain = false;  // paused because Drive is slower than the client
   let resolveReady = null;
   const ready = new Promise((resolve) => { resolveReady = resolve; });
 
@@ -342,19 +345,30 @@ function sniffPrep(req, sniffLen) {
   };
   const onData = (d) => {
     if (done) return;
-    if (!bodyStream.destroyed) bodyStream.write(d);
+    let wantsMore = true;
+    if (!bodyStream.destroyed) wantsMore = bodyStream.write(d);
     if (have < sniffLen) {
       const need = sniffLen - have;
       bufs.push(d.subarray(0, Math.min(need, d.length)));
       have += Math.min(need, d.length);
       if (have >= sniffLen) {
+        heldForSniff = true;
         req.pause(); // hold the remainder while we validate + open the session
         if (resolveReady) { const r = resolveReady; resolveReady = null; r(); }
       }
     }
+    // Respect backpressure: without this the tee would buffer a whole chunk in
+    // memory whenever the phone uploads faster than we can push to Drive.
+    if (!wantsMore && !heldForDrain) {
+      heldForDrain = true;
+      req.pause();
+      bodyStream.once('drain', () => {
+        heldForDrain = false;
+        if (!done && !heldForSniff) req.resume();
+      });
+    }
   };
   const onEnd = () => {
-    bodyEnded = true;
     done = true;
     cleanup();
     if (!bodyStream.destroyed) bodyStream.end();
@@ -375,11 +389,16 @@ function sniffPrep(req, sniffLen) {
     ready,
     prefix: () => Buffer.concat(bufs, have),
     bodyStream,
-    resume() { req.resume(); },
+    resume() {
+      heldForSniff = false;
+      if (!heldForDrain) req.resume();
+    },
     /** Cancel the upload: stop consuming and free the tee buffer. */
     abort() {
       if (done) return;
       done = true;
+      heldForSniff = false;
+      heldForDrain = false;
       cleanup();
       req.pause();
       if (!bodyStream.destroyed) bodyStream.destroy();
@@ -430,10 +449,21 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     return fail(res, 415, sniffRes.code);
   }
 
-  // Unique display name — in-process reservation + Drive existence check.
+  // Photos and videos are filed into their own Drive sub-folders.
+  let parentId;
+  try {
+    parentId = await drive.folderIdForMime(v.mimeType);
+  } catch (e) {
+    parentId = null; // fall back to the root folder — never block an upload
+  }
+
+  // Unique display name — in-process reservation + Drive existence check,
+  // scoped to the folder the file will actually land in.
   let reservation;
   try {
-    reservation = await reservations.acquire(v.fileName, (n) => drive.nameExistsInFolder(n));
+    reservation = await reservations.acquire(v.fileName, (n) =>
+      drive.nameExistsInFolder(n, parentId)
+    );
   } catch (e) {
     prep.abort();
     await drain(req);
@@ -449,6 +479,7 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
       mimeType: v.mimeType,
       size: total,
       description,
+      parentId,
     });
   } catch (e) {
     reservation.release();
@@ -472,7 +503,9 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     async () => {
       try { await drive.abortSession(sessionUri); } catch (e) { /* ignore */ }
       reservation.release();
-    }
+    },
+    // release: file is safely at Drive — only free the reserved display name.
+    () => reservation.release()
   );
 
   logger.info('upload: session started', { id, name: reservation.name, size: total, uploader });
@@ -559,28 +592,84 @@ router.post('/upload/cancel', rl.light, requireUploadAuth, asyncH(async (req, re
 
 /* ── Gallery (PIN-protected when TOUR_UPLOAD_PIN is configured) ── */
 
-// files verified to live directly in our folder (prevents probing other Drive files)
-const verifiedCache = new Map();
-function isVerified(id) {
-  const t = verifiedCache.get(id);
-  return !!t && Date.now() - t < 5 * 60 * 1000;
+// Files verified to live in one of our folders (prevents probing other Drive
+// files). Small metadata only, pruned so the map cannot grow without bound.
+const VERIFY_TTL_MS = 5 * 60 * 1000;
+const VERIFY_MAX = 5000;
+const verifiedCache = new Map(); // id -> { at, name, mimeType, thumbnailLink }
+
+function pruneVerified() {
+  const now = Date.now();
+  for (const [id, v] of verifiedCache) {
+    if (now - v.at > VERIFY_TTL_MS) verifiedCache.delete(id);
+  }
+  while (verifiedCache.size > VERIFY_MAX) {
+    verifiedCache.delete(verifiedCache.keys().next().value);
+  }
+}
+setInterval(pruneVerified, VERIFY_TTL_MS).unref();
+
+function cachedMeta(id) {
+  const v = verifiedCache.get(id);
+  if (!v) return null;
+  if (Date.now() - v.at > VERIFY_TTL_MS) {
+    verifiedCache.delete(id);
+    return null;
+  }
+  return v;
 }
 
-function biggerThumb(thumbnailLink) {
-  if (!thumbnailLink) return null;
-  return thumbnailLink.replace(/=s\d+/, '=s800');
+/**
+ * Resolve a file id to its metadata, refusing anything that does not live in
+ * our destination folder (or its Photos / Videos sub-folders).
+ * Returns null when the file is unknown or out of scope.
+ */
+async function verifiedMeta(id) {
+  const hit = cachedMeta(id);
+  if (hit) return hit;
+  let meta;
+  try {
+    meta = await drive.getFileMeta(id);
+  } catch (e) {
+    return null;
+  }
+  const parents = Array.isArray(meta.parents) ? meta.parents : [];
+  const allowed = drive.allowedParents();
+  if (!parents.some((pid) => allowed.includes(pid))) return null;
+  const entry = {
+    at: Date.now(),
+    name: meta.name || 'file',
+    mimeType: meta.mimeType || '',
+    thumbnailLink: meta.thumbnailLink || '',
+  };
+  verifiedCache.set(id, entry);
+  if (verifiedCache.size > VERIFY_MAX) pruneVerified();
+  return entry;
+}
+
+const FILE_ID_RE = /^[A-Za-z0-9_-]{8,80}$/;
+
+/** RFC 5987 Content-Disposition so Bengali file names survive the download. */
+function attachmentHeader(name) {
+  const safe = String(name || 'file').replace(/[\r\n"\\]/g, '_');
+  const ascii = safe.replace(/[^\x20-\x7e]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(safe)}`;
 }
 
 router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req, res) => {
-  const { files } = await drive.listFolderFiles({ cap: cfg.galleryLimit, kinds: 'media' });
+  const { files, truncated } = await drive.listFolderFiles({
+    cap: cfg.galleryLimit,
+    kinds: 'media',
+  });
   // Mint one short-lived signed token per listing when the gallery is PIN-gated;
   // <img>/<video> cannot send headers, so media URLs carry it as ?gt=…
   const gt = cfg.pinEnabled ? galleryToken() : null;
+  const q = gt ? `?gt=${encodeURIComponent(gt)}` : '';
   const items = files.map((f) => {
     const meta = sanitize.parseDescription(f.description);
     const isImage = String(f.mimeType || '').startsWith('image/');
     const isVideo = String(f.mimeType || '').startsWith('video/');
-    const base = `/api/gallery/file/${f.id}/content`;
+    const base = `/api/gallery/file/${f.id}`;
     return {
       id: f.id,
       name: f.name,
@@ -590,28 +679,48 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
       size: Number(f.size) || 0,
       createdTime: f.createdTime || null,
       uploader: meta.uploader,
-      thumb: biggerThumb(f.thumbnailLink),
-      src: gt ? `${base}?gt=${encodeURIComponent(gt)}` : base,
+      // Thumbnails are proxied: Drive's own thumbnailLink is not readable by a
+      // visitor's browser for files in a private folder.
+      thumb: f.thumbnailLink ? `${base}/thumb${q}` : null,
+      src: `${base}/content${q}`,
+      download: `${base}/content${q}${q ? '&' : '?'}download=1`,
     };
   });
-  res.json({ items });
+  res.json({ items, truncated });
 }));
 
-router.get('/gallery/file/:id/content', rl.light, requireGalleryAuth, asyncH(async (req, res) => {
+/* Small, cacheable preview image — keeps the grid light on mobile data. */
+router.get('/gallery/file/:id/thumb', rl.media, requireGalleryAuth, asyncH(async (req, res) => {
   const id = req.params.id;
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(id)) return fail(res, 404, 'NOT_FOUND');
+  if (!FILE_ID_RE.test(id)) return fail(res, 404, 'NOT_FOUND');
 
-  if (!isVerified(id)) {
-    let meta;
-    try {
-      meta = await drive.getFileMeta(id);
-    } catch (e) {
-      return fail(res, 404, 'NOT_FOUND');
-    }
-    const parents = Array.isArray(meta.parents) ? meta.parents : [];
-    if (!parents.includes(cfg.google.folderId)) return fail(res, 404, 'NOT_FOUND');
-    verifiedCache.set(id, Date.now());
+  const meta = await verifiedMeta(id);
+  if (!meta) return fail(res, 404, 'NOT_FOUND');
+
+  const size = Math.min(1600, Math.max(160, Number(req.query.s) || 640));
+  let thumb = null;
+  try {
+    thumb = await drive.fetchThumbnail(meta.thumbnailLink, size);
+  } catch (e) {
+    thumb = null;
   }
+  if (!thumb) {
+    // Drive could not render one (some HEIC files, fresh uploads) — the client
+    // falls back to its own placeholder.
+    return fail(res, 404, 'NO_THUMBNAIL');
+  }
+  res.setHeader('Content-Type', thumb.contentType);
+  res.setHeader('Content-Length', String(thumb.buffer.length));
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  res.end(thumb.buffer);
+}));
+
+router.get('/gallery/file/:id/content', rl.media, requireGalleryAuth, asyncH(async (req, res) => {
+  const id = req.params.id;
+  if (!FILE_ID_RE.test(id)) return fail(res, 404, 'NOT_FOUND');
+
+  const meta = await verifiedMeta(id);
+  if (!meta) return fail(res, 404, 'NOT_FOUND');
 
   const range = req.headers.range || null;
   let open;
@@ -624,6 +733,9 @@ router.get('/gallery/file/:id/content', rl.light, requireGalleryAuth, asyncH(asy
 
   // Private, short-lived cache: safe re-fetch after admin hides the gallery.
   res.setHeader('Cache-Control', 'private, max-age=300');
+  if (req.query.download) {
+    res.setHeader('Content-Disposition', attachmentHeader(meta.name));
+  }
   res.status(open.status);
   const passthrough = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
   for (const h of passthrough) {

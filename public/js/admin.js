@@ -15,7 +15,9 @@
     dashboard: $('#dashboard'),
     statFiles: $('#statFiles'),
     statSize: $('#statSize'),
+    statSplit: $('#statSplit'),
     statFolder: $('#statFolder'),
+    folderLinks: $('#folderLinks'),
     tglUploads: $('#tglUploads'),
     tglGallery: $('#tglGallery'),
     recentBody: $('#recentBody'),
@@ -57,10 +59,54 @@
     }
   }
 
+  /** Count up to the new value so a changed number is noticeable. */
+  function countTo(node, value) {
+    const target = Number(value) || 0;
+    const from = Number(node.dataset.value || 0);
+    node.dataset.value = String(target);
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || from === target || target > 5000) {
+      node.textContent = target.toLocaleString();
+      return;
+    }
+    const started = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - started) / 600);
+      const eased = 1 - Math.pow(1 - t, 3);
+      node.textContent = Math.round(from + (target - from) * eased).toLocaleString();
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
   function renderStats(data) {
-    el.statFiles.textContent = data.stats.totalFiles.toLocaleString();
+    countTo(el.statFiles, data.stats.totalFiles);
     el.statSize.textContent = fmtBytes(data.stats.totalSize);
+    el.statSplit.textContent = `${(data.stats.photoCount || 0).toLocaleString()} / ${(data.stats.videoCount || 0).toLocaleString()}`;
     el.statFolder.textContent = data.stats.folderName || '—';
+    renderFolderLinks(data);
+  }
+
+  function folderLink(label, url) {
+    const a = document.createElement('a');
+    a.className = 'btn btn-outline btn-block';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = label;
+    return a;
+  }
+
+  function renderFolderLinks(data) {
+    if (!el.folderLinks) return;
+    el.folderLinks.textContent = '';
+    if (data.folderLinks) {
+      el.folderLinks.appendChild(folderLink('📷 Photos folder', data.folderLinks.photos));
+      el.folderLinks.appendChild(folderLink('🎬 Videos folder', data.folderLinks.videos));
+    }
+    if (data.rootFolderUrl) {
+      el.folderLinks.appendChild(folderLink('📁 Tour folder', data.rootFolderUrl));
+    }
   }
 
   function typeInfo(mime) {

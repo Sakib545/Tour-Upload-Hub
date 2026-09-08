@@ -407,7 +407,11 @@
 
     function start() {
       if (state.running) return false;
-      const pending = state.entries.filter((e) => e.status === 'pending' || e.status === 'error');
+      // Only entries that are actually queued count — a failed entry becomes
+      // eligible when retry() puts it back to 'pending', so counting it here
+      // would spin up a worker with nothing to do and fire a spurious
+      // "batch finished" (with its banner) straight away.
+      const pending = state.entries.filter((e) => e.status === 'pending');
       if (!pending.length) return false;
       state.running = true;
       state.finished = false;
