@@ -30,6 +30,7 @@ const cfg = {
 
   google: {
     folderId: str(env.GOOGLE_DRIVE_FOLDER_ID, ''),
+    serviceAccountJson: str(env.GOOGLE_SERVICE_ACCOUNT_JSON, ''),
     clientId: str(env.GOOGLE_CLIENT_ID, ''),
     clientSecret: str(env.GOOGLE_CLIENT_SECRET, ''),
     refreshToken: str(env.GOOGLE_REFRESH_TOKEN, ''),
@@ -78,9 +79,12 @@ const cfg = {
 function validate() {
   const missing = [];
   if (!cfg.google.folderId) missing.push('GOOGLE_DRIVE_FOLDER_ID');
-  if (!cfg.google.clientId) missing.push('GOOGLE_CLIENT_ID');
-  if (!cfg.google.clientSecret) missing.push('GOOGLE_CLIENT_SECRET');
-  if (!cfg.google.refreshToken) missing.push('GOOGLE_REFRESH_TOKEN');
+  const hasServiceAccount = Boolean(cfg.google.serviceAccountJson);
+  if (!hasServiceAccount) {
+    if (!cfg.google.clientId) missing.push('GOOGLE_CLIENT_ID');
+    if (!cfg.google.clientSecret) missing.push('GOOGLE_CLIENT_SECRET');
+    if (!cfg.google.refreshToken) missing.push('GOOGLE_REFRESH_TOKEN');
+  }
   if (!cfg.adminPassword) missing.push('ADMIN_PASSWORD');
   if (missing.length) {
     const err = new Error(
@@ -89,6 +93,15 @@ function validate() {
     );
     err.code = 'CONFIG_MISSING';
     throw err;
+  }
+  if (hasServiceAccount) {
+    let account;
+    try { account = JSON.parse(cfg.google.serviceAccountJson); } catch (e) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON must contain the complete valid JSON key.');
+    }
+    if (!account.client_email || !account.private_key) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing client_email or private_key.');
+    }
   }
   if (cfg.adminPassword.length < 8) {
     throw new Error('ADMIN_PASSWORD must be at least 8 characters long.');
