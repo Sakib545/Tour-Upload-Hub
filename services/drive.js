@@ -2,6 +2,7 @@
 
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const { URL } = require('url');
 const logger = require('../utils/logger');
 const { cfg } = require('./config');
@@ -9,7 +10,7 @@ const { escapeDriveQuery } = require('../utils/sanitize');
 
 /**
  * Minimal Google Drive REST client (no heavy SDK).
- *  - OAuth2 refresh-token flow, token cached & auto-refreshed.
+ *  - Service-account JWT or OAuth2 refresh-token flow, cached & auto-refreshed.
  *  - Resumable (chunked) uploads, so a multi-GB video never sits in memory:
  *    the client's request stream is piped straight into the Drive session.
  *  - Drive-confirmed byte offsets only: every 308 response's `Range` header is
@@ -93,16 +94,52 @@ let cachedToken = null;
 let cachedExp = 0;
 let inflight = null;
 
+function base64url(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+function serviceAccountAssertion(account) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const claims = base64url(JSON.stringify({
+    iss: account.client_email,
+    scope: cfg.google.scope,
+    aud: GOOGLE_TOKEN,
+    iat: now,
+    exp: now + 3600,
+  }));
+  const unsigned = `${header}.${claims}`;
+  const signature = crypto.sign('RSA-SHA256', Buffer.from(unsigned), account.private_key);
+  return `${unsigned}.${signature.toString('base64url')}`;
+}
+
 async function refreshAccessToken(force = false) {
   if (!force && cachedToken && Date.now() < cachedExp - 60_000) return cachedToken;
   if (inflight) return inflight;
   inflight = (async () => {
-    const body = new URLSearchParams({
-      client_id: cfg.google.clientId,
-      client_secret: cfg.google.clientSecret,
-      refresh_token: cfg.google.refreshToken,
-      grant_type: 'refresh_token',
-    }).toString();
+    let tokenFields;
+    if (cfg.google.serviceAccountJson) {
+      let account;
+      try { account = JSON.parse(cfg.google.serviceAccountJson); } catch (e) {
+        throw new DriveError('DRIVE_AUTH', 'Invalid service account JSON', { status: 500 });
+      }
+      let assertion;
+      try { assertion = serviceAccountAssertion(account); } catch (e) {
+        throw new DriveError('DRIVE_AUTH', 'Invalid service account private key', { status: 500 });
+      }
+      tokenFields = {
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion,
+      };
+    } else {
+      tokenFields = {
+        client_id: cfg.google.clientId,
+        client_secret: cfg.google.clientSecret,
+        refresh_token: cfg.google.refreshToken,
+        grant_type: 'refresh_token',
+      };
+    }
+    const body = new URLSearchParams(tokenFields).toString();
     let res;
     try {
       res = await fetch(ep('token'), {
