@@ -121,6 +121,16 @@ router.put('/admin/settings', rl.adminApi, requireAdmin, (req, res) => {
   res.json({ settings: next });
 });
 
+/* ── Drive diagnostics ────────────────────────────────────────── */
+
+router.post('/admin/drive-test', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+  const access = await drive.verifyAccess();
+  state.setDriveHealth(access);
+  if (!access.ok) return res.json({ stage: 'read', ...access });
+  const write = await drive.testWrite();
+  return res.json({ stage: write.ok ? 'ok' : 'write', ...write, folderName: access.name });
+}));
+
 /* ── QR code for sharing ──────────────────────────────────────── */
 
 router.get('/admin/qr', rl.adminApi, requireAdmin, asyncH(async (req, res) => {

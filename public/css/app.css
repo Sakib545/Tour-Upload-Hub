@@ -121,6 +121,8 @@ body {
   margin: 0 auto;
   padding: 0 16px 48px;
 }
+/* Room for the fixed bottom dock (name + Upload button). */
+body.page-home .container { padding-bottom: 180px; }
 .center { text-align: center; }
 .muted-text { color: var(--muted); }
 .note { font-size: 0.85rem; margin-top: 10px; }
@@ -281,6 +283,7 @@ body {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -333,7 +336,23 @@ body {
 .file-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .file-meta { color: var(--muted); font-size: 0.8rem; }
 
-.file-status { font-size: 0.82rem; font-weight: 600; flex: 0 0 auto; min-width: 74px; text-align: right; }
+/* The status column holds a word, a percentage, or a whole error sentence
+   plus a retry button — so it stacks and wraps instead of running over the
+   file name next to it. */
+.file-status {
+  font-size: 0.82rem;
+  font-weight: 600;
+  flex: 0 1 auto;
+  min-width: 74px;
+  max-width: 46%;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
 .st-done { color: var(--ok); }
 .st-error { color: var(--danger); }
 .st-wait { color: var(--muted); }
@@ -447,7 +466,7 @@ body {
 .toast.bad { background: var(--danger); color: #fff; }
 
 /* ── Footer / bottom dock ───────────────────────────────────── */
-.footer { text-align: center; padding: 8px 16px 120px; color: var(--muted); position: relative; z-index: 1; }
+.footer { text-align: center; padding: 8px 16px 40px; color: var(--muted); position: relative; z-index: 1; }
 .privacy-note { font-size: 0.9rem; margin: 0 0 4px; }
 .footer-brand { font-size: 0.8rem; opacity: 0.7; margin: 0; }
 
@@ -634,6 +653,20 @@ body {
 .admin-section h2 { margin-top: 0; font-size: 1.15rem; }
 .admin-section { margin: 12px 0; }
 .folder-links { display: grid; gap: 8px; margin-top: 10px; }
+
+.drive-status { display: grid; gap: 6px; margin: 4px 0 12px; }
+.drive-pill {
+  display: inline-flex; align-items: center; gap: 8px; align-self: start;
+  font-weight: 700; font-size: 0.88rem; padding: 6px 14px; border-radius: 999px;
+  background: var(--ok-bg); color: var(--ok);
+}
+.drive-pill.bad { background: var(--danger-bg); color: var(--danger); }
+.drive-pill.busy { background: var(--warn-bg); color: var(--warn); }
+.drive-detail { font-size: 0.86rem; color: var(--muted); overflow-wrap: anywhere; }
+.drive-fix { font-size: 0.88rem; background: var(--warn-bg); border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px; padding: 10px 12px; color: var(--text); }
+.drive-fix ol { margin: 6px 0 0; padding-left: 20px; }
+.drive-fix li { margin: 3px 0; }
 
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; cursor: pointer; border-bottom: 1px dashed var(--line); }
 .toggle-row small { display: block; color: var(--muted); font-weight: 400; }

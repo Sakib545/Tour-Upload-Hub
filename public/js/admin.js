@@ -18,6 +18,8 @@
     statSplit: $('#statSplit'),
     statFolder: $('#statFolder'),
     folderLinks: $('#folderLinks'),
+    driveStatus: $('#driveStatus'),
+    btnDriveTest: $('#btnDriveTest'),
     tglUploads: $('#tglUploads'),
     tglGallery: $('#tglGallery'),
     recentBody: $('#recentBody'),
@@ -85,6 +87,7 @@
     el.statSplit.textContent = `${(data.stats.photoCount || 0).toLocaleString()} / ${(data.stats.videoCount || 0).toLocaleString()}`;
     el.statFolder.textContent = data.stats.folderName || '—';
     renderFolderLinks(data);
+    if (data.drive) renderDrive(data.drive);
   }
 
   function folderLink(label, url) {
@@ -202,6 +205,106 @@
     }
   }
 
+  /* ── Drive connection ─────────────────────────────────────── */
+
+  // What each failure actually means, and what to change to fix it.
+  const DRIVE_HELP = {
+    DRIVE_QUOTA: {
+      title: 'The uploading account has no Drive storage.',
+      steps: [
+        'A service account owns every file it creates, and service accounts get no storage of their own — so writing into a personal "My Drive" folder always fails this way.',
+        'Fix A (recommended): remove GOOGLE_SERVICE_ACCOUNT_JSON and use the OAuth refresh token instead (README sections 4–5). Files are then owned by you.',
+        'Fix B: move the destination folder into a Google Workspace Shared Drive and share it with the service account as Content manager.',
+      ],
+    },
+    DRIVE_PERMISSION: {
+      title: 'The account may read the folder but not write to it.',
+      steps: [
+        'Open the destination folder in Drive → Share.',
+        'If you use a service account, add its client_email as Editor.',
+        'If you use OAuth, make sure GOOGLE_REFRESH_TOKEN belongs to an account with edit rights on that folder.',
+      ],
+    },
+    DRIVE_FOLDER_NOT_FOUND: {
+      title: 'The folder ID is wrong, or invisible to this account.',
+      steps: [
+        'Copy GOOGLE_DRIVE_FOLDER_ID again from the folder URL (the part after /folders/).',
+        'Share that folder with the uploading account.',
+      ],
+    },
+    FOLDER_NOT_FOUND: {
+      title: 'The folder ID is wrong, or invisible to this account.',
+      steps: [
+        'Copy GOOGLE_DRIVE_FOLDER_ID again from the folder URL (the part after /folders/).',
+        'Share that folder with the uploading account.',
+      ],
+    },
+    DRIVE_AUTH: {
+      title: 'Google rejected the credentials.',
+      steps: [
+        'Check GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN, or the service-account JSON.',
+        'A refresh token stops working if the OAuth consent screen is still in "Testing" — publish it.',
+      ],
+    },
+  };
+
+  function renderDrive(result, { busy = false } = {}) {
+    if (!el.driveStatus) return;
+    el.driveStatus.textContent = '';
+
+    const pill = document.createElement('span');
+    pill.className = 'drive-pill' + (busy ? ' busy' : result && result.ok ? '' : ' bad');
+    pill.textContent = busy
+      ? 'Checking…'
+      : result && result.ok
+        ? 'Drive connected — uploads can be written'
+        : `Problem: ${(result && result.code) || 'UNKNOWN'}`;
+    el.driveStatus.appendChild(pill);
+    if (busy) return;
+
+    const detail = document.createElement('p');
+    detail.className = 'drive-detail';
+    const bits = [];
+    if (result && result.folderName) bits.push(`Folder: ${result.folderName}`);
+    if (result && result.name) bits.push(`Folder: ${result.name}`);
+    if (result && result.reason) bits.push(`Google reason: ${result.reason}`);
+    if (result && result.msg) bits.push(result.msg);
+    detail.textContent = bits.join(' · ');
+    if (detail.textContent) el.driveStatus.appendChild(detail);
+
+    const help = result && DRIVE_HELP[result.code];
+    if (help) {
+      const box = document.createElement('div');
+      box.className = 'drive-fix';
+      const h = document.createElement('strong');
+      h.textContent = help.title;
+      box.appendChild(h);
+      const ol = document.createElement('ol');
+      for (const step of help.steps) {
+        const li = document.createElement('li');
+        li.textContent = step;
+        ol.appendChild(li);
+      }
+      box.appendChild(ol);
+      el.driveStatus.appendChild(box);
+    }
+  }
+
+  async function testDrive() {
+    el.btnDriveTest.disabled = true;
+    renderDrive(null, { busy: true });
+    try {
+      const data = await apiAdmin('/api/admin/drive-test', { method: 'POST', body: {} });
+      renderDrive(data);
+      toast(data.ok ? 'Drive write test passed.' : 'Drive test failed — see the details above.', { bad: !data.ok });
+    } catch (err) {
+      renderDrive({ ok: false, code: err.code || 'REQUEST_FAILED' });
+      toast('Could not run the Drive test: ' + (err.code || 'error'), { bad: true });
+    } finally {
+      el.btnDriveTest.disabled = false;
+    }
+  }
+
   /* ── QR ───────────────────────────────────────────────────── */
 
   async function loadQr() {
@@ -251,6 +354,7 @@
     el.loginForm.addEventListener('submit', submitLogin);
     el.tglUploads.addEventListener('change', updateSetting);
     el.tglGallery.addEventListener('change', updateSetting);
+    el.btnDriveTest.addEventListener('click', testDrive);
 
     token = sessionStorage.getItem(TOKEN_KEY) || '';
     if (token) {

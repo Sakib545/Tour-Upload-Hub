@@ -35,11 +35,16 @@ function sendJson(res, status, obj) {
 
 function driveFail(res, err) {
   if (res.headersSent || res.writableEnded || res.destroyed) return;
-  logger.error('drive error surfaced to client', { code: err.code });
+  logger.error('drive error surfaced to client', {
+    code: err.code,
+    reason: (err && err.reason) || '',
+    msg: err && err.message,
+  });
   const table = {
     FOLDER_NOT_FOUND: [500, 'DRIVE_FOLDER_NOT_FOUND'],
     NOT_A_FOLDER: [500, 'DRIVE_FOLDER_NOT_FOUND'],
     DRIVE_PERMISSION: [500, 'DRIVE_PERMISSION'],
+    DRIVE_QUOTA: [500, 'DRIVE_QUOTA'],
     DRIVE_AUTH: [500, 'DRIVE_AUTH'],
     DRIVE_RATE_LIMIT: [503, 'DRIVE_BUSY'],
     DRIVE_ERROR: [500, 'DRIVE_ERROR'],
@@ -485,7 +490,9 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     reservation.release();
     prep.abort();
     await drain(req);
-    logger.error('drive: resumable session create failed', { code: e.code });
+    logger.error('drive: resumable session create failed', {
+      code: e.code, reason: e.reason || '', msg: e.message,
+    });
     return driveFail(res, e);
   }
 

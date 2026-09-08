@@ -46,25 +46,42 @@ function ep(kind) {
   return GOOGLE_TOKEN;
 }
 
+/**
+ * Google puts the useful part of a failure in `error.errors[0].reason`, not in
+ * the HTTP status: a 403 can equally mean "you may not write here" or "the
+ * account that would own this file has no storage quota". Those need different
+ * fixes, so they get different codes.
+ */
 function mapApiError(status, bodyText, fallbackCode) {
   let code = fallbackCode;
+  let reason = '';
   let message = bodyText ? String(bodyText).slice(0, 300) : `HTTP ${status}`;
   try {
     const j = JSON.parse(bodyText || '{}');
     if (j.error) {
       const e = j.error;
+      const details = Array.isArray(e.errors) ? e.errors[0] : null;
+      reason = (details && details.reason) || e.status || '';
       if (e.code === 404) code = 'FOLDER_NOT_FOUND';
-      else if (e.code === 403) code = 'DRIVE_PERMISSION';
-      else if (e.code === 401) code = 'DRIVE_AUTH';
+      else if (e.code === 403) {
+        // A service account owns whatever it creates, and a service account has
+        // no Drive storage of its own — so writing into a personal "My Drive"
+        // folder fails here even though the folder was shared correctly.
+        code = /storageQuotaExceeded|quotaExceeded/i.test(reason)
+          ? 'DRIVE_QUOTA'
+          : 'DRIVE_PERMISSION';
+      } else if (e.code === 401) code = 'DRIVE_AUTH';
       else if (e.code === 429) code = 'DRIVE_RATE_LIMIT';
       else code = 'DRIVE_ERROR';
       if (e.message) message = e.message;
     }
   } catch (e) { /* keep fallback */ }
-  return new DriveError(code, message, {
+  const err = new DriveError(code, message, {
     status,
     retryable: status >= 500 || status === 429 || status === 408,
   });
+  err.reason = reason;
+  return err;
 }
 
 /** 404 on an *upload session* PUT/probe means the session itself is gone. */
@@ -644,13 +661,41 @@ async function verifyAccess() {
     const folders = await ensureMediaFolders().catch(() => null);
     return { ok: true, name: meta.name, code: 'OK', mediaFolders: !!folders };
   } catch (e) {
-    logger.error('drive: folder access check failed', { code: e.code, msg: e.message });
-    return { ok: false, code: e.code, msg: e.message };
+    logger.error('drive: folder access check failed', {
+      code: e.code, reason: e.reason || '', msg: e.message,
+    });
+    return { ok: false, code: e.code, reason: e.reason || '', msg: e.message };
   }
+}
+
+/**
+ * Ask Drive the question that actually matters: "can this account create a
+ * file here?" A resumable session is opened for a tiny placeholder and then
+ * aborted, so nothing is ever stored — but permission and storage-quota
+ * failures surface with Google's own reason string.
+ */
+async function testWrite() {
+  const parentId = await folderIdForMime('image/jpeg').catch(() => cfg.google.folderId);
+  let sessionUri;
+  try {
+    sessionUri = await createResumableSession({
+      name: `.tour-upload-hub-write-test-${Date.now()}.jpg`,
+      mimeType: 'image/jpeg',
+      size: 3,
+      description: '',
+      parentId,
+    });
+  } catch (e) {
+    logger.warn('drive: write test failed', { code: e.code, reason: e.reason || '' });
+    return { ok: false, code: e.code, reason: e.reason || '', msg: e.message };
+  }
+  await abortSession(sessionUri);
+  return { ok: true, code: 'OK', parentId };
 }
 
 module.exports = {
   DriveError,
+  testWrite,
   apiJson,
   setEndpoints,
   parseRangeOffset,

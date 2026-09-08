@@ -70,6 +70,7 @@
       EMPTY_FILE: 'ফাইলটি খালি',
       DRIVE_FOLDER_NOT_FOUND: 'Drive ফোল্ডার পাওয়া যায়নি (admin-কে জানান)',
       DRIVE_PERMISSION: 'Drive অনুমতি সমস্যা (admin-কে জানান)',
+      DRIVE_QUOTA: 'Drive-এ জায়গা নেই (admin-কে জানান)',
       DRIVE_AUTH: 'Drive সংযোগ সমস্যা (admin-কে জানান)',
       DRIVE_BUSY: 'Drive ব্যস্ত, আবার চেষ্টা করুন',
       DRIVE_NETWORK: 'নেটওয়ার্ক সমস্যা',

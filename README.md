@@ -57,7 +57,14 @@ npm start          # → http://localhost:3000
 Either the **service account** below (simplest) **or** the OAuth refresh token in
 sections 4–5. You do not need both.
 
-### Option A — service account (no refresh token)
+> **Important:** a service account (Option A) only works when the destination folder
+> lives in a **Google Workspace Shared Drive**. A service account owns every file it
+> creates and has no Drive storage of its own, so uploading into a normal personal
+> "My Drive" folder fails with `403 storageQuotaExceeded` — which the app reports as
+> `DRIVE_QUOTA` / "Drive-এ জায়গা নেই". For a personal Drive folder use **Option B**
+> (OAuth refresh token, sections 4–5); the files are then owned by you.
+
+### Option A — service account, Shared Drive only (no refresh token)
 
 1. Open **IAM & Admin → Service Accounts → Create service account**.
 2. Name it `tour-upload-hub`, finish creation, then open it.
@@ -278,6 +285,10 @@ share with the tour group.
 - **Gallery safety:** normal visitors get read-only thumbnails/lightbox. There is no
   edit/delete control anywhere for visitors. The gallery proxy verifies each file really
   lives in your folder before serving it, so random Drive file IDs can't be probed.
+- **Drive diagnostics:** the admin dashboard shows the live Drive connection status and
+  has a **Test Drive access** button that opens (and immediately aborts) a real upload
+  session — nothing is stored, but permission and storage-quota failures surface with
+  Google's own reason string plus the exact fix.
 - **Startup checks:** the server verifies that `GOOGLE_DRIVE_FOLDER_ID` is really a
   Drive folder (visible in admin as `drive` status), and rejects too-short
   `ADMIN_PASSWORD` (< 8 chars) / `TOUR_UPLOAD_PIN` (< 4 chars) at boot.
