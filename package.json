@@ -1,0 +1,33 @@
+{
+  "name": "tour-upload-hub",
+  "version": "1.0.0",
+  "description": "Private group tour photo/video upload hub — files stream straight into one Google Drive folder. Railway + GitHub ready.",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "get-token": "node scripts/get-refresh-token.js",
+    "check": "node --check server/server.js && node --check server/app.js && for f in routes/*.js services/*.js middleware/*.js utils/*.js public/js/*.js scripts/*.js test/helpers/*.js test/*.test.js; do node --check \"$f\" || exit 1; done",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "google-drive",
+    "upload",
+    "tour",
+    "photos",
+    "railway"
+  ],
+  "license": "MIT",
+  "overrides": {
+    "qs": "^6.16.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^6.11.2",
+    "qrcode": "^1.5.3"
+  }
+}

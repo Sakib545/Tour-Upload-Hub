@@ -1,0 +1,85 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const logger = require('../utils/logger');
+const { cfg } = require('./config');
+
+/**
+ * Small runtime settings store (uploads enabled / gallery visible).
+ * Persisted to ./data/state.json as a convenience. NOTE: Railway's filesystem
+ * is ephemeral and resets on redeploy — the durable defaults are the
+ * ENABLE_UPLOADS / GALLERY_VISIBLE env vars. This file simply lets the admin
+ * flip them temporarily without redeploying.
+ */
+
+const ROOT = path.resolve(__dirname, '..');
+const DATA_DIR = path.join(ROOT, 'data');
+const STATE_FILE = path.join(DATA_DIR, 'state.json');
+
+// In tests the file must never influence state (hermetic runs).
+let persisted = process.env.NODE_ENV !== 'test';
+let state = {
+  uploadsEnabled: cfg.defaultUploadsEnabled,
+  galleryVisible: cfg.defaultGalleryVisible,
+};
+
+// Result of the startup Google Drive folder check: { ok, code, name, msg }.
+let driveHealth = { ok: false, code: 'UNCHECKED', name: '' };
+
+function ensureFile() {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (e) {
+    persisted = false;
+    logger.warn('state: cannot create data dir, settings will be memory-only', { err: e.message });
+  }
+}
+
+function load() {
+  ensureFile();
+  if (!persisted) return;
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+      if (typeof raw.uploadsEnabled === 'boolean') state.uploadsEnabled = raw.uploadsEnabled;
+      if (typeof raw.galleryVisible === 'boolean') state.galleryVisible = raw.galleryVisible;
+    }
+  } catch (e) {
+    logger.warn('state: could not read state file, using defaults', { err: e.message });
+  }
+}
+
+function save() {
+  if (!persisted) return;
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (e) {
+    logger.warn('state: could not persist settings', { err: e.message });
+  }
+}
+
+function update(patch) {
+  if (typeof patch.uploadsEnabled === 'boolean') state.uploadsEnabled = patch.uploadsEnabled;
+  if (typeof patch.galleryVisible === 'boolean') state.galleryVisible = patch.galleryVisible;
+  save();
+  return { ...state };
+}
+
+function setDriveHealth(h) {
+  driveHealth = h || { ok: false, code: 'UNCHECKED', name: '' };
+  return driveHealth;
+}
+
+load();
+
+module.exports = {
+  get settings() {
+    return { ...state };
+  },
+  update,
+  get driveHealth() {
+    return { ...driveHealth };
+  },
+  setDriveHealth,
+};

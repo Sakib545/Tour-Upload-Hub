@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <meta name="description" content="Tour Memories Gallery" />
+  <title>Gallery — Tour Memories</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230ea5e9'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle'%3E%F0%9F%93%B7%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="page-gallery">
+  <header class="sub-header">
+    <a class="btn btn-ghost" href="/">← Upload পেজে ফিরে যান</a>
+    <h1 id="galleryTitle">Tour Memories — Gallery</h1>
+  </header>
+
+  <main class="container gallery-container">
+    <!-- PIN gate (only when TOUR_UPLOAD_PIN is configured) -->
+    <section class="card gate-card" id="pinGate" hidden>
+      <div class="gate-icon">🔐</div>
+      <h2>Gallery দেখতে PIN দিন</h2>
+      <p class="muted-text">এই Tour-এর ছবি দেখতে শেয়ার করা PIN প্রয়োজন।</p>
+      <form id="pinForm" autocomplete="off">
+        <input id="pinInput" type="password" inputmode="numeric" class="input input-lg"
+               placeholder="PIN লিখুন" maxlength="32" autocomplete="one-time-code" required />
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="pinSubmit">PIN যাচাই করুন</button>
+      </form>
+      <p class="form-error" id="pinError" hidden></p>
+    </section>
+
+    <p class="muted-text center" id="galleryStatus">ছবি লোড হচ্ছে…</p>
+    <div class="gallery-grid" id="galleryGrid"></div>
+  </main>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="lb-close" id="lbClose" aria-label="বন্ধ করুন">✕</button>
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="আগের">‹</button>
+    <button class="lb-nav lb-next" id="lbNext" aria-label="পরের">›</button>
+    <div class="lb-stage" id="lbStage"></div>
+    <div class="lb-caption" id="lbCaption"></div>
+  </div>
+
+  <div class="toast-root" id="toastRoot" aria-live="polite"></div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/gallery.js"></script>
+</body>
+</html>

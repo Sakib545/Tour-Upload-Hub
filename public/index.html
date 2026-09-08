@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="description" content="Tour Memories — upload tour photos & videos" />
+  <title>Tour Memories</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230ea5e9'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle'%3E%F0%9F%93%B7%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="page-home">
+  <svg class="hero-blob hero-blob-a" aria-hidden="true" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100"/></svg>
+  <svg class="hero-blob hero-blob-b" aria-hidden="true" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100"/></svg>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <img id="heroCover" class="hero-cover" alt="" hidden />
+      <p class="hero-eyebrow" id="heroMeta">✈️ Tour</p>
+      <h1 id="heroTitle">Tour Memories</h1>
+      <p class="hero-sub" id="heroSub">আমাদের Tour-এর সব ছবি ও ভিডিও এখানে Upload করুন</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <noscript>
+      <div class="card warn-card">এই সাইটটি ব্যবহার করতে অনুগ্রহ করে JavaScript চালু করুন।</div>
+    </noscript>
+
+    <!-- PIN gate (only visible when TOUR_UPLOAD_PIN is configured) -->
+    <section class="card gate-card" id="pinGate" hidden>
+      <div class="gate-icon">🔐</div>
+      <h2>এই Tour-এর শেয়ার করা PIN দিন</h2>
+      <p class="muted-text">ছবি Upload করতে PIN প্রয়োজন।</p>
+      <form id="pinForm" autocomplete="off">
+        <input id="pinInput" type="password" inputmode="numeric" class="input input-lg"
+               placeholder="PIN লিখুন" maxlength="32" autocomplete="one-time-code" required />
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="pinSubmit">PIN যাচাই করুন</button>
+      </form>
+      <p class="form-error" id="pinError" hidden></p>
+    </section>
+
+    <!-- Upload panel -->
+    <section class="upload-wrap" id="uploadPanel" hidden>
+      <div class="card upload-disabled" id="uploadsDisabled" hidden>
+        <div class="muted-text center">Upload সাময়িকভাবে বন্ধ আছে। পরে আবার চেষ্টা করুন।</div>
+      </div>
+
+      <section class="card dropzone-card" id="dropzoneCard">
+        <div id="emptyState">
+          <div class="drop-icon">📤</div>
+          <p class="muted-text" id="noFilesText">এখনও কোনো ছবি নির্বাচন করা হয়নি</p>
+          <div class="pick-row">
+            <button type="button" class="btn btn-primary btn-lg" id="btnPick">ছবি / ভিডিও বাছাই করুন</button>
+            <button type="button" class="btn btn-ghost btn-lg" id="btnCamera" title="ক্যামেরা দিয়ে ছবি তুলুন">📷 ক্যামেরা</button>
+          </div>
+          <p class="drop-hint">অথবা এখানে ফাইল টেনে আনুন</p>
+        </div>
+
+        <div id="pickRow" class="pick-row top-row" hidden>
+          <button type="button" class="btn btn-ghost" id="btnAddMore">+ আরও ফাইল যোগ করুন</button>
+          <span class="muted-text" id="selSummary"></span>
+        </div>
+
+        <ul class="file-list" id="fileList"></ul>
+
+        <div id="batchProgress" hidden>
+          <div class="progress-track"><div class="progress-fill" id="batchBar"></div></div>
+          <div class="progress-caption">
+            <span id="batchLabel">Upload হচ্ছে…</span>
+            <span id="batchPct">0%</span>
+          </div>
+        </div>
+
+        <div class="action-row" id="actionRow" hidden>
+          <button type="button" class="btn btn-primary btn-lg btn-block" id="btnStart">Upload করুন</button>
+        </div>
+
+        <input type="file" id="fileInput" multiple
+               accept="image/*,video/*,.heic,.heif,.mov,.m4v,.3gp,.3g2" hidden />
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
+      </section>
+
+      <!-- Success / failure banner -->
+      <div class="banner" id="banner" hidden></div>
+    </section>
+
+    <!-- Gallery link -->
+    <section class="gallery-link-row" id="galleryLinkWrap" hidden>
+      <a class="btn btn-outline btn-lg" href="/gallery">🖼️ Gallery দেখুন</a>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p class="privacy-note" id="privacyNote">আপনার Upload করা ফাইল শুধু আমাদের Tour Drive-এ সংরক্ষিত হবে।</p>
+    <p class="footer-brand">Tour Memories</p>
+  </footer>
+
+  <!-- Uploader name bar -->
+  <div class="name-bar" id="nameBar">
+    <input class="input" id="uploaderName" maxlength="60" placeholder="আপনার নাম লিখুন (ঐচ্ছিক)" />
+  </div>
+
+  <div class="toast-root" id="toastRoot" aria-live="polite"></div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/upload-engine.js"></script>
+  <script src="/js/tour.js"></script>
+</body>
+</html>

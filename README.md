@@ -1,0 +1,320 @@
+# 📸 Tour Upload Hub
+
+A private group-tour photo & video sharing website. Everyone on the tour opens one link
+(or scans one QR code), picks photos/videos on their phone, and everything streams
+**straight into one Google Drive folder you own**.
+
+- **Node.js + Express** backend, plain HTML/CSS/JS frontend — no build step, tiny footprint.
+- Files are uploaded in **resumable chunks** and streamed to Google Drive — a 2 GB video
+  never sits in server memory or on Railway's ephemeral disk.
+- Mobile-first Bengali UI ("Tour Memories") with PIN gate, admin dashboard, optional
+  public gallery, and QR-code sharing.
+
+---
+
+## 1. Local setup
+
+Prerequisites: **Node.js ≥ 18**.
+
+```bash
+# 1. Get the code
+git clone <your-repo-url>
+cd tour-upload-hub
+
+# 2. Install dependencies
+npm install
+
+# 3. Create your environment file
+cp .env.example .env
+#    …then fill in the values (sections below)
+
+# 4. Run locally
+npm start          # → http://localhost:3000
+```
+
+---
+
+## 2. Google Cloud project setup
+
+1. Go to <https://console.cloud.google.com> and sign in with the Google account that owns
+   the Drive folder (or create a project for this app).
+2. Create or select a project (top bar → New Project).
+3. Note the **Project ID** — you won't need it again for this setup.
+
+---
+
+## 3. Enable the Google Drive API
+
+1. In your project: **APIs & Services → Library**.
+2. Search for **Google Drive API** → open it → **Enable**.
+
+---
+
+## 4. Create credentials (OAuth client)
+
+1. **APIs & Services → OAuth consent screen**.
+   - User type: **External** (any Google account works; you'll approve it yourself).
+   - Fill the app name + your email; on "Scopes" you can skip adding scopes manually
+     (the token script requests the scope); publish the app (Status → **Publish**) so the
+     consent screen doesn't stay in "Testing" mode.
+2. **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
+   - Application type: **Desktop app**.
+   - Create → copy the **Client ID** and **Client secret** into `.env`:
+     ```
+     GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+     GOOGLE_CLIENT_SECRET=xxxx
+     ```
+
+> **Why Desktop-app OAuth and not a service account?**
+> A service account is a separate "robot" account — to write into your personal folder you
+> would have to share the folder with that robot email. OAuth uses **your own account** with
+> a stored refresh token, which is simpler and matches "a folder owned by me".
+>
+> **Why full Drive scope?** With the more restrictive `drive.file` scope, an app can only
+> touch files/folders it created itself — pointing it at a folder you made manually in the
+> Drive web UI returns "File not found". The default scope lets the app write into any folder
+> you own, which is exactly what this tool needs. The token lives only in your server
+> environment variables and is never exposed to website visitors.
+
+---
+
+## 5. Obtain a Google refresh token
+
+The repo includes a zero-dependency helper. With `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` in `.env`:
+
+```bash
+npm run get-token
+```
+
+A browser opens → sign in with the Drive-folder owner account → click **Allow**.
+Copy the printed refresh token into `.env`:
+
+```
+GOOGLE_REFRESH_TOKEN=1//0xxxx...
+```
+
+---
+
+## 6. Get your Google Drive folder ID
+
+1. Create a folder in Google Drive (e.g. "Tour 2026 Photos").
+2. Open it in the browser. The URL looks like:
+   `https://drive.google.com/drive/folders/1AbC...XYZ`
+3. The long ID after `/folders/` is your `GOOGLE_DRIVE_FOLDER_ID`.
+
+The folder stays **private** — it is never made publicly writable or shared.
+
+---
+
+## 7. Environment variables
+
+See `.env.example` for the full commented list. Essentials:
+
+| Variable | Required | Meaning |
+|---|---|---|
+| `PORT` | no | Default `3000` (Railway sets this itself) |
+| `PUBLIC_SITE_URL` | yes (for QR) | Public HTTPS URL, e.g. `https://my-tour.up.railway.app` |
+| `GOOGLE_DRIVE_FOLDER_ID` | **yes** | Destination folder ID |
+| `GOOGLE_CLIENT_ID` | **yes** | OAuth client id |
+| `GOOGLE_CLIENT_SECRET` | **yes** | OAuth client secret |
+| `GOOGLE_REFRESH_TOKEN` | **yes** | From step 5 |
+| `ADMIN_PASSWORD` | **yes** | Password for `/admin` |
+| `TOUR_UPLOAD_PIN` | no | If set, visitors must enter it before uploading |
+| `ENABLE_GALLERY` | no | `true`/`false`, default `true` |
+| `ENABLE_UPLOADS` | no | Default initial state (admin can toggle live) |
+| `GALLERY_VISIBLE` | no | Default initial state (admin can toggle live) |
+| `MAX_FILE_SIZE_MB` | no | Default `2048` (2 GB per file) |
+| `MAX_FILES_PER_UPLOAD` | no | Default `50` files per batch |
+| `UPLOAD_CHUNK_MB` | no | Default `8` |
+| `GALLERY_LIMIT` | no | Max files listed in the gallery (default `300`) |
+| `MAX_ACTIVE_UPLOADS` | no | Max in-flight sessions server-wide (default `150`) |
+| `MAX_UPLOADS_PER_IP` | no | Max in-flight sessions per IP (default `40`) |
+| `MAX_SESSION_CREATES_PER_MIN_PER_IP` | no | Max new Drive sessions/IP/minute (default `60`) |
+| `UPLOAD_SESSION_IDLE_MINUTES` | no | Idle uploads aborted after this (default `120`) |
+| `GALLERY_TOKEN_TTL_HOURS` | no | Signed media-URL lifetime in PIN mode (default `3`) |
+| `TOUR_TITLE` / `TOUR_SUBTITLE` / `TOUR_DATE` / `TOUR_LOCATION` / `TOUR_PRIVACY_NOTE` / `TOUR_COVER_URL` | no | Page content |
+
+All values above are read **only** server-side. `.env` is git-ignored — never commit it.
+
+---
+
+## 8. Run locally
+
+```bash
+npm start
+```
+
+Then open:
+- `http://localhost:3000` — public upload page
+- `http://localhost:3000/admin` — admin dashboard (uses `ADMIN_PASSWORD`)
+- `http://localhost:3000/gallery` — gallery (if enabled)
+
+To test the PIN flow, set `TOUR_UPLOAD_PIN=1234` in `.env` and restart.
+
+---
+
+## 9. Push to GitHub
+
+```bash
+git init
+git add .
+git commit -m "Tour upload hub"
+git branch -M main
+git remote add origin https://github.com/<you>/<repo>.git
+git push -u origin main
+```
+
+> Double-check `.gitignore` covers `.env` and `node_modules` before pushing.
+> The real `.env` must **never** be pushed.
+
+---
+
+## 10. Deploy on Railway
+
+1. Create an account at <https://railway.app> and install the GitHub integration.
+2. **New Project → Deploy from GitHub repo** → pick this repository.
+3. Railway detects `package.json` automatically (Nixpacks) and runs `npm start`.
+   No `Dockerfile` or `railway.json` needed.
+4. Open your service → **Settings → Networking → Generate Domain** to get a public URL.
+
+---
+
+## 11. Set Railway environment variables
+
+In your service → **Variables**, add every required value from `.env.example`
+(the same names). Minimum set:
+
+```
+PORT            (Railway provides this automatically)
+PUBLIC_SITE_URL=https://your-app.up.railway.app
+GOOGLE_DRIVE_FOLDER_ID=…
+GOOGLE_CLIENT_ID=…
+GOOGLE_CLIENT_SECRET=…
+GOOGLE_REFRESH_TOKEN=…
+ADMIN_PASSWORD=…
+TOUR_UPLOAD_PIN=…        (optional)
+ENABLE_GALLERY=true      (optional)
+```
+
+After saving variables, Railway restarts the service. Watch **Deployments** logs — you
+should see `tour-upload-hub listening on port …` and `drive: folder access OK`.
+
+Open `https://your-app.up.railway.app/admin`, sign in, and download the **QR code** to
+share with the tour group.
+
+---
+
+## 12. Security notes
+
+- **Credentials never leave the server.** The browser talks only to your own backend;
+  Google tokens/refresh tokens are environment variables server-side.
+- **The Drive folder is never publicly writable.** Uploads use your own authenticated
+  OAuth session; only the configured folder ID is accepted.
+- **No permanent storage on Railway.** Files are chunked and piped to Google Drive.
+  Railway's ephemeral disk is only ever used for the tiny `data/state.json` toggle file
+  (which resets on redeploy by design — the durable defaults are `ENABLE_UPLOADS` /
+  `GALLERY_VISIBLE` env vars).
+- **Type safety (two layers):** only camera formats are allowed (JPG/JPEG/PNG/WEBP/GIF/
+  HEIC/HEIF/BMP/MP4/MOV/M4V/3GP/3G2). The server checks extension + MIME **and** the
+  magic bytes of the first chunk's prefix, so an `.exe` or an HTML file renamed to
+  `.jpg` is rejected with `INVALID_FILE_CONTENT` before any Drive session is created.
+  Only a small prefix is inspected — the full file is never buffered.
+- **Recovery:** chunk offsets advance only from Google's confirmed `Range` response.
+  If a chunk fails mid-flight the server probes the Drive session and the upload
+  continues from Drive's real byte count (partial chunks and duplicate re-sends are
+  handled); only genuinely lost sessions cause a bounded full-file restart with a
+  fresh upload id. Every retry/restart is bounded, and a file is never marked
+  complete unless Google confirms it.
+- **Filename reservation:** simultaneous uploads with the same name get distinct
+  display names (`IMG_0001.jpg`, `IMG_0001 (2).jpg`, …) via an in-process reservation
+  system layered on top of Drive as the source of truth. Drive never overwrites;
+  reservations are released on completion/cancel/failure/timeout.
+- **Rate limiting** on PIN verification, login, chunk uploads and the admin API.
+- **Upload abuse limits:** `MAX_ACTIVE_UPLOADS` / `MAX_UPLOADS_PER_IP` /
+  `MAX_SESSION_CREATES_PER_MIN_PER_IP` cap concurrent sessions and session creation;
+  excess sessions get clear 429/503 JSON errors. Tiny non-final first chunks never
+  create a Drive session. Abandoned sessions are aborted after
+  `UPLOAD_SESSION_IDLE_MINUTES` and their reservations released.
+- **PIN-protected gallery:** when `TOUR_UPLOAD_PIN` is set, the PIN is required for
+  gallery metadata **and** every image/video. Media URLs carry a short-lived signed
+  token (`?gt=…`, lifetime `GALLERY_TOKEN_TTL_HOURS`) because `<img>`/`<video>` cannot
+  send headers. Hiding the gallery from admin blocks every gallery route immediately.
+  Without a PIN the gallery stays public.
+- **Auth tokens are signed and stateless** (HMAC, purpose-scoped, expiring) — no server
+  session store to leak. Admin and authentication responses are sent `Cache-Control:
+  no-store`; errors never include credentials, Drive session URLs or stack traces.
+- **Gallery safety:** normal visitors get read-only thumbnails/lightbox. There is no
+  edit/delete control anywhere for visitors. The gallery proxy verifies each file really
+  lives in your folder before serving it, so random Drive file IDs can't be probed.
+- **Startup checks:** the server verifies that `GOOGLE_DRIVE_FOLDER_ID` is really a
+  Drive folder (visible in admin as `drive` status), and rejects too-short
+  `ADMIN_PASSWORD` (< 8 chars) / `TOUR_UPLOAD_PIN` (< 4 chars) at boot.
+- **Headers:** strict CSP, `nosniff`, frame denial, HSTS on HTTPS.
+- **Logs** contain event info only — never tokens, PINs, passwords, or session URLs.
+- The admin toggle state is stored on ephemeral disk: after a Railway redeploy it resets
+  to your env defaults. For fully permanent "uploads off" simply set `ENABLE_UPLOADS=false`.
+
+## Tests
+
+Automated tests use Node's built-in test runner and a **mock Google Drive server** —
+no real Google credentials are needed (and none are claimed to have been used).
+
+```bash
+npm ci
+npm test          # node --test test/
+npm run check     # syntax-check every JS file
+npm audit
+```
+
+Covered: PIN auth + expiry, gallery access with/without PIN, upload-disabled mode,
+valid/invalid file signatures, normal 308→201 chunk flow, partial chunk acceptance,
+duplicate chunk re-send, `UNKNOWN_UPLOAD`/`OUT_OF_ORDER`/network/stall/session-loss
+recovery, active-session limits, simultaneous duplicate filenames, and preview
+retention until completion. A real end-to-end upload still needs the organizer's
+Google credentials (see the 5-minute smoke test in `docs/03-qa-report.md`).
+
+---
+
+## How uploads work (architecture)
+
+```
+Phone browser                         Your server (Railway)                 Google Drive
+─────────────                         ─────────────────────                 ────────────
+Select N files
+For each file:
+  slice into 8 MB chunks ──────────►  validate chunk ─────────────────────► resumable session
+  chunk 1 (X-Offset 0)                stream pipe (no buffering)             bytes 0-8MB  → 308
+  chunk 2 (X-Offset 8MB) ──────────►  stream pipe ───────────────────────► bytes 8-16MB → 308
+  … final chunk ────────────────────►                                       → 201 + file id ✓
+```
+
+- Several people upload at once; up to 2 files per person run in parallel.
+- One failed file never blocks the rest; every file has its own status + retry button.
+- Chunk offsets only ever advance from Google's `Range` response. If a chunk dies
+  mid-flight (network, 5xx, stall) the server **probes the Drive session** and answers
+  with Drive's real byte count — the client resumes from there instead of re-uploading
+  from zero. Only when the session is genuinely gone (server restart, session 404) does
+  the client restart the file with a fresh upload id, bounded to a few attempts and
+  cleaning up the orphaned session first.
+- Nothing is loaded fully into memory; the request stream is piped straight to Drive
+  (the first-chunk magic-byte check inspects only a small prefix).
+- The gallery and admin list read directly from Drive (the folder is the source of truth),
+  so there is no database to keep in sync.
+
+## Project structure
+
+```
+├── server/                   # app.js (Express app factory), server.js (entry point)
+├── routes/                   # api.js (config/pin/upload/gallery), admin.js
+├── services/                 # drive.js (OAuth + resumable), uploads registry,
+│                             # reservations.js (filename lock), config, state
+├── middleware/               # security headers, rate limiters, auth guards
+├── utils/                    # logger, sanitizer, sniff.js (magic bytes), HMAC tokens
+├── scripts/get-refresh-token.js
+├── public/                   # index.html / gallery.html / admin.html + css + js
+├── test/                     # node:test suite + mock Google Drive server
+├── data/                     # runtime admin toggles (ephemeral, git-ignored)
+├── .env.example
+└── package.json
+```
