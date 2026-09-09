@@ -5,6 +5,7 @@ require('dotenv').config();
 const logger = require('../utils/logger');
 const { cfg, validate } = require('../services/config');
 const state = require('../services/state');
+const persist = require('../services/persist');
 const drive = require('../services/drive');
 const { createApp } = require('./app');
 
@@ -31,13 +32,17 @@ server.keepAliveTimeout = 5 * 1000;
 
 // Non-fatal boot check so the admin sees credential/folder problems immediately.
 // Validates that GOOGLE_DRIVE_FOLDER_ID really points at a Drive folder.
-drive.verifyAccess().then((r) => {
+drive.verifyAccess().then(async (r) => {
   state.setDriveHealth({ ok: r.ok, code: r.code, name: r.name || '', msg: r.msg });
   if (!r.ok) {
     logger.warn('startup Drive check failed — uploads will error until fixed', {
       code: r.code,
     });
+    return;
   }
+  // Admin-edited content and folder names live in the Drive folder, so they
+  // survive redeploys (Railway's own disk does not).
+  await persist.loadAll();
 });
 
 function shutdown(signal) {
