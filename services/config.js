@@ -138,6 +138,9 @@ function publicConfig(state, site) {
     tourLocation: content.location || '',
     coverUrl: content.coverUrl || '',
     privacyNote: content.privacyNote || cfg.tour.privacyNote,
+    // ISO instants for the public countdown ('' when not set).
+    tourStartAt: content.startAt || '',
+    tourEndAt: content.endAt || '',
     galleryEnabled: cfg.enableGallery && state.galleryVisible,
     uploadsEnabled: state.uploadsEnabled,
     pinRequired: cfg.pinEnabled,
