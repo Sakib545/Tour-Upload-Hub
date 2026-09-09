@@ -53,6 +53,19 @@ async function startDriveMock() {
     nextPutFault: null,
     files: () => files.map(fileMeta),
     folders: () => folders.map((f) => ({ id: f.id, name: f.name, parents: f.parents })),
+    /** Plant a file directly, the way an older upload would have left it. */
+    addFile({ name, mimeType, parents, body = Buffer.alloc(16) }) {
+      const doc = {
+        id: 'df_' + crypto.randomBytes(6).toString('hex'),
+        name,
+        mimeType,
+        parents: parents || [FOLDER_ID],
+        buffer: body,
+        createdTime: new Date().toISOString(),
+      };
+      files.push(doc);
+      return doc.id;
+    },
     sessionsCount: () => sessions.size,
     reset() {
       files.length = 0;
@@ -104,11 +117,21 @@ async function startDriveMock() {
         return json(res, 200, { files: mapped, nextPageToken: null });
       }
 
-      // Plain (non-resumable) create — the app only uses this for sub-folders.
+      // Plain (non-resumable) create — sub-folders and the settings file.
       if (req.method === 'POST' && path === '/drive/v3/files' && !u.searchParams.get('uploadType')) {
         const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
         if (body.mimeType !== FOLDER_MIME) {
-          return json(res, 400, { error: { code: 400, message: 'unsupported create' } });
+          // Metadata-only file; content arrives later via an uploadType=media PATCH.
+          const doc = {
+            id: 'doc_' + crypto.randomBytes(6).toString('hex'),
+            name: body.name,
+            mimeType: body.mimeType || 'application/octet-stream',
+            parents: Array.isArray(body.parents) ? body.parents : [FOLDER_ID],
+            buffer: Buffer.alloc(0),
+            createdTime: new Date().toISOString(),
+          };
+          files.push(doc);
+          return json(res, 200, { id: doc.id, name: doc.name, mimeType: doc.mimeType });
         }
         const folder = {
           id: 'fld_' + crypto.randomBytes(6).toString('hex'),
@@ -119,6 +142,25 @@ async function startDriveMock() {
         };
         folders.push(folder);
         return json(res, 200, { id: folder.id, name: folder.name, mimeType: FOLDER_MIME });
+      }
+
+      // Media update (settings file) and re-parenting (admin tidy-up).
+      if (req.method === 'PATCH' && path.startsWith('/drive/v3/files/')) {
+        const fileId = decodeURIComponent(path.slice('/drive/v3/files/'.length));
+        const doc = files.find((f) => f.id === fileId);
+        const body = await readBody(req);
+        if (!doc) return json(res, 404, { error: { code: 404, message: 'File not found' } });
+        if (u.searchParams.get('uploadType') === 'media') {
+          doc.buffer = body;
+          return json(res, 200, { id: doc.id, name: doc.name });
+        }
+        const add = u.searchParams.get('addParents');
+        const remove = u.searchParams.get('removeParents');
+        let parents = doc.parents || [];
+        if (remove) parents = parents.filter((p) => p !== remove);
+        if (add && !parents.includes(add)) parents = parents.concat(add);
+        doc.parents = parents;
+        return json(res, 200, { id: doc.id, parents });
       }
 
       if (req.method === 'GET' && path.startsWith('/drive/v3/files/')) {
