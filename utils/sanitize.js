@@ -99,27 +99,29 @@ function escapeDriveQuery(value) {
 }
 
 /** Pack uploader metadata into the Drive file `description` field. */
-function encodeDescription({ uploader = '', originalName = '', at = null }) {
+function encodeDescription({ uploader = '', originalName = '', at = null, category = '' } = {}) {
   const safe = JSON.stringify({
     u: String(uploader || '').slice(0, 60),
     n: String(originalName || '').slice(0, 200),
     a: at || new Date().toISOString(),
+    c: String(category || '').slice(0, 24),
   });
-  return safe.length <= 1024 ? safe : safe.slice(0, 1020) + '"}';
+  return safe.length <= 1024 ? safe : safe.slice(0, 1020) + '"}' ;
 }
 
 /** Parse uploader metadata back out of a Drive `description` value. */
 function parseDescription(desc) {
-  if (!desc) return { uploader: '', originalName: '', at: null };
+  if (!desc) return { uploader: '', originalName: '', at: null, category: '' };
   try {
     const j = JSON.parse(desc);
     return {
       uploader: typeof j.u === 'string' ? j.u : '',
       originalName: typeof j.n === 'string' ? j.n : '',
       at: typeof j.a === 'string' ? j.a : null,
+      category: typeof j.c === 'string' ? j.c : '',
     };
   } catch (e) {
-    return { uploader: '', originalName: '', at: null };
+    return { uploader: '', originalName: '', at: null, category: '' };
   }
 }
 
