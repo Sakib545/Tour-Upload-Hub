@@ -187,8 +187,39 @@
     }
     status.hidden = true;
     const frag = document.createDocumentFragment();
-    shown.forEach((item, i) => frag.appendChild(tileFor(item, i)));
+
+    if (filter === 'all' && filters.length > 1) {
+      // Everything at once reads better grouped: single photos, then group
+      // photos, then videos (and any extra category the admin added).
+      let index = 0;
+      for (const group of filters) {
+        const inGroup = shown.filter((it) => itemMatches(it, group.id));
+        if (!inGroup.length) continue;
+        frag.appendChild(sectionHead(group.label, inGroup.length));
+        for (const item of inGroup) frag.appendChild(tileFor(item, index++));
+      }
+      // `shown` must follow the on-screen order so the lightbox arrows match.
+      shown = filters
+        .flatMap((group) => shown.filter((it) => itemMatches(it, group.id)))
+        .concat(shown.filter((it) => !filters.some((g) => itemMatches(it, g.id))));
+    } else {
+      shown.forEach((item, i) => frag.appendChild(tileFor(item, i)));
+    }
     grid.appendChild(frag);
+  }
+
+  function sectionHead(label, count) {
+    const head = document.createElement('div');
+    head.className = 'g-section-head';
+    const h = document.createElement('h2');
+    h.textContent = label;
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = `${count}টি`;
+    const line = document.createElement('span');
+    line.className = 'line';
+    head.append(h, n, line);
+    return head;
   }
 
   /* ── Filters ──────────────────────────────────────────────── */
@@ -304,10 +335,24 @@
 
   /* ── Lightbox ─────────────────────────────────────────────── */
 
+  /** Ask the thumbnail proxy for a bigger preview than the grid needs. */
+  function bigPreview(url, size) {
+    if (!url) return null;
+    return url + (url.includes('?') ? '&' : '?') + 's=' + size;
+  }
+
   function renderLightbox() {
     const item = shown[current];
     if (!item) return;
     stage.textContent = '';
+
+    const count = $('#lbCount');
+    if (count) count.textContent = `${current + 1} / ${shown.length}`;
+    const badge = $('#lbBadge');
+    if (badge) {
+      badge.textContent = item.categoryLabel || '';
+      badge.hidden = !item.categoryLabel;
+    }
 
     if (item.isVideo) {
       const video = document.createElement('video');
@@ -323,26 +368,40 @@
       }, { once: true });
     } else {
       const img = document.createElement('img');
-      // The proxied thumbnail is a browser-friendly JPEG even for HEIC files;
-      // the original is the fallback when Drive could not render one.
-      const first = item.thumb || item.src;
+      // Two-step: the proxied preview paints immediately (and is a
+      // browser-friendly JPEG even for HEIC), then the original quietly
+      // replaces it once it has finished downloading.
+      const preview = bigPreview(item.thumb, 1400) || item.src;
       img.alt = item.name;
-      img.src = first;
+      img.src = preview;
+      if (preview !== item.src) img.classList.add('is-preview');
       img.addEventListener('error', () => {
-        if (img.src.endsWith(item.src) || first === item.src) {
+        if (img.src.endsWith(item.src)) {
           captionEl.textContent = 'এই ছবিটি ব্রাউজারে দেখা যাচ্ছে না — Download করে দেখুন।';
         } else {
           img.src = item.src;
         }
       }, { once: true });
       stage.appendChild(img);
+
+      if (preview !== item.src) {
+        const full = new Image();
+        const shownFor = item.id;
+        full.addEventListener('load', () => {
+          // Ignore a late arrival for a photo the visitor has moved past.
+          if (!lightbox.hidden && shown[current] && shown[current].id === shownFor) {
+            img.src = full.src;
+            img.classList.remove('is-preview');
+          }
+        });
+        full.src = item.src;
+      }
     }
 
     lbDownload.href = item.download;
     lbDownload.setAttribute('download', item.name);
 
     const parts = [item.name];
-    if (item.categoryLabel) parts.push(`· ${item.categoryLabel}`);
     if (item.uploader) parts.push(`— ${item.uploader}`);
     if (item.size) parts.push(`(${fmtBytes(item.size)})`);
     captionEl.textContent = parts.join(' ');
@@ -368,6 +427,25 @@
     current = (current + dir + shown.length) % shown.length;
     renderLightbox();
   }
+
+  // Swipe left / right on a phone, the way a photo app behaves.
+  let touchX = null;
+  let touchY = null;
+  stage.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length !== 1) return;
+    touchX = ev.touches[0].clientX;
+    touchY = ev.touches[0].clientY;
+  }, { passive: true });
+  stage.addEventListener('touchend', (ev) => {
+    if (touchX === null) return;
+    const t = ev.changedTouches[0];
+    const dx = t.clientX - touchX;
+    const dy = t.clientY - touchY;
+    touchX = null;
+    touchY = null;
+    // Horizontal only, so scrolling a tall photo never flips the page.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+  }, { passive: true });
 
   $('#lbClose').addEventListener('click', closeLightbox);
   $('#lbPrev').addEventListener('click', () => step(-1));
