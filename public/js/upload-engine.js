@@ -100,8 +100,11 @@
       const rejected = [];
       const current = state.entries.length;
       const room = Math.max(0, cfg.maxFilesPerUpload - current);
-      // Which photo category the visitor chose for this batch (single / group).
+      // Which category the visitor chose for this batch. `photoCategory` is
+      // the historic name; `category` also applies it to videos, which is what
+      // an admin-added "any" category (a place, a day) wants.
       const photoCategory = String((opts && opts.photoCategory) || '').slice(0, 24);
+      const anyCategory = String((opts && opts.category) || '').slice(0, 24);
 
       for (const file of Array.from(fileList || [])) {
         if (room > 0 && added.length >= room) {
@@ -117,7 +120,8 @@
           name: file.name,
           size: file.size,
           type: isVideo ? 'video' : 'image',
-          category: isVideo ? 'video' : photoCategory, // '' = server auto-routes
+          // '' = the server routes by file type
+          category: anyCategory || (isVideo ? 'video' : photoCategory),
           status: 'pending',   // pending | uploading | done | error
           pct: 0,
           sent: 0,
