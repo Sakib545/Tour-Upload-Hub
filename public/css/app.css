@@ -168,6 +168,33 @@ body.page-home .container { padding-bottom: 180px; }
   animation: shimmer 9s linear infinite;
 }
 .hero-sub { margin: 8px auto 0; font-size: clamp(1.05rem, 3.4vw, 1.3rem); font-weight: 500; color: var(--muted); max-width: 34ch; }
+.tour-countdown {
+  width: min(520px, 100%);
+  margin: 22px auto 0;
+  padding: 14px;
+  border: 1px solid rgba(125, 211, 252, 0.26);
+  border-radius: 20px;
+  background: rgba(7, 22, 38, 0.64);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  animation: riseIn 0.55s var(--ease-out) 0.18s both;
+}
+.countdown-title { margin: 0 0 10px; color: #d8efff; font-size: 0.95rem; font-weight: 600; }
+.countdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.countdown-unit {
+  padding: 9px 5px 7px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.countdown-unit strong { display: block; color: #fff; font-size: clamp(1.35rem, 5vw, 2rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.countdown-unit span { display: block; margin-top: 5px; color: #9ec9e7; font-size: 0.76rem; }
+.tour-countdown.is-live { border-color: rgba(52, 211, 153, 0.5); }
+@media (max-width: 380px) {
+  .tour-countdown { padding: 10px; }
+  .countdown-grid { gap: 5px; }
+  .countdown-unit { padding-inline: 2px; }
+}
 .hero-cover {
   display: block;
   width: min(480px, 100%);
