@@ -31,28 +31,37 @@ test('admin edits the page content and it shows up in /api/config', async (t) =>
   const B = ctx.base;
   const token = await adminToken(B);
 
-  const res = await putSettings(B, token, {
-    site: {
-      title: 'সাজেক ২০২৬',
-      subtitle: 'আমাদের সব স্মৃতি',
-      date: '১২–১৪ ডিসেম্বর',
-      location: 'সাজেক ভ্যালি',
-      privacyNote: 'ছবি শুধু আমাদের গ্রুপের জন্য',
-      coverUrl: 'javascript:alert(1)', // rejected: not http(s)
-    },
-    folders: { group: 'Group Shots' },
+  // Page content and category folders are edited via the dedicated /site route.
+  const res = await fetch(B + '/api/admin/site', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({
+      content: {
+        title: 'সাজেক ২০২৬',
+        subtitle: 'আমাদের সব স্মৃতি',
+        date: '১২–১৪ ডিসেম্বর',
+        location: 'সাজেক ভ্যালি',
+        privacyNote: 'ছবি শুধু আমাদের গ্রুপের জন্য',
+        coverUrl: 'javascript:alert(1)', // rejected: not http(s)
+      },
+      categories: [
+        { id: 'single', media: 'photo', label: 'একক ছবি', folder: 'Photos' },
+        { id: 'group', media: 'photo', label: 'গ্রুপ ছবি', folder: 'Group Shots' },
+        { id: 'video', media: 'video', label: 'ভিডিও', folder: 'Videos' },
+      ],
+    }),
   });
   assert.equal(res.status, 200);
-  const saved = (await res.json()).settings;
-  assert.equal(saved.site.title, 'সাজেক ২০২৬');
-  assert.equal(saved.site.coverUrl, '', 'only http(s) cover URLs are accepted');
-  assert.equal(saved.folders.group, 'Group Shots');
+  const saved = (await res.json()).site;
+  assert.equal(saved.content.title, 'সাজেক ২০২৬');
+  assert.equal(saved.content.coverUrl, '', 'only http(s) cover URLs are accepted');
+  assert.equal(saved.categories.find((c) => c.id === 'group').folder, 'Group Shots');
 
   const cfg = await (await fetch(B + '/api/config')).json();
   assert.equal(cfg.tourTitle, 'সাজেক ২০২৬');
   assert.equal(cfg.tourSubtitle, 'আমাদের সব স্মৃতি');
   assert.equal(cfg.tourLocation, 'সাজেক ভ্যালি');
-  assert.equal(cfg.folderNames.group, 'Group Shots');
+  assert.equal(cfg.categories.find((c) => c.id === 'group').label, 'গ্রুপ ছবি');
 
   // Renamed folder is the one new group photos are created in.
   const pin = await (await fetch(B + '/api/verify-pin', {
@@ -64,7 +73,7 @@ test('admin edits the page content and it shows up in /api/config', async (t) =>
     headers: {
       'X-Upload-Id': 'settings_group_01', 'X-Offset': '0', 'X-Total': String(S),
       'X-File-Name': encodeURIComponent('all-of-us.jpg'), 'X-Mime': 'image/jpeg',
-      'X-Group': '1', 'X-Upload-Token': pin.token,
+      'X-Category': 'group', 'X-Upload-Token': pin.token,
     },
     body: padTo(S, JPEG_PREFIX),
   });

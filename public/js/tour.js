@@ -658,11 +658,9 @@
     if (node.textContent === next) return;
     node.textContent = next;
     if (reducedMotion) return;
-    // `cd-bump`, not `tick`: `.tick` belongs to the file-row checkmark SVG and
-    // sizes it to 15px, which would crush the digits.
-    node.classList.remove('cd-bump');
+    node.classList.remove('tick');
     void node.offsetWidth; // restart the animation
-    node.classList.add('cd-bump');
+    node.classList.add('tick');
   }
 
   function dayText(ms) {
@@ -764,8 +762,14 @@
     if (cfg.tourLocation) metaParts.push(`📍 ${cfg.tourLocation}`);
     if (metaParts.length) el.heroMeta.textContent = metaParts.join('  •  ');
     if (cfg.coverUrl) {
+      // A real cover replaces the beach scenery banner completely, so the two
+      // images never stack; without a cover the default scene stays.
       const img = new Image();
-      img.onload = () => { el.heroCover.src = cfg.coverUrl; el.heroCover.hidden = false; };
+      img.onload = () => {
+        el.heroCover.src = cfg.coverUrl;
+        el.heroCover.hidden = false;
+        document.body.classList.add('has-cover');
+      };
       img.src = cfg.coverUrl;
     }
     if (cfg.galleryEnabled) el.galleryLinkWrap.hidden = false;

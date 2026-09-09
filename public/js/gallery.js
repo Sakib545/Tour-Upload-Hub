@@ -483,6 +483,8 @@
     }
     skeleton.hidden = true;
     skeleton.textContent = '';
+    // A previous load may have failed in red; normal text goes back to default.
+    status.style.color = '';
     items = data.items || [];
     if (!items.length) {
       status.hidden = false;
@@ -502,6 +504,13 @@
       cfg = await api('/api/config');
     } catch (e) { /* treat as no pin requirement; load() will surface errors */ }
     pageCfg = cfg;
+    // Personalize the header with the tour title the organiser chose.
+    if (cfg && cfg.tourTitle) {
+      const t = `${cfg.tourTitle} — Gallery`;
+      document.title = t;
+      const titleEl = $('#galleryTitle');
+      if (titleEl) titleEl.textContent = t;
+    }
     // `galleryPinRequired` is false when the admin opened the gallery to
     // everyone, even though uploading still needs the PIN.
     if (cfg && cfg.galleryPinRequired && cfg.galleryEnabled) {
