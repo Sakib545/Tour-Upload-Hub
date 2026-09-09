@@ -622,6 +622,28 @@
 
   /* ── Countdown to the tour ────────────────────────────────── */
 
+  /**
+   * The date line is free text, but people often paste a machine date
+   * ("2026-09-19T06:14"). Anything that parses is shown as a readable Bengali
+   * date; anything else is left exactly as the organiser wrote it.
+   */
+  function prettyDate(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (!/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}|$)/.test(raw)) return raw;
+    const d = new Date(raw);
+    if (isNaN(d)) return raw;
+    const hasTime = /[T ]\d{2}:\d{2}/.test(raw);
+    try {
+      return d.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })
+        + (hasTime
+          ? ', ' + d.toLocaleTimeString('bn-BD', { hour: 'numeric', minute: '2-digit' })
+          : '');
+    } catch (e) {
+      return d.toLocaleDateString();
+    }
+  }
+
   /** Bengali digits, with a graceful fall back to plain ones. */
   function bnNum(n) {
     try {
@@ -647,10 +669,9 @@
 
   function formatWhen(date) {
     try {
-      return date.toLocaleString('bn-BD', {
-        dateStyle: 'full',
-        timeStyle: 'short',
-      });
+      return date.toLocaleDateString('bn-BD', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      }) + ' · ' + date.toLocaleTimeString('bn-BD', { hour: 'numeric', minute: '2-digit' });
     } catch (e) {
       return date.toLocaleString();
     }
@@ -736,7 +757,8 @@
     el.heroSub.textContent = cfg.tourSubtitle;
     el.privacyNote.textContent = cfg.privacyNote;
     const metaParts = [];
-    if (cfg.tourDate) metaParts.push(`📅 ${cfg.tourDate}`);
+    const dateText = prettyDate(cfg.tourDate) || prettyDate(cfg.tourStartAt);
+    if (dateText) metaParts.push(`📅 ${dateText}`);
     if (cfg.tourLocation) metaParts.push(`📍 ${cfg.tourLocation}`);
     if (metaParts.length) el.heroMeta.textContent = metaParts.join('  •  ');
     if (cfg.coverUrl) {

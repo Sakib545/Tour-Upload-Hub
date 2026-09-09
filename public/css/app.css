@@ -1395,14 +1395,12 @@ body.page-home .hero-eyebrow {
   justify-items: center;
 }
 .cd-n {
-  font-size: clamp(1.5rem, 6vw, 2.1rem);
+  font-size: clamp(1.9rem, 7.5vw, 2.6rem);
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  background: var(--brand-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.01em;
+  color: var(--text);
 }
 /* A small lift each time a number changes, so the clock feels alive. */
 .cd-n.tick { animation: cdTick 0.4s var(--ease-spring); }
@@ -1423,4 +1421,113 @@ body.page-home .hero-eyebrow {
   border-radius: 999px;
   padding: 8px 18px;
   display: inline-block;
+}
+
+/* ── Home hero: readable AND colourful over the scenery ─────── */
+
+/* One calm plate behind the words — but tinted with the sky and the sea
+   instead of flat grey, so the beach scene continues into the panel. */
+body.page-home .hero .hero-inner {
+  background:
+    linear-gradient(150deg, rgba(12, 34, 62, 0.62), rgba(38, 20, 62, 0.58) 55%, rgba(10, 40, 60, 0.62));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 28px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 24px 60px rgba(3, 12, 24, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  max-width: 620px;
+  padding: 34px 22px 30px;
+}
+@media (prefers-color-scheme: light) {
+  body.page-home .hero .hero-inner {
+    background:
+      linear-gradient(150deg, rgba(255, 255, 255, 0.72), rgba(255, 244, 232, 0.66) 55%, rgba(233, 248, 255, 0.72));
+    border-color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* Sunset in the title: warm gold into coral into sea blue. A clipped gradient
+   cannot take a text-shadow, so the lift comes from a drop-shadow filter. */
+body.page-home .hero h1 {
+  background: linear-gradient(100deg, #ffd79a 0%, #ff9bb0 42%, #7dd3fc 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 14px rgba(3, 12, 24, 0.55));
+  animation: shimmer 9s linear infinite;
+}
+body.page-home .hero-sub {
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 10px rgba(3, 12, 24, 0.5);
+}
+@media (prefers-color-scheme: light) {
+  body.page-home .hero h1 {
+    background-image: linear-gradient(100deg, #ea580c 0%, #db2777 45%, #0284c7 100%);
+    filter: none;
+  }
+  body.page-home .hero-sub { color: #33536b; text-shadow: none; }
+}
+
+/* Each countdown cell takes one colour from the scene — sunset, sea, dusk,
+   coral. White numerals on a saturated card read well in either theme. */
+.cd-cell:nth-child(1) { --cd-a: #f59e0b; --cd-b: #f97316; }
+.cd-cell:nth-child(2) { --cd-a: #06b6d4; --cd-b: #0284c7; }
+.cd-cell:nth-child(3) { --cd-a: #8b5cf6; --cd-b: #6366f1; }
+.cd-cell:nth-child(4) { --cd-a: #f472b6; --cd-b: #f43f5e; }
+
+body.page-home .countdown .cd-cell {
+  background: linear-gradient(160deg, var(--cd-a), var(--cd-b));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 10px 26px rgba(3, 12, 24, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+body.page-home .countdown .cd-n {
+  color: #ffffff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+body.page-home .countdown .cd-u { color: rgba(255, 255, 255, 0.88); }
+
+/* The label sits in its own soft pill so it never fades into the sand. */
+body.page-home .countdown .cd-label {
+  display: inline-block;
+  color: #fff7ed;
+  background: linear-gradient(120deg, rgba(249, 115, 22, 0.45), rgba(99, 102, 241, 0.45));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 7px 18px;
+}
+body.page-home .countdown .cd-when { color: rgba(255, 255, 255, 0.86); }
+@media (prefers-color-scheme: light) {
+  body.page-home .countdown .cd-label { color: #7c2d12; }
+  body.page-home .countdown .cd-when { color: #3f5d76; }
+}
+
+/* Wider cells and a touch more air, so "সেকেন্ড" never wraps mid-word. */
+.cd-cells { gap: 10px; }
+.cd-cell { padding: 12px 6px 10px; }
+.cd-u { font-size: 0.78rem; letter-spacing: 0.01em; }
+.cd-label { font-size: 1.02rem; }
+@media (max-width: 400px) {
+  .cd-cells { gap: 6px; }
+  .cd-u { font-size: 0.7rem; }
+}
+
+/* The date + place pill picks up the same sunset palette. */
+body.page-home .hero-eyebrow {
+  background: linear-gradient(120deg, rgba(255, 247, 237, 0.94), rgba(255, 228, 230, 0.94));
+  color: #9a3412;
+  border-color: rgba(249, 115, 22, 0.35);
+  box-shadow: 0 8px 22px rgba(11, 37, 59, 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  body.page-home .hero-eyebrow {
+    background: linear-gradient(120deg, rgba(124, 45, 18, 0.55), rgba(30, 41, 99, 0.55));
+    color: #ffe6c7;
+    border-color: rgba(255, 200, 150, 0.3);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  }
 }
