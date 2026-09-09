@@ -189,3 +189,38 @@ test('the beach crew is exposed to the public page and can be restyled', async (
   });
   assert.equal((await (await fetch(B + '/api/config')).json()).heroCrew, 'photo');
 });
+
+test('a person can be renamed from the admin panel', async (t) => {
+  const ctx = await start({ env: { TOUR_UPLOAD_PIN: '', FACE_SORT: 'true' } });
+  t.after(() => ctx.close());
+  const B = ctx.base;
+  const site = require('../services/site');
+  for (const p of site.people) site.removePerson(p.id);
+
+  const token = await adminToken(B);
+  const H = { 'content-type': 'application/json', Authorization: 'Bearer ' + token };
+  const created = await (await fetch(B + '/api/admin/people', {
+    method: 'POST', headers: H, body: JSON.stringify({ name: 'রাকিব' }),
+  })).json();
+  const id = created.person.id;
+
+  const renamed = await fetch(B + '/api/admin/people/' + id, {
+    method: 'PATCH', headers: H, body: JSON.stringify({ name: 'রাকিব হাসান' }),
+  });
+  assert.equal(renamed.status, 200);
+  assert.equal((await renamed.json()).people.find((p) => p.id === id).name, 'রাকিব হাসান');
+
+  // The new name reaches the public page, which is what the beach figure and
+  // the game racer are labelled with.
+  const cfg = await (await fetch(B + '/api/config')).json();
+  assert.equal(cfg.crew.find((c) => c.id === id).name, 'রাকিব হাসান');
+
+  // An empty name is refused rather than wiping the person's label.
+  await fetch(B + '/api/admin/people/' + id, {
+    method: 'PATCH', headers: H, body: JSON.stringify({ name: '   ' }),
+  });
+  assert.equal(site.personById(id).name, 'রাকিব হাসান');
+
+  // Renaming leaves the Drive folder alone: photos already filed stay put.
+  assert.equal(site.personById(id).folder, 'রাকিব');
+});

@@ -549,9 +549,53 @@
     const li = document.createElement('li');
     li.className = 'person-row';
 
-    const who = document.createElement('span');
-    who.className = 'who';
-    who.textContent = person.name;
+    /* The face first: naming a row is much easier when you can see who it is.
+       Clicking it is the same as "+ নমুনা ছবি", so a wrong photo is one tap
+       from being replaced. The samples count doubles as a cache buster, or the
+       browser would keep showing the old portrait for an hour after a change. */
+    const avatarBtn = document.createElement('button');
+    avatarBtn.type = 'button';
+    avatarBtn.className = 'person-face';
+    avatarBtn.title = enabled ? 'নমুনা ছবি বদলান' : 'FACE_SORT চালু করুন';
+    avatarBtn.disabled = !enabled;
+    if (person.hasFace) {
+      const img = document.createElement('img');
+      img.alt = person.name;
+      img.loading = 'lazy';
+      img.src = `/api/crew/${person.id}/face.jpg?v=${person.samples || 0}`;
+      avatarBtn.appendChild(img);
+    } else {
+      const initial = document.createElement('span');
+      initial.className = 'initial';
+      initial.textContent = (person.name || '?').trim().charAt(0);
+      avatarBtn.style.background = (person.avatar && person.avatar.shirt) || '#cbd9e6';
+      avatarBtn.appendChild(initial);
+    }
+    avatarBtn.addEventListener('click', () => {
+      enrollTargetId = person.id;
+      $('#enrollInput').click();
+    });
+
+    // The name is editable in place: it is what shows on the beach figure, on
+    // the racer in the mini game, and on the person's Drive folder label.
+    const who = document.createElement('input');
+    who.className = 'input who-input';
+    who.value = person.name;
+    who.maxLength = 60;
+    who.setAttribute('aria-label', 'নাম');
+    const saveName = () => {
+      const next = who.value.trim();
+      if (!next || next === person.name) {
+        who.value = person.name;
+        return;
+      }
+      saveNameFor(person.id, next, who);
+    };
+    who.addEventListener('change', saveName);
+    who.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); who.blur(); }
+      if (ev.key === 'Escape') { who.value = person.name; who.blur(); }
+    });
 
     const samples = document.createElement('span');
     samples.className = person.samples ? 'samples' : 'warn';
@@ -575,9 +619,6 @@
       swatches.appendChild(input);
     }
 
-    const spacer = document.createElement('span');
-    spacer.className = 'spacer';
-
     const enroll = document.createElement('button');
     enroll.type = 'button';
     enroll.className = 'btn btn-ghost btn-xs';
@@ -596,7 +637,17 @@
     remove.textContent = '✕';
     remove.addEventListener('click', () => removePerson(person));
 
-    li.append(who, samples, swatches, spacer, enroll, remove);
+    // Three columns — face, details, actions — so a narrow admin column wraps
+    // the details rather than dropping the remove button onto its own line.
+    const main = document.createElement('div');
+    main.className = 'person-main';
+    main.append(who, samples, swatches);
+
+    const actions = document.createElement('div');
+    actions.className = 'person-actions';
+    actions.append(enroll, remove);
+
+    li.append(avatarBtn, main, actions);
     return li;
   }
 
@@ -623,6 +674,17 @@
     if (st.failed) bits.push(`${st.failed}টি ব্যর্থ`);
     if (st.lastError) bits.push(st.lastError);
     $('#facesStatus').textContent = bits.join(' · ');
+  }
+
+  async function saveNameFor(id, name, input) {
+    try {
+      await apiAdmin('/api/admin/people/' + id, { method: 'PATCH', body: { name } });
+      toast(`নাম বদলে "${name}" করা হয়েছে।`);
+      loadFaces();
+    } catch (err) {
+      toast('নাম সেভ করা যায়নি।', { bad: true });
+      if (input) input.focus();
+    }
   }
 
   async function saveAvatar(id, patch) {

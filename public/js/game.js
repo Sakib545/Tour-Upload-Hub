@@ -58,6 +58,53 @@
     const onState = options.onState || function () {};
     const crew = Array.isArray(options.crew) ? options.crew.slice(0, 6) : [];
 
+    /**
+     * Portraits are the same 160px crops the site serves for the beach scene.
+     * They are fetched once, kept in a cache, and simply skipped until they
+     * arrive — a race never waits on a network request.
+     */
+    const portraits = new Map();
+    function portrait(person) {
+      if (!person || !person.hasFace) return null;
+      if (portraits.has(person.id)) return portraits.get(person.id);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = `/api/crew/${person.id}/face.jpg`;
+      img.addEventListener('error', () => portraits.set(person.id, null));
+      portraits.set(person.id, img);
+      return img;
+    }
+
+    /** A head: the person's photo when we have it, otherwise drawn. */
+    function headOf(person, colours, cx, cy, r) {
+      const img = portrait(person);
+      if (img && img.complete && img.naturalWidth) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, TAU);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.fill();
+        ctx.clip();
+        ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = Math.max(1, r * 0.14);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, TAU);
+        ctx.stroke();
+        return;
+      }
+      ctx.fillStyle = colours.skin;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = colours.hair;
+      ctx.beginPath();
+      ctx.arc(cx, cy - r * 0.3, r, Math.PI, 0);
+      ctx.fill();
+    }
+
     const state = {
       running: false,
       finished: false,
@@ -99,7 +146,8 @@
     }
 
     function resetRivals() {
-      state.rivals = crew.slice(0, 4).map((person, i) => ({
+      const others = crew.filter((p) => !options.player || p.id !== options.player.id);
+      state.rivals = others.slice(0, 4).map((person, i) => ({
         person,
         z: 900 + i * 420,
         x: rand(-LANE_HALF * 0.8, LANE_HALF * 0.8),
@@ -704,14 +752,13 @@
       ctx.lineTo(-18 * s, -16 * s);
       ctx.closePath();
       ctx.fill();
-      const shirt = (r.person && r.person.avatar && r.person.avatar.shirt) || '#0ea5e9';
-      const skin = (r.person && r.person.avatar && r.person.avatar.skin) || '#efbd93';
-      ctx.fillStyle = shirt;
+      const avatar = (r.person && r.person.avatar) || {};
+      ctx.fillStyle = avatar.shirt || '#0ea5e9';
       ctx.fillRect(-8 * s, -34 * s, 16 * s, 18 * s);
-      ctx.fillStyle = skin;
-      ctx.beginPath();
-      ctx.arc(0, -40 * s, 7 * s, 0, TAU);
-      ctx.fill();
+      headOf(r.person, {
+        skin: avatar.skin || '#efbd93',
+        hair: avatar.hair || '#2b1d17',
+      }, 0, -40 * s, 7.5 * s);
       if (r.person && r.person.name && p.scale > 0.13) {
         ctx.fillStyle = 'rgba(10, 26, 44, 0.6)';
         const label = r.person.name;
@@ -791,14 +838,10 @@
       ctx.beginPath();
       ctx.roundRect(-15 * s, -52 * s, 30 * s, 34 * s, 6 * s);
       ctx.fill();
-      ctx.fillStyle = options.skin || '#efbd93';
-      ctx.beginPath();
-      ctx.arc(0, -62 * s, 13 * s, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = '#2b1d17';
-      ctx.beginPath();
-      ctx.arc(0, -66 * s, 13 * s, Math.PI, 0);
-      ctx.fill();
+      headOf(options.player, {
+        skin: options.skin || '#efbd93',
+        hair: options.hair || '#2b1d17',
+      }, 0, -62 * s, 13 * s);
       // Arms out to the wheel
       ctx.strokeStyle = options.skin || '#efbd93';
       ctx.lineWidth = 7 * s;
@@ -898,6 +941,16 @@
       stop,
       resize,
       reset,
+      /** Choose which enrolled person is driving. */
+      setPlayer(person) {
+        options.player = person || null;
+        const a = (person && person.avatar) || {};
+        options.skin = a.skin || options.skin;
+        options.hair = a.hair || '#2b1d17';
+        options.shirt = a.shirt || options.shirt;
+        if (person) portrait(person); // start the download now, not at the line
+        resetRivals();
+      },
       setSteer(v) {
         state.steer = clamp(v, -1, 1);
         if (v !== 0) state.target = null; // a button overrides a held finger

@@ -34,27 +34,87 @@
     document.getElementById('btnPlay').textContent = 'আবার খেলুন';
   }
 
+  const PICK_KEY = 'dheu-player';
+  let crewList = [];
+
+  /**
+   * One button per enrolled person, with their portrait when there is one.
+   * The choice is remembered, so everyone lands on their own racer next time
+   * they open the page on that phone.
+   */
+  function buildPicker(crew) {
+    const row = document.getElementById('pickerRow');
+    const wrap = document.getElementById('picker');
+    row.textContent = '';
+    if (!crew.length) {
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
+
+    const saved = localStorage.getItem(PICK_KEY);
+    let chosen = crew.find((p) => p.id === saved) || crew[0];
+
+    const select = (person) => {
+      chosen = person;
+      try { localStorage.setItem(PICK_KEY, person.id); } catch (e) { /* private mode */ }
+      for (const b of row.children) b.classList.toggle('is-on', b.dataset.id === person.id);
+      if (game) game.setPlayer(person);
+    };
+
+    for (const person of crew) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'racer';
+      btn.dataset.id = person.id;
+
+      const face = document.createElement('span');
+      face.className = 'face';
+      if (person.hasFace) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = `/api/crew/${person.id}/face.jpg`;
+        face.appendChild(img);
+      } else {
+        const initial = document.createElement('span');
+        initial.className = 'initial';
+        initial.textContent = (person.name || '?').trim().charAt(0);
+        face.style.background = (person.avatar && person.avatar.shirt) || '#17334f';
+        face.appendChild(initial);
+      }
+
+      const who = document.createElement('span');
+      who.className = 'who';
+      who.textContent = person.name;
+
+      btn.append(face, who);
+      btn.addEventListener('click', () => select(person));
+      row.appendChild(btn);
+    }
+    select(chosen);
+  }
+
   async function boot() {
     let cfg = null;
     try {
       cfg = await api('/api/config');
     } catch (e) { /* the game works fine without the crew */ }
 
-    const crew = (cfg && cfg.crew) || [];
+    crewList = (cfg && cfg.crew) || [];
     game = createWaveRace(canvas, {
-      crew,
-      // The player's boat takes the first enrolled person's colouring.
-      skin: crew[0] && crew[0].avatar ? crew[0].avatar.skin : '#efbd93',
-      shirt: crew[0] && crew[0].avatar ? crew[0].avatar.shirt : '#17948f',
+      crew: crewList,
+      skin: '#efbd93',
+      shirt: '#17948f',
       onState: renderHud,
     });
+    buildPicker(crewList);
 
     document.getElementById('cardBest').textContent =
       `সেরা স্কোর: ${bnNum(Number(localStorage.getItem('dheu-best') || 0))}`;
 
-    if (crew.length) {
+    if (crewList.length > 1) {
       document.getElementById('cardText').textContent +=
-        ` সামনে ${bnNum(Math.min(4, crew.length))} জন প্রতিদ্বন্দ্বী আছে।`;
+        ` সামনে ${bnNum(Math.min(4, crewList.length - 1))} জন প্রতিদ্বন্দ্বী আছে।`;
     }
   }
 

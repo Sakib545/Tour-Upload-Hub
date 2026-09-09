@@ -1,24 +1,28 @@
-এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১২টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
+এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১৩টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
 করে দিন — একই নামের ফাইল replace হবে — তারপর commit করে push করুন।
 কোনো ফাইল মুছতে হবে না।
 
 নতুন (৫টি)
-  public/game.html            মিনি গেমের পেজ  (/game)
-  public/js/game.js           গেমের ইঞ্জিন, রেন্ডারার, কন্ট্রোল
-  public/js/game-ui.js        HUD, টাচ প্যাড, কীবোর্ড, ক্রু
+  public/game.html            মিনি গেমের পেজ (/game) + চরিত্র বাছাই
+  public/js/game.js           ইঞ্জিন, রেন্ডারার, কন্ট্রোল, মুখের ছবি
+  public/js/game-ui.js        HUD, টাচ প্যাড, কীবোর্ড, চরিত্র picker
   scripts/check-scene.js      hero দৃশ্যের transform সংঘর্ষ ধরার পরীক্ষা
   test/21-game-page.test.js   গেম পেজের টেস্ট
 
-বদলানো (৭টি)
-  public/css/app.css   animation keyframe ফিক্স (এটাই সৈকত ফাঁকা হওয়া ঠেকায়)
-                       + গেমের স্টাইল
-  public/index.html    home পেজে গেমের লিংক
-  public/admin.html    countdown-এর অবস্থা দেখানোর লাইন
-  public/js/admin.js   ওই লাইনটা পূরণ করার কোড
-  server/app.js        /game রুট
-  package.json         npm run check-এ scene পরীক্ষা যোগ
-  README.md            নতুন ফিচারের বর্ণনা
+বদলানো (৮টি)
+  public/admin.html         People কার্ড: ছবি + নামের ঘর, countdown-এর অবস্থা
+  public/js/admin.js        ছবি দেখানো, নাম বদলানো, সারির গঠন
+  public/css/app.css        keyframe ফিক্স + গেম, picker, People সারির স্টাইল
+  public/index.html         home পেজে গেমের লিংক
+  server/app.js             /game রুট
+  package.json              npm run check-এ scene পরীক্ষা
+  test/20-face-sort.test.js নাম বদলানোর টেস্ট
+  README.md                 বর্ণনা
+
+Admin → People কার্ডে এখন প্রত্যেকের ছবি পাশে থাকে; ছবিতে ক্লিক করলেই নতুন
+নমুনা ছবি দেওয়া যায়, আর নামের ঘরে লিখে Enter চাপলে নাম সেভ হয়।
+নাম বদলালে Drive-এর ফোল্ডারের নাম বদলায় না — পুরনো ছবি যেখানে আছে সেখানেই থাকে।
 
 কপি করার পর:
-  npm test        → ৪১টি পাস হওয়ার কথা
+  npm test        → ৪২টি পাস হওয়ার কথা
   npm run check

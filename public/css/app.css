@@ -1553,7 +1553,9 @@ body.page-home .hero-eyebrow {
   border-radius: 14px; padding: 10px 12px;
   animation: rowIn 0.3s var(--ease-out) both;
 }
-.person-row .who { font-weight: 600; }
+.person-row .who-input {
+  width: 8.5rem; font-weight: 600; padding: 7px 10px; font-size: 0.95rem;
+}
 .person-row .samples { color: var(--muted); font-size: 0.84rem; }
 .person-row .spacer { flex: 1 1 auto; }
 .person-row .warn { color: var(--warn); font-size: 0.84rem; font-weight: 600; }
@@ -1842,3 +1844,59 @@ body.page-game { min-height: 100vh; }
 @media (min-width: 700px) { .game-pads { display: none; } }
 
 .game-link-row { text-align: center; margin: 4px 0 10px; }
+
+/* ── The race: choosing your character ──────────────────────── */
+.picker { margin: 12px 0 4px; }
+.picker-label { margin: 0 0 8px; font-size: 0.88rem; color: #a9c0d6; }
+.picker-row {
+  display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px;
+  scrollbar-width: none;
+}
+.picker-row::-webkit-scrollbar { display: none; }
+.racer {
+  flex: 0 0 auto; width: 66px; border: 0; background: none; cursor: pointer;
+  display: grid; gap: 5px; justify-items: center; padding: 0;
+  color: #cddcea; font-family: var(--font); font-size: 0.76rem;
+}
+.racer .face {
+  width: 52px; height: 52px; border-radius: 50%; overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.25); background: #17334f;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.18s var(--ease-spring), border-color 0.18s ease;
+}
+.racer .face img { width: 100%; height: 100%; object-fit: cover; }
+.racer .face .initial { font-size: 1.2rem; font-weight: 700; color: #0b2c4c; }
+.racer .who { max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.racer.is-on .face { border-color: #ffd76b; transform: scale(1.08); box-shadow: 0 0 0 3px rgba(255, 215, 107, 0.3); }
+.racer.is-on .who { color: #ffd76b; font-weight: 700; }
+
+/* ── Admin: a face beside every name ────────────────────────── */
+.person-row { row-gap: 8px; }
+.person-face {
+  flex: 0 0 auto;
+  width: 46px; height: 46px; padding: 0; border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--line); background: var(--surface-2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.2s ease, transform 0.2s var(--ease-spring);
+}
+.person-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.person-face .initial { font-size: 1.15rem; font-weight: 700; color: #0b2c4c; }
+.person-face:hover:not(:disabled) { border-color: var(--brand-1); transform: scale(1.06); }
+.person-face:disabled { cursor: default; opacity: 0.7; }
+.person-row .samples, .person-row .warn { flex: 1 1 9rem; min-width: 0; }
+
+/* Face | details | actions. The details column is the one that gives way. */
+.person-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 12px;
+}
+.person-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; min-width: 0; }
+.person-main .who-input { width: min(11rem, 100%); }
+.person-main .samples, .person-main .warn { flex: 1 1 auto; min-width: 6rem; }
+.person-actions { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 520px) {
+  .person-row { grid-template-columns: auto minmax(0, 1fr); }
+  .person-actions { grid-column: 2; justify-content: flex-end; }
+}
