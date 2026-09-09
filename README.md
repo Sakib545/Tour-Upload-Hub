@@ -22,6 +22,15 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
 
 ---
 
+- **Public gallery, PIN-gated uploads**: with "Anyone can view the gallery" on, visitors
+  browse and download freely but still need the PIN to add anything (`GALLERY_PUBLIC`).
+- **Settings survive redeploys**: admin edits (page content, category folder names,
+  toggles) are written to `.tour-hub-settings.json` inside your own Drive folder, since
+  Railway's disk is wiped on every deploy. The file is hidden from the gallery and from
+  admin file counts.
+- **Tidy up old uploads**: the admin's **Sort existing files into folders** button
+  re-parents files added before the category folders existed.
+
 ## 1. Local setup
 
 Prerequisites: **Node.js ≥ 18**.
