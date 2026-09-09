@@ -9,6 +9,7 @@
   let cfg = null;
   let engine = null;
   const rowEls = new Map(); // entry id -> { pct, bar, status, row, catline }
+  let countdownTimer = null;
   let rafPending = false;
   let wasRunning = false;
 
@@ -20,13 +21,14 @@
     heroTitle: $('#heroTitle'),
     heroSub: $('#heroSub'),
     heroMeta: $('#heroMeta'),
+    countdown: $('#countdown'),
+    cdLabel: $('#cdLabel'),
+    cdWhen: $('#cdWhen'),
+    cdDays: $('#cdDays'),
+    cdHours: $('#cdHours'),
+    cdMins: $('#cdMins'),
+    cdSecs: $('#cdSecs'),
     heroCover: $('#heroCover'),
-    tourCountdown: $('#tourCountdown'),
-    countdownTitle: $('#countdownTitle'),
-    countDays: $('#countDays'),
-    countHours: $('#countHours'),
-    countMinutes: $('#countMinutes'),
-    countSeconds: $('#countSeconds'),
     privacyNote: $('#privacyNote'),
     pinGate: $('#pinGate'),
     pinForm: $('#pinForm'),
@@ -62,37 +64,6 @@
     uploaderName: $('#uploaderName'),
     confettiRoot: $('#confettiRoot'),
   };
-
-  let countdownTimer = null;
-
-  function startCountdown(rawDate) {
-    if (!el.tourCountdown || !rawDate) return;
-    const target = new Date(rawDate);
-    if (!Number.isFinite(target.getTime())) return;
-
-    const pad = (n) => String(n).padStart(2, '0');
-    const paint = () => {
-      const diff = target.getTime() - Date.now();
-      if (diff <= 0) {
-        el.countdownTitle.textContent = 'আমাদের Tour শুরু হয়ে গেছে! 🎉';
-        el.countDays.textContent = '0';
-        el.countHours.textContent = '00';
-        el.countMinutes.textContent = '00';
-        el.countSeconds.textContent = '00';
-        el.tourCountdown.classList.add('is-live');
-        if (countdownTimer) clearInterval(countdownTimer);
-        return;
-      }
-      const totalSeconds = Math.floor(diff / 1000);
-      el.countDays.textContent = String(Math.floor(totalSeconds / 86400));
-      el.countHours.textContent = pad(Math.floor((totalSeconds % 86400) / 3600));
-      el.countMinutes.textContent = pad(Math.floor((totalSeconds % 3600) / 60));
-      el.countSeconds.textContent = pad(totalSeconds % 60);
-    };
-    el.tourCountdown.hidden = false;
-    paint();
-    countdownTimer = setInterval(paint, 1000);
-  }
 
   const reducedMotion =
     window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -627,7 +598,12 @@
 
   function addPicked(fileList) {
     if (!fileList || !fileList.length) return;
-    const res = engine.addFiles(fileList, { photoCategory: activePhotoCat });
+    // An "any" category applies to videos too; a photo category does not.
+    const active = (cfg.categories || []).find((c) => c.id === activePhotoCat);
+    const opts = active && active.media === 'any'
+      ? { category: activePhotoCat }
+      : { photoCategory: activePhotoCat };
+    const res = engine.addFiles(fileList, opts);
     for (const r of res.rejected) {
       const why =
         r.code === 'FILE_TOO_LARGE'
@@ -642,6 +618,106 @@
       hideBanner();
       toast(`${res.added.length}টি ফাইল বাছাই হয়েছে`);
     }
+  }
+
+  /* ── Countdown to the tour ────────────────────────────────── */
+
+  /** Bengali digits, with a graceful fall back to plain ones. */
+  function bnNum(n) {
+    try {
+      return Number(n).toLocaleString('bn-BD', { useGrouping: false });
+    } catch (e) {
+      return String(n);
+    }
+  }
+
+  function setCell(node, value) {
+    const next = bnNum(value);
+    if (node.textContent === next) return;
+    node.textContent = next;
+    if (reducedMotion) return;
+    node.classList.remove('tick');
+    void node.offsetWidth; // restart the animation
+    node.classList.add('tick');
+  }
+
+  function dayText(ms) {
+    return bnNum(Math.floor(ms / 86400000));
+  }
+
+  function formatWhen(date) {
+    try {
+      return date.toLocaleString('bn-BD', {
+        dateStyle: 'full',
+        timeStyle: 'short',
+      });
+    } catch (e) {
+      return date.toLocaleString();
+    }
+  }
+
+  /**
+   * Three states: counting down to the start, running (between start and end),
+   * and over. Only the first one needs a ticking clock.
+   */
+  function renderCountdown(start, end) {
+    const now = Date.now();
+
+    if (start && now < start.getTime()) {
+      el.countdown.className = 'countdown';
+      el.cdLabel.textContent = 'ট্যুর শুরু হতে বাকি';
+      let left = Math.max(0, start.getTime() - now);
+      const days = Math.floor(left / 86400000); left -= days * 86400000;
+      const hours = Math.floor(left / 3600000); left -= hours * 3600000;
+      const mins = Math.floor(left / 60000); left -= mins * 60000;
+      setCell(el.cdDays, days);
+      setCell(el.cdHours, hours);
+      setCell(el.cdMins, mins);
+      setCell(el.cdSecs, Math.floor(left / 1000));
+      el.cdWhen.textContent = formatWhen(start);
+      return true; // keep ticking
+    }
+
+    const finished = end ? now > end.getTime() : start && now - start.getTime() > 86400000;
+    if (!finished) {
+      el.countdown.className = 'countdown is-live';
+      el.cdLabel.textContent = '🎉 ট্যুর চলছে — ছবি তুলুন, এখানেই Upload করুন!';
+      el.cdWhen.textContent = '';
+      return true; // still tick, so the "over" state arrives on its own
+    }
+
+    el.countdown.className = 'countdown is-past';
+    const since = now - (end || start).getTime();
+    el.cdLabel.textContent =
+      since < 86400000
+        ? 'ট্যুর শেষ — বাকি ছবিগুলো Upload করে ফেলুন 💚'
+        : `ট্যুর শেষ হয়েছে ${dayText(since)} দিন আগে — বাকি ছবিগুলো Upload করে ফেলুন 💚`;
+    el.cdWhen.textContent = '';
+    return false; // nothing left to count
+  }
+
+  function startCountdown() {
+    const start = cfg.tourStartAt ? new Date(cfg.tourStartAt) : null;
+    const end = cfg.tourEndAt ? new Date(cfg.tourEndAt) : null;
+    if ((!start || isNaN(start)) && (!end || isNaN(end))) return;
+
+    el.countdown.hidden = false;
+    const tick = () => {
+      const keepGoing = renderCountdown(start && !isNaN(start) ? start : null,
+        end && !isNaN(end) ? end : null);
+      if (!keepGoing && countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    };
+    tick();
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(tick, 1000);
+
+    // A background tab does not need a running clock; catch up on return.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && countdownTimer) tick();
+    });
   }
 
   /* ── Boot ─────────────────────────────────────────────────── */
@@ -663,16 +739,17 @@
     if (cfg.tourDate) metaParts.push(`📅 ${cfg.tourDate}`);
     if (cfg.tourLocation) metaParts.push(`📍 ${cfg.tourLocation}`);
     if (metaParts.length) el.heroMeta.textContent = metaParts.join('  •  ');
-    startCountdown(cfg.tourDate);
     if (cfg.coverUrl) {
       const img = new Image();
       img.onload = () => { el.heroCover.src = cfg.coverUrl; el.heroCover.hidden = false; };
       img.src = cfg.coverUrl;
     }
     if (cfg.galleryEnabled) el.galleryLinkWrap.hidden = false;
+    startCountdown();
 
     // Photo categories (single / group) decide the Drive folder photos go to.
-    photoCats = (cfg.categories || []).filter((c) => c.media === 'photo');
+    // Photo categories plus any custom "takes anything" ones the admin added.
+    photoCats = (cfg.categories || []).filter((c) => c.media === 'photo' || c.media === 'any');
     activePhotoCat = (photoCats[0] && photoCats[0].id) || '';
     if (cfg.separateMediaFolders && photoCats.length >= 2 && el.catPick) {
       el.catPick.hidden = false;
