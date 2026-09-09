@@ -68,9 +68,15 @@
             <label class="field">Title <input class="input" id="siteTitle" maxlength="120" autocomplete="off" /></label>
             <label class="field">Subtitle <input class="input" id="siteSubtitle" maxlength="300" autocomplete="off" /></label>
             <div class="field-row">
-              <label class="field">Tour date & time <input class="input" id="siteDate" type="datetime-local" maxlength="60" autocomplete="off" /></label>
+              <label class="field">Date (free text, shown in the header) <input class="input" id="siteDate" maxlength="60" autocomplete="off" /></label>
               <label class="field">Location <input class="input" id="siteLocation" maxlength="120" autocomplete="off" /></label>
             </div>
+            <div class="field-row">
+              <label class="field">Tour starts (countdown) <input class="input" id="siteStartAt" type="datetime-local" /></label>
+              <label class="field">Tour ends (optional) <input class="input" id="siteEndAt" type="datetime-local" /></label>
+            </div>
+            <p class="muted-text note">Start দিলে public পেজে “ট্যুর শুরু হতে বাকি” countdown দেখাবে; ট্যুর চলাকালীন
+              নিজে থেকেই বার্তা বদলে যাবে। খালি রাখলে countdown দেখাবে না।</p>
             <label class="field">Privacy note <textarea class="input" id="sitePrivacy" maxlength="300" rows="2"></textarea></label>
             <label class="field">Cover image URL (https…) <input class="input" id="siteCover" maxlength="500" autocomplete="off" /></label>
           </div>
@@ -79,14 +85,37 @@
           <p class="muted-text">Visitor upload page-এ এই label দেখা যাবে; ফাইল ওই Drive ফোল্ডারে জমা হবে। ফোল্ডারের নাম বদলালে নতুন Upload নতুন ফোল্ডারে যাবে; পুরোনো ফোল্ডার ও ফাইল Drive-এ আগের জায়গাতেই থাকবে (চাইলে Drive থেকে নতুন ফোল্ডারে সরিয়ে নিতে পারেন)।</p>
           <div class="table-scroll">
             <table class="admin-table cat-table">
-              <thead><tr><th>Type</th><th>Label (public)</th><th>Drive folder</th></tr></thead>
+              <thead><tr><th>Type</th><th>Label (public)</th><th>Drive folder</th><th></th></tr></thead>
               <tbody id="catTableBody"></tbody>
             </table>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost btn-xs" id="btnAddCat">+ Add category</button>
+            <span class="muted-text">নতুন ফোল্ডার Drive-এ প্রথম Upload-এর সময় তৈরি হবে।</span>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-primary" id="btnSaveSite">Save tour page & folders</button>
             <span class="muted-text" id="siteSavedNote"></span>
           </div>
+        </section>
+
+        <section class="card admin-section">
+          <h2>Upload from here</h2>
+          <p class="muted-text">Admin হিসেবে সরাসরি Upload করুন — PIN লাগবে না, visitor upload বন্ধ থাকলেও কাজ করবে।
+            যে category বাছবেন, ফাইল সেই Drive ফোল্ডারে যাবে।</p>
+          <div class="form-actions">
+            <label class="field">Category
+              <select class="input" id="adminUploadCat"></select>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="btnAdminPick">ফাইল বাছুন</button>
+            <button type="button" class="btn btn-ghost" id="btnAdminUpload" hidden>Upload শুরু করুন</button>
+            <span class="muted-text" id="adminUploadHint"></span>
+          </div>
+          <input type="file" id="adminFileInput" multiple
+                 accept="image/*,video/*,.heic,.heif,.mov,.m4v,.3gp,.3g2" hidden />
+          <ul class="admin-upload-list" id="adminUploadList"></ul>
         </section>
 
         <section class="card admin-section">
@@ -139,6 +168,7 @@
   <div class="toast-root" id="toastRoot" aria-live="polite"></div>
 
   <script src="/js/common.js"></script>
+  <script src="/js/upload-engine.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>
