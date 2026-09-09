@@ -5,6 +5,7 @@ const QRCode = require('qrcode');
 const logger = require('../utils/logger');
 const { cfg } = require('../services/config');
 const state = require('../services/state');
+const site = require('../services/site');
 const drive = require('../services/drive');
 const sanitize = require('../utils/sanitize');
 const { safeEqual } = require('../utils/tokens');
@@ -32,6 +33,30 @@ async function folderName() {
   const meta = await drive.getFolderMeta();
   folderNameCache = { name: meta.name || '', at: Date.now() };
   return folderNameCache.name;
+}
+
+/** Display label of the category a stored file belongs to (by tag or MIME). */
+function categoryLabelFor(taggedCategory, mimeType) {
+  const m = String(mimeType || '').toLowerCase();
+  const tagged = taggedCategory
+    ? site.categoryById(String(taggedCategory).slice(0, 24))
+    : null;
+  if (
+    tagged &&
+    ((m.startsWith('image/') && tagged.media === 'photo') ||
+      (m.startsWith('video/') && tagged.media === 'video'))
+  ) {
+    return tagged.label;
+  }
+  if (m.startsWith('video/')) {
+    const v = site.categories.find((c) => c.media === 'video');
+    return v ? v.label : '';
+  }
+  if (m.startsWith('image/')) {
+    const p = site.categories.find((c) => c.media === 'photo');
+    return p ? p.label : '';
+  }
+  return '';
 }
 
 /* ── Login ────────────────────────────────────────────────────── */
@@ -74,6 +99,7 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
       size: Number(f.size) || 0,
       createdTime: f.createdTime || null,
       uploader: meta.uploader,
+      categoryLabel: categoryLabelFor(meta.category, f.mimeType),
       driveUrl: f.webViewLink || null,
     };
   });
@@ -81,20 +107,18 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
   let folder = '';
   try { folder = await folderName(); } catch (e) { logger.warn('admin: folder name lookup failed', { code: e.code }); }
 
-  // Direct links so the admin can open (and bulk-download) each sub-folder.
+  // Direct links so the admin can open (and bulk-download) each category folder.
   let folderLinks = null;
   try {
-    const ids = await drive.ensureMediaFolders();
-    if (ids) {
-      folderLinks = {
-        photos: `https://drive.google.com/drive/folders/${ids.photos}`,
-        videos: `https://drive.google.com/drive/folders/${ids.videos}`,
-      };
+    const ensured = await drive.ensureAllCategoryFolders();
+    if (ensured && ensured.length) {
+      folderLinks = ensured.map(({ id, category }) => ({
+        label: category.label || category.folder,
+        folder: category.folder,
+        url: `https://drive.google.com/drive/folders/${id}`,
+      }));
     }
   } catch (e) { /* sub-folders are optional */ }
-
-  const byCategory = { single: 0, group: 0, video: 0 };
-  for (const f of files) byCategory[drive.categoryOf(f)] += 1;
 
   res.json({
     stats: {
@@ -103,48 +127,46 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
       folderName: folder,
       photoCount,
       videoCount,
-      byCategory,
     },
-    settings: state.snapshot(),
-    settingsPersisted: state.driveSynced,
     folderLinks,
     rootFolderUrl: `https://drive.google.com/drive/folders/${cfg.google.folderId}`,
     recent,
+    settings: state.settings,
+    site: site.adminView(),
     drive: state.driveHealth,
   });
 }));
 
 /* ── Live settings toggles ────────────────────────────────────── */
 
-router.put('/admin/settings', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+router.put('/admin/settings', rl.adminApi, requireAdmin, (req, res) => {
   const body = req.body || {};
-  const patch = { flags: {}, site: {}, folders: {} };
-
-  for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
-    if (typeof body[key] === 'boolean') patch.flags[key] = body[key];
-    else if (body.flags && typeof body.flags[key] === 'boolean') patch.flags[key] = body.flags[key];
-  }
-  if (body.site && typeof body.site === 'object') {
-    for (const key of ['title', 'subtitle', 'date', 'location', 'privacyNote', 'coverUrl']) {
-      if (typeof body.site[key] === 'string') patch.site[key] = body.site[key];
-    }
-  }
-  if (body.folders && typeof body.folders === 'object') {
-    for (const key of ['photos', 'group', 'videos']) {
-      if (typeof body.folders[key] === 'string') patch.folders[key] = body.folders[key];
-    }
-  }
-
+  const patch = {};
+  if (typeof body.uploadsEnabled === 'boolean') patch.uploadsEnabled = body.uploadsEnabled;
+  if (typeof body.galleryVisible === 'boolean') patch.galleryVisible = body.galleryVisible;
   const next = state.update(patch);
-  logger.info('admin: settings updated', {
-    uploadsEnabled: next.flags.uploadsEnabled,
-    galleryVisible: next.flags.galleryVisible,
-    galleryPublic: next.flags.galleryPublic,
+  logger.info('admin: settings updated', { uploadsEnabled: next.uploadsEnabled, galleryVisible: next.galleryVisible });
+  res.json({ settings: next });
+});
+
+/* ── Site content & upload categories (title, subtitle, folders…) ─ */
+
+router.put('/admin/site', rl.adminApi, requireAdmin, (req, res) => {
+  const body = (req.body && typeof req.body === 'object') ? req.body : {};
+  const before = site.categories.map((c) => c.folder).join('\u0001');
+  const next = site.update({
+    content: body.content,
+    categories: body.categories,
   });
-  // The durable copy lives in Drive; report honestly if it could not be saved.
-  const persisted = await state.saveToDrive();
-  res.json({ settings: next, persisted });
-}));
+  const after = next.categories.map((c) => c.folder).join('\u0001');
+  // Folder renames must be re-resolved on Drive (new folders, new ids).
+  if (before !== after) drive.resetFolderCache();
+  logger.info('admin: site content updated', {
+    title: next.content.title,
+    categories: next.categories.map((c) => `${c.id}:${c.folder}`).join(', '),
+  });
+  res.json({ site: next });
+});
 
 /* ── Drive diagnostics ────────────────────────────────────────── */
 
