@@ -463,9 +463,12 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
   if (/^[A-Za-z0-9_-]{1,24}$/.test(rawCategory)) {
     const candidate = site.categoryById(rawCategory);
     const m = String(v.mimeType || '').toLowerCase();
+    // A category accepts a file when its media kind matches — 'any' takes both,
+    // which is what custom categories (a place, a day, a drone set) usually are.
     if (
       candidate &&
-      ((candidate.media === 'photo' && m.startsWith('image/')) ||
+      (candidate.media === 'any' ||
+        (candidate.media === 'photo' && m.startsWith('image/')) ||
         (candidate.media === 'video' && m.startsWith('video/')))
     ) {
       category = candidate;
@@ -699,6 +702,7 @@ function categoryForFile(taggedCategory, mimeType) {
     ? site.categoryById(String(taggedCategory).slice(0, 24))
     : null;
   if (tagged) {
+    if (tagged.media === 'any') return tagged;
     if (m.startsWith('image/') && tagged.media === 'photo') return tagged;
     if (m.startsWith('video/') && tagged.media === 'video') return tagged;
   }
