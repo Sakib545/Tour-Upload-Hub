@@ -25,6 +25,10 @@ let state = {
   // Lets everyone view and download the gallery while uploading still
   // requires the PIN.
   galleryPublic: cfg.defaultGalleryPublic,
+  // 'cartoon' — figures drawn in each person's colours
+  // 'photo'   — their enrolled portrait on the cartoon body
+  // 'off'     — the scene's own anonymous figures
+  heroCrew: 'cartoon',
 };
 
 // Result of the startup Google Drive folder check: { ok, code, name, msg }.
@@ -48,6 +52,7 @@ function load() {
       for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
         if (typeof raw[key] === 'boolean') state[key] = raw[key];
       }
+      if (['cartoon', 'photo', 'off'].includes(raw.heroCrew)) state.heroCrew = raw.heroCrew;
     }
   } catch (e) {
     logger.warn('state: could not read state file, using defaults', { err: e.message });
@@ -67,6 +72,7 @@ function update(patch) {
   for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
     if (typeof patch[key] === 'boolean') state[key] = patch[key];
   }
+  if (['cartoon', 'photo', 'off'].includes(patch.heroCrew)) state.heroCrew = patch.heroCrew;
   save();
   return { ...state };
 }

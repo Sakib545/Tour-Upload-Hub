@@ -86,12 +86,23 @@ async function rescanAll() {
   return { queued };
 }
 
-/** Extract one reference descriptor from an enrolment photo. */
+/**
+ * Extract one reference descriptor from an enrolment photo, plus a small
+ * square crop of the face for the hero figures.
+ */
 async function describeReference(buffer) {
   const found = await faces.describeImage(buffer);
   if (!found.length) return { ok: false, code: 'NO_FACE' };
   if (found.length > 1) return { ok: false, code: 'MANY_FACES' };
-  return { ok: true, descriptor: found[0].descriptor };
+  let crop = null;
+  let skin = null;
+  try {
+    crop = await faces.cropFace(buffer, found[0]);
+    if (crop) skin = await faces.sampleSkin(crop);
+  } catch (e) {
+    crop = null; // the descriptor is what matters; the portrait is a bonus
+  }
+  return { ok: true, descriptor: found[0].descriptor, face: crop, skin };
 }
 
 function install() {

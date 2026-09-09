@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#0ea5e9" />
   <meta name="robots" content="noindex,nofollow" />
   <title>Admin — Tour Upload Hub</title>
@@ -134,6 +133,14 @@
             <input class="input" id="personName" maxlength="60" placeholder="নাম লিখুন (যেমন: রিফাত)" />
             <button type="button" class="btn btn-primary" id="btnAddPerson">+ যোগ করুন</button>
           </div>
+
+          <label class="field">Hero-তে সৈকতের দলটি
+            <select class="input" id="heroCrewMode">
+              <option value="cartoon">কার্টুন মূর্তি (প্রত্যেকের রঙে)</option>
+              <option value="photo">আসল মুখ বসানো (নমুনা ছবি থেকে)</option>
+              <option value="off">কাউকে দেখাবেন না</option>
+            </select>
+          </label>
 
           <ul class="people-list" id="peopleList"></ul>
 

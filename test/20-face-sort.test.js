@@ -133,3 +133,59 @@ test('matching is by distance, with a threshold', () => {
   assert.equal(faces.matchPerson(far, people), null);
   assert.equal(faces.matchPerson(a, []), null);
 });
+
+test('the beach crew is exposed to the public page and can be restyled', async (t) => {
+  const ctx = await start({ env: { TOUR_UPLOAD_PIN: '', FACE_SORT: 'true' } });
+  t.after(() => ctx.close());
+  const B = ctx.base;
+  const site = require('../services/site');
+  for (const p of site.people) site.removePerson(p.id);
+
+  const token = await adminToken(B);
+  const H = { 'content-type': 'application/json', Authorization: 'Bearer ' + token };
+  const created = await (await fetch(B + '/api/admin/people', {
+    method: 'POST', headers: H, body: JSON.stringify({ name: 'তানভীর' }),
+  })).json();
+  const id = created.person.id;
+
+  // Every person gets figure colours, and the public page can read them.
+  let cfg = await (await fetch(B + '/api/config')).json();
+  const member = cfg.crew.find((c) => c.id === id);
+  assert.ok(member, 'the person appears in the crew');
+  assert.match(member.avatar.skin, /^#[0-9a-f]{6}$/);
+  assert.equal(member.hasFace, false, 'no portrait until someone enrols one');
+  assert.equal(cfg.heroCrew, 'cartoon');
+
+  // Recolouring is admin-only and sanitised.
+  const patched = await fetch(B + '/api/admin/people/' + id, {
+    method: 'PATCH', headers: H,
+    body: JSON.stringify({ avatar: { shirt: '#ff8800', hair: 'javascript:x' } }),
+  });
+  assert.equal(patched.status, 200);
+  cfg = await (await fetch(B + '/api/config')).json();
+  const after = cfg.crew.find((c) => c.id === id);
+  assert.equal(after.avatar.shirt, '#ff8800');
+  assert.match(after.avatar.hair, /^#[0-9a-f]{6}$/, 'a junk colour is refused, not stored');
+
+  // The portrait is only served once one exists.
+  assert.equal((await fetch(B + '/api/crew/' + id + '/face.jpg')).status, 404);
+  assert.equal(site.setPortrait(id, Buffer.from('ffd8ffe000104a4649460001', 'hex')), true);
+  const face = await fetch(B + '/api/crew/' + id + '/face.jpg');
+  assert.equal(face.status, 200);
+  assert.equal(face.headers.get('content-type'), 'image/jpeg');
+  assert.equal((await (await fetch(B + '/api/config')).json()).crew.find((c) => c.id === id).hasFace, true);
+
+  // The hero mode is a setting like any other.
+  const mode = await fetch(B + '/api/admin/settings', {
+    method: 'PUT', headers: H, body: JSON.stringify({ heroCrew: 'photo' }),
+  });
+  assert.equal(mode.status, 200);
+  assert.equal((await mode.json()).settings.heroCrew, 'photo');
+  assert.equal((await (await fetch(B + '/api/config')).json()).heroCrew, 'photo');
+
+  // Anything outside the three known modes is ignored.
+  await fetch(B + '/api/admin/settings', {
+    method: 'PUT', headers: H, body: JSON.stringify({ heroCrew: 'nonsense' }),
+  });
+  assert.equal((await (await fetch(B + '/api/config')).json()).heroCrew, 'photo');
+});

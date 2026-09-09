@@ -53,9 +53,6 @@
       renderRecent(data.recent || []);
       setToggles(data.settings || {});
       fillSiteForm(siteData);
-      // The dashboard's own uploader needs the same category list; without
-      // this the dropdown stayed empty until a page save happened.
-      fillUploadCategories(siteData.categories || []);
       return true;
     } catch (err) {
       if (!silent && err.code === 'ADMIN_UNAUTHORIZED') {
@@ -458,27 +455,21 @@
       li.append(name, state);
       list.appendChild(li);
     }
-    // Only a running upload disables the start button. Files sitting in
-    // "অপেক্ষা…" (pending) are exactly when the admin must be able to press it.
-    const uploading = entries.some((e) => e.status === 'uploading');
-    const waiting = entries.some((e) => e.status === 'pending' || e.status === 'error');
+    const busy = entries.some((e) => e.status === 'pending' || e.status === 'uploading');
     const btn = $('#btnAdminUpload');
     if (btn) {
-      btn.hidden = !waiting;
-      btn.disabled = uploading;
+      btn.hidden = !entries.some((e) => e.status === 'pending' || e.status === 'error');
+      btn.disabled = busy;
     }
     const hint = $('#adminUploadHint');
     if (hint && entries.length) {
       const done = entries.filter((e) => e.status === 'done').length;
       const failed = entries.filter((e) => e.status === 'error').length;
-      const pending = entries.filter((e) => e.status === 'pending').length;
-      hint.textContent = uploading
+      hint.textContent = busy
         ? `${done}/${entries.length} শেষ…`
-        : failed && !pending
+        : failed
           ? `${done} সফল, ${failed} ব্যর্থ।`
-          : pending
-            ? `${entries.length}টি ফাইল বাছাই হয়েছে — “Upload শুরু করুন” চাপুন।`
-            : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
+          : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
     }
   }
 
@@ -493,10 +484,8 @@
       },
       getToken: () => token,
       getUploader: () => 'Admin',
-      // The engine notifies with its whole state object, not the entries
-      // array — unwrap it before rendering.
-      onChange: (s) => renderAdminUploads((s && s.entries) || []),
-      onProgress: (s) => renderAdminUploads((s && s.entries) || []),
+      onChange: (entries) => renderAdminUploads(entries),
+      onProgress: (entries) => renderAdminUploads(entries),
     });
     return adminEngine;
   }
@@ -507,13 +496,9 @@
   }
 
   async function addAdminFiles(fileList) {
-    // Snapshot the FileList NOW: the <input> value is cleared right after the
-    // change event, which empties a live FileList before the await below.
-    const files = Array.from(fileList || []);
     const engine = await ensureAdminEngine();
     const chosen = $('#adminUploadCat').value;
-    if (!files.length) return;
-    const res = engine.addFiles(files, { category: chosen });
+    const res = engine.addFiles(fileList, { category: chosen });
     if (res.rejected && res.rejected.length) {
       toast(`${res.rejected.length}টি ফাইল নেওয়া যায়নি (ধরন বা আকার)।`, { bad: true });
     }
@@ -549,6 +534,22 @@
       ? `${person.samples}টি নমুনা ছবি`
       : 'নমুনা ছবি দিন — নইলে চেনা যাবে না';
 
+    // The four colours that make this person's beach figure recognisable.
+    const swatches = document.createElement('span');
+    swatches.className = 'swatches';
+    const avatar = person.avatar || {};
+    for (const [key, label] of [
+      ['skin', 'গায়ের রং'], ['hair', 'চুল'], ['shirt', 'জামা'], ['shorts', 'প্যান্ট'],
+    ]) {
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.className = 'swatch';
+      input.title = label;
+      input.value = avatar[key] || '#efbd93';
+      input.addEventListener('change', () => saveAvatar(person.id, { [key]: input.value }));
+      swatches.appendChild(input);
+    }
+
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
 
@@ -570,13 +571,14 @@
     remove.textContent = '✕';
     remove.addEventListener('click', () => removePerson(person));
 
-    li.append(who, samples, spacer, enroll, remove);
+    li.append(who, samples, swatches, spacer, enroll, remove);
     return li;
   }
 
   function renderPeople(data) {
     const list = $('#peopleList');
     if (!list) return;
+    if (data.heroCrew) $('#heroCrewMode').value = data.heroCrew;
     const enabled = !!(data.status && data.status.enabled);
     $('#facesOff').hidden = enabled;
     list.textContent = '';
@@ -596,6 +598,27 @@
     if (st.failed) bits.push(`${st.failed}টি ব্যর্থ`);
     if (st.lastError) bits.push(st.lastError);
     $('#facesStatus').textContent = bits.join(' · ');
+  }
+
+  async function saveAvatar(id, patch) {
+    try {
+      await apiAdmin('/api/admin/people/' + id, { method: 'PATCH', body: { avatar: patch } });
+      toast('রং সেভ হয়েছে — hero পেজ রিফ্রেশ করলে দেখবেন।');
+    } catch (err) {
+      toast('রং সেভ করা যায়নি।', { bad: true });
+    }
+  }
+
+  async function saveCrewMode() {
+    try {
+      await apiAdmin('/api/admin/settings', {
+        method: 'PUT',
+        body: { heroCrew: $('#heroCrewMode').value },
+      });
+      toast('Hero-র দল বদলানো হয়েছে।');
+    } catch (err) {
+      toast('বদলানো যায়নি।', { bad: true });
+    }
   }
 
   async function loadFaces() {
@@ -832,6 +855,7 @@
       if (ev.key === 'Enter') { ev.preventDefault(); addPerson(); }
     });
     $('#btnRescan').addEventListener('click', rescanFaces);
+    $('#heroCrewMode').addEventListener('change', saveCrewMode);
     $('#enrollInput').addEventListener('change', (ev) => {
       enrollPhoto(ev.target.files && ev.target.files[0]);
       ev.target.value = '';

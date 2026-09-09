@@ -48,6 +48,13 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   since a Drive file lives in one folder. Runs on a pure JS/WASM model, in the
   background, after the upload is safely stored; off unless `FACE_SORT=true`.
 
+- **The beach crew is your crew**: everyone enrolled gets a figure in the hero scene, and
+  each one is doing something different — flying the kite, taking the selfie, riding,
+  driving the speedboat, swimming, sitting on the sand. Figures are adult proportioned
+  and can wear either the person's own colours (editable in the admin panel) or their
+  enrolled portrait as the head. The skin tone is read off that portrait automatically,
+  so the body matches the face. Hovering a figure shows the name.
+
 ## 1. Local setup
 
 Prerequisites: **Node.js ≥ 18**.

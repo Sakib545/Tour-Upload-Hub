@@ -20,151 +20,249 @@
 
   <header class="hero">
     <!-- Animated scenery: river (front), city skyline (mid), mountains & dusk sky (back) -->
-    <svg class="scenery cx-scene" viewBox="0 0 1440 460" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-      <defs>
-        <linearGradient id="bxSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="bxst-s1" />
-          <stop offset="0.62" class="bxst-s2" />
-          <stop offset="1" class="bxst-s3" />
-        </linearGradient>
-        <radialGradient id="bxGlow" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" class="bxst-g" stop-opacity="0.9" />
-          <stop offset="1" class="bxst-g" stop-opacity="0" />
-        </radialGradient>
-        <linearGradient id="bxSea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="bxst-w1" />
-          <stop offset="0.55" class="bxst-w2" />
-          <stop offset="1" class="bxst-w3" />
-        </linearGradient>
-        <linearGradient id="bxWet" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="bxst-d1" />
-          <stop offset="1" class="bxst-d2" />
-        </linearGradient>
-        <linearGradient id="bxSunRefl" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="bxst-r" stop-opacity="0.8" />
-          <stop offset="0.45" class="bxst-r" stop-opacity="0.22" />
-          <stop offset="1" class="bxst-r" stop-opacity="0" />
-        </linearGradient>
-      </defs>
+    <svg class="scenery cb-scene cb" aria-hidden="true" focusable="false"  viewBox="0 0 1440 620" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Cox's Bazar beach at sunset">
+  <defs>
+    <linearGradient id="cbSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151848"/>
+      <stop offset="0.42" stop-color="#33215e"/>
+      <stop offset="0.76" stop-color="#8d2f4b"/>
+      <stop offset="1" stop-color="#cf4429"/>
+    </linearGradient>
+    <linearGradient id="cbSea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10547f"/>
+      <stop offset="0.5" stop-color="#2078a9"/>
+      <stop offset="1" stop-color="#3f9dc6"/>
+    </linearGradient>
+    <linearGradient id="cbSand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e7d3a2"/>
+      <stop offset="1" stop-color="#c8a970"/>
+    </linearGradient>
+    <radialGradient id="cbGlow">
+      <stop offset="0" stop-color="#ffd08a" stop-opacity="0.6"/>
+      <stop offset="0.5" stop-color="#ff9a4d" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ff9a4d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
 
-      <!-- Sky -->
-      <rect x="0" y="0" width="1440" height="142" fill="url(#bxSky)" />
-      <rect x="0" y="134" width="1440" height="16" class="bx-haze" />
+  <!-- Sky -->
+  <rect x="0" y="0" width="1440" height="240" fill="url(#cbSky)"/>
 
-      <!-- Sun -->
-      <circle cx="1180" cy="96" r="108" fill="url(#bxGlow)" class="bx-glow" />
-      <g class="cx-sun"><circle cx="1180" cy="96" r="40" class="bx-sun-core" /></g>
+  <g fill="#fff3d0">
+    <circle cx="120" cy="40" r="1.9" class="cb-tw cb-tw1"/>
+    <circle cx="318" cy="24" r="1.5" class="cb-tw cb-tw2"/>
+    <circle cx="472" cy="58" r="2" class="cb-tw cb-tw3"/>
+    <circle cx="248" cy="88" r="1.4" class="cb-tw cb-tw2"/>
+    <circle cx="612" cy="32" r="1.6" class="cb-tw cb-tw1"/>
+    <circle cx="792" cy="70" r="1.4" class="cb-tw cb-tw3"/>
+    <circle cx="884" cy="20" r="1.8" class="cb-tw cb-tw2"/>
+    <circle cx="1046" cy="52" r="1.5" class="cb-tw cb-tw1"/>
+    <circle cx="1336" cy="30" r="1.9" class="cb-tw cb-tw3"/>
+  </g>
 
-      <!-- Drifting cartoon clouds -->
-      <g class="bx-cloud bx-cl1" style="--cx0:-560px; --cx1:1640px"><g transform="translate(230,64)">
-        <ellipse cx="0" cy="0" rx="92" ry="15" /><ellipse cx="76" cy="-9" rx="58" ry="11" /><ellipse cx="-68" cy="6" rx="46" ry="9" />
-      </g></g>
-      <g class="bx-cloud bx-cl2" style="--cx0:-700px; --cx1:1720px"><g transform="translate(760,112)">
-        <ellipse cx="0" cy="0" rx="84" ry="13" /><ellipse cx="66" cy="-8" rx="50" ry="10" /><ellipse cx="-60" cy="5" rx="40" ry="8" />
-      </g></g>
-      <g class="bx-cloud bx-cl3" style="--cx0:-420px; --cx1:1460px"><g transform="translate(1090,44)">
-        <ellipse cx="0" cy="0" rx="64" ry="10" /><ellipse cx="48" cy="-6" rx="40" ry="8" /><ellipse cx="-46" cy="4" rx="32" ry="7" />
-      </g></g>
+  <circle cx="1232" cy="200" r="158" fill="url(#cbGlow)" class="cb-glow"/>
+  <circle cx="1232" cy="200" r="50" fill="#ffd79a" class="cb-sun"/>
 
-      <!-- Gulls -->
-      <g class="bx-bird bx-bd1"><g transform="translate(640,150)">
-        <path d="M0 0 q4.5 -6 9 0 q4.5 6 9 0" /><path d="M36 3 q4.5 -6 9 0 q4.5 6 9 0" />
-      </g></g>
-      <g class="bx-bird bx-bd2"><g transform="translate(1010,112)">
-        <path d="M0 0 q4 -5.5 8 0 q4 5.5 8 0" /><path d="M32 3 q4 -5.5 8 0 q4 5.5 8 0" />
-      </g></g>
+  <g stroke="#f7e6cd" stroke-width="2.6" fill="none" stroke-linecap="round">
+    <path d="M170 104 q10 -8 20 0 q10 -8 20 0" class="cb-gull cb-g1"/>
+    <path d="M292 142 q8 -6 16 0 q8 -6 16 0" class="cb-gull cb-g2"/>
+    <path d="M1004 88 q9 -7 18 0 q9 -7 18 0" class="cb-gull cb-g3"/>
+  </g>
 
-      <!-- Sea -->
-      <rect x="0" y="150" width="1440" height="96" fill="url(#bxSea)" />
-      <rect x="0" y="232" width="1440" height="14" class="bx-shallow" />
+  <!-- Kite, tethered to the flyer down on the sand -->
+  <g class="cb-kite">
+    <g class="cb-kite-body">
+      <path d="M706 120 L676 162 L706 208 L736 162 Z" fill="#ff5d5d"/>
+      <path d="M706 120 L706 208 M676 162 L736 162" stroke="#ffe6bc" stroke-width="2"/>
+      <path d="M706 208 q-11 15 3 26 q-14 11 -3 26" stroke="#ffe6bc" stroke-width="2" fill="none"/>
+    </g>
+  </g>
 
-      <!-- Sun glitter path across the water -->
-      <rect x="1150" y="150" width="64" height="82" fill="url(#bxSunRefl)" class="cx-glim" />
+  <rect x="0" y="214" width="1440" height="30" fill="#ef7a22"/>
+  <rect x="0" y="210" width="1440" height="8" fill="#df512b"/>
 
-      <!-- Water glints & swells (cartoon sparkle lines) -->
-      <path class="bx-l1 bx-w1" d="M0 172 C240 178 480 166 720 172 C960 178 1200 166 1440 172" />
-      <path class="bx-l2 bx-w2" d="M0 196 C240 190 480 202 720 196 C960 190 1200 202 1440 196" />
-      <path class="bx-l3 bx-w3" d="M0 220 C240 226 480 214 720 220 C960 226 1200 214 1440 220" />
-      <path class="bx-l1 bx-w4" d="M0 240 C240 234 480 246 720 240 C960 234 1200 246 1440 240" />
-      <path class="bx-swell" d="M0 208 C200 200 320 216 560 208 C760 200 920 216 1160 208 C1280 203 1360 212 1440 208" />
-      <path class="bx-swell2" d="M0 228 C220 234 380 220 620 228 C820 236 980 222 1220 228 C1340 232 1400 224 1440 228" />
+  <!-- Sea -->
+  <rect x="0" y="244" width="1440" height="176" fill="url(#cbSea)"/>
 
-      <!-- Wet sand (shoreline) -->
-      <rect x="0" y="246" width="1440" height="44" fill="url(#bxWet)" />
+  <g fill="#ffd9a2" class="cb-path">
+    <rect x="1210" y="252" width="46" height="5" rx="2.5" opacity="0.6"/>
+    <rect x="1186" y="272" width="94" height="6" rx="3" opacity="0.5"/>
+    <rect x="1214" y="298" width="40" height="5" rx="2.5" opacity="0.42"/>
+    <rect x="1172" y="326" width="122" height="6" rx="3" opacity="0.34"/>
+    <rect x="1204" y="358" width="58" height="5" rx="2.5" opacity="0.24"/>
+  </g>
 
-      <!-- Rolling foam scallops along the waterline -->
-      <path class="bx-foam" d="M0 247 q30 -13 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0" />
-      <path class="bx-foam2" d="M0 257 H1440" />
+  <g stroke="#cfe9f7" stroke-width="2.4" stroke-linecap="round" opacity="0.3">
+    <g class="cb-drift cb-drift-a">
+      <path d="M60 272 h44"/><path d="M320 296 h56"/><path d="M604 264 h40"/>
+      <path d="M846 302 h52"/><path d="M180 340 h64"/><path d="M540 348 h48"/>
+      <path d="M912 356 h58"/>
+    </g>
+    <g class="cb-drift cb-drift-b">
+      <path d="M150 314 h50"/><path d="M436 324 h38"/><path d="M716 336 h60"/>
+      <path d="M40 384 h72"/><path d="M660 390 h50"/><path d="M1046 320 h44"/>
+    </g>
+  </g>
 
-      <!-- Drift line of tiny foam bits -->
-      <path class="bx-drift" d="M0 241 H1440" />
+  <!-- Distant fishing boats -->
+  <g class="cb-bob cb-bob-a">
+    <path d="M120 292 q40 22 84 0 z" fill="#d94f3d"/>
+    <rect x="158" y="254" width="3" height="38" fill="#4a3524"/>
+    <path d="M161 256 L196 268 L161 278 Z" fill="#ffe08a"/>
+  </g>
+  <g class="cb-bob cb-bob-b">
+    <path d="M418 276 q34 18 72 0 z" fill="#1f8f6d"/>
+    <rect x="450" y="244" width="3" height="32" fill="#4a3524"/>
+    <path d="M453 246 L483 256 L453 265 Z" fill="#ffe08a"/>
+  </g>
 
-      <!-- Dry sand -->
-      <rect x="0" y="290" width="1440" height="170" class="bx-sand" />
-      <ellipse class="bx-mark" cx="430" cy="372" rx="5" ry="3" />
-      <ellipse class="bx-mark" cx="512" cy="416" rx="8" ry="4" />
-      <ellipse class="bx-mark" cx="760" cy="344" rx="4" ry="2.5" />
-      <ellipse class="bx-mark" cx="986" cy="430" rx="7" ry="3.5" />
-      <ellipse class="bx-mark" cx="642" cy="452" rx="5" ry="3" />
-      <path class="bx-star" d="M200 342 L205 347 L212 345 L208 352 L213 357 L206 356 L202 362 L200 356 L194 358 L197 352 L192 349 L199 350 Z" />
-      <g class="bx-shell">
-        <path d="M1206 398 Q1218 382 1230 398 Z" />
-        <path d="M1212 396 L1218 388 L1224 396 Z" opacity="0.85" />
+  <!-- Speedboat crossing the bay -->
+  <g class="cb-boat-run" transform="translate(640,0)">
+    <g class="cb-boat-bob">
+      <g fill="#eaf7ff">
+        <path d="M-30 372 q-84 -8 -156 10 q82 6 156 -10 z" opacity="0.8"/>
+        <path d="M-24 362 q-62 -12 -118 -2 q60 10 118 2 z" opacity="0.55"/>
       </g>
-      <ellipse class="bx-shell2" cx="1272" cy="376" rx="7" ry="4" />
+      <g class="cb-spray" fill="#ffffff">
+        <circle cx="-38" cy="352" r="4.5"/>
+        <circle cx="-54" cy="364" r="3.2"/>
+        <circle cx="-26" cy="344" r="2.8"/>
+      </g>
+      <path d="M-30 362 q-6 -22 14 -22 h84 l32 12 l-26 10 z" fill="#f4f6fa"/>
+      <path d="M-30 362 q-6 -10 6 -12 h96 l24 6 l-18 6 z" fill="#b9c5d4"/>
+      <path d="M6 340 L48 340 L42 320 L12 320 Z" fill="#2f6ea8"/>
+      <path d="M10 338 L44 338 L39 324 L15 324 Z" fill="#8fd6f5"/>
+      <g class="cb-actor cb-rider" data-slot="boat" transform="translate(25,352) scale(0.66)"></g>
+    </g>
+  </g>
 
-      <!-- Fishing boats bobbing on the sea -->
-      <g class="cx-boat cx-b1"><g transform="translate(330,214)">
-        <path class="bx-wake" d="M-58 12 Q-76 10 -92 13" />
-        <path class="bx-wake" d="M-50 20 Q-68 19 -82 22" />
-        <path class="bx-hull1" d="M-52 2 C-30 18 30 18 52 2 C30 9 -30 9 -52 2 Z" />
-        <path class="bx-rim1" d="M-52 2 C-30 6.5 30 6.5 52 2" />
-        <path class="bx-mast" d="M0 2 L0 -24" />
-        <path class="bx-flag" d="M0 -24 L16 -19 L0 -14 Z" />
-      </g></g>
-      <g class="cx-boat cx-b2"><g transform="translate(1092,196)">
-        <path class="bx-wake" d="M-66 13 Q-86 11 -104 14" />
-        <path class="bx-wake" d="M-58 21 Q-78 20 -94 23" />
-        <path class="bx-hull2" d="M-60 2 C-34 21 34 21 60 2 C34 10 -34 10 -60 2 Z" />
-        <path class="bx-rim2" d="M-60 2 C-34 7 34 7 60 2" />
-        <path class="bx-mast" d="M4 2 L4 -30" />
-        <path class="bx-flag" d="M4 -30 L22 -24 L4 -18 Z" />
-      </g></g>
+  <!-- Splashing in the shallows -->
+  <g class="cb-splash-a">
+    <g class="cb-actor cb-jump" data-slot="swim-a" transform="translate(810,394) scale(0.8)"></g>
+    <g class="cb-drops" fill="#ffffff">
+      <circle cx="782" cy="400" r="4.2" opacity="0.9"/>
+      <circle cx="838" cy="396" r="3.4" opacity="0.85"/>
+      <circle cx="764" cy="410" r="2.8" opacity="0.8"/>
+      <circle cx="856" cy="408" r="2.4" opacity="0.75"/>
+    </g>
+  </g>
+  <g class="cb-splash-b">
+    <g class="cb-actor cb-jump" data-slot="swim-b" transform="translate(885,400) scale(0.76)"></g>
+    <g class="cb-drops" fill="#ffffff">
+      <circle cx="860" cy="404" r="3.4" opacity="0.85"/>
+      <circle cx="910" cy="400" r="3" opacity="0.8"/>
+    </g>
+  </g>
 
-      <!-- Coconut palms swaying on the beach -->
-      <g class="bx-palm bx-p1"><g transform="translate(150,336)">
-        <ellipse class="bx-shade" cx="10" cy="8" rx="54" ry="9" />
-        <path class="bx-trunk" d="M0 6 C34 -64 16 -128 0 -188" />
-        <circle class="bx-coco" cx="-6" cy="-8" r="5" /><circle class="bx-coco" cx="9" cy="-12" r="5" />
-        <path class="bx-frond-a" d="M0 0 Q40 -34 92 -30 Q46 8 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q-40 -34 -92 -30 Q-46 8 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q26 -60 40 -98 Q2 -62 0 0 Z" />
-        <path class="bx-frond-a" d="M0 0 Q-26 -60 -40 -98 Q-2 -62 0 0 Z" />
-        <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
-      </g></g>
-      <g class="bx-palm bx-p2"><g transform="translate(1290,322)">
-        <ellipse class="bx-shade" cx="-6" cy="8" rx="52" ry="9" />
-        <path class="bx-trunk" d="M0 6 C-32 -62 -14 -126 2 -196" />
-        <circle class="bx-coco" cx="-8" cy="-8" r="5" /><circle class="bx-coco" cx="10" cy="-11" r="5" />
-        <path class="bx-frond-a" d="M0 0 Q40 -34 92 -30 Q46 8 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q-40 -34 -92 -30 Q-46 8 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q26 -60 40 -98 Q2 -62 0 0 Z" />
-        <path class="bx-frond-a" d="M0 0 Q-26 -60 -40 -98 Q-2 -62 0 0 Z" />
-        <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
-      </g></g>
-      <g class="bx-palm bx-p3"><g transform="translate(1382,366) scale(0.62)">
-        <ellipse class="bx-shade" cx="6" cy="8" rx="46" ry="8" />
-        <path class="bx-trunk" d="M0 6 C22 -46 10 -92 0 -136" />
-        <path class="bx-frond-a" d="M0 0 Q40 -34 92 -30 Q46 8 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q-40 -34 -92 -30 Q-46 8 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q26 -60 40 -98 Q2 -62 0 0 Z" />
-        <path class="bx-frond-a" d="M0 0 Q-26 -60 -40 -98 Q-2 -62 0 0 Z" />
-        <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
-        <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
-      </g></g>
-    </svg>
+  <!-- Waterline -->
+  <rect x="0" y="398" width="1440" height="28" fill="#7fc9e4" opacity="0.5"/>
+  <g fill="none" stroke="#fdf6e6" stroke-linecap="round">
+    <path class="cb-foam cb-foam-a" stroke-width="7"
+      d="M-240 410 q90 -13 180 0 t180 0 t180 0 t180 0 t180 0 t180 0 t180 0 t180 0 t180 0 t180 0 t180 0"/>
+    <path class="cb-foam cb-foam-b" stroke-width="5" opacity="0.55"
+      d="M-240 422 q110 12 220 0 t220 0 t220 0 t220 0 t220 0 t220 0 t220 0 t220 0 t220 0"/>
+  </g>
+
+  <!-- Sand -->
+  <rect x="0" y="420" width="1440" height="44" fill="#c5a26a"/>
+  <rect x="0" y="458" width="1440" height="162" fill="url(#cbSand)"/>
+  <g fill="#b99a63" opacity="0.35">
+    <ellipse cx="250" cy="612" rx="9" ry="4"/>
+    <ellipse cx="286" cy="600" rx="8" ry="3.6"/>
+    <ellipse cx="322" cy="612" rx="9" ry="4"/>
+    <ellipse cx="358" cy="600" rx="8" ry="3.6"/>
+    <ellipse cx="980" cy="606" rx="9" ry="4"/>
+    <ellipse cx="1016" cy="596" rx="8" ry="3.6"/>
+  </g>
+
+  <!-- Horse ride along the wet sand -->
+  <g class="cb-horse-run" transform="translate(980,0)">
+    <ellipse cx="0" cy="470" rx="52" ry="7" fill="#7a5a2c" opacity="0.2"/>
+    <g class="cb-horse-bob">
+      <g stroke="#5a3b22" stroke-width="7" stroke-linecap="round" fill="none">
+        <path class="cb-leg cb-leg-1" d="M-24 428 L-32 470"/>
+        <path class="cb-leg cb-leg-2" d="M-8 428 L0 470"/>
+        <path class="cb-leg cb-leg-3" d="M28 428 L20 470"/>
+        <path class="cb-leg cb-leg-4" d="M42 428 L50 470"/>
+      </g>
+      <path class="cb-tail" d="M-38 404 q-24 8 -26 40" stroke="#3f2716" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <ellipse cx="6" cy="410" rx="42" ry="19" fill="#6b452a"/>
+      <path d="M30 412 q2 -30 26 -46 q11 -7 16 1 q5 8 -6 15 q-20 13 -22 34z" fill="#6b452a"/>
+      <path d="M64 364 q19 -3 23 8 q4 12 -8 16 q-14 4 -23 -7z" fill="#6b452a"/>
+      <path d="M84 374 q7 1 7 6 q0 5 -8 5z" fill="#4b2f1b"/>
+      <path d="M62 362 l1 -15 l11 11z" fill="#5a3b22"/>
+      <path d="M36 406 q4 -28 26 -44" stroke="#3f2716" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <circle cx="74" cy="372" r="2.2" fill="#1c130f"/>
+      <g class="cb-actor cb-rider" data-slot="horse" transform="translate(12,414) scale(0.78)"></g>
+    </g>
+  </g>
+
+  <!-- The sitting crew -->
+  <g class="cb-crew">
+    <ellipse cx="336" cy="590" rx="246" ry="12" fill="#7a5a2c" opacity="0.16"/>
+    <!-- One figure per enrolled person; filled in by js/crew.js. -->
+    <g id="crewFigures"></g>
+  </g>
+
+  <!-- Beach umbrella and chairs -->
+  <g class="cb-parasol">
+    <ellipse cx="884" cy="576" rx="54" ry="8" fill="#7a5a2c" opacity="0.16"/>
+    <path d="M884 576 L884 496" stroke="#b0855a" stroke-width="5" stroke-linecap="round"/>
+    <g class="cb-canopy">
+      <path d="M832 500 a52 34 0 0 1 104 0 z" fill="#f4ede0"/>
+      <path d="M884 466 a52 34 0 0 1 34 12 l-34 22 z" fill="#e2554a"/>
+      <path d="M884 466 a52 34 0 0 0 -34 12 l34 22 z" fill="#e2554a"/>
+      <path d="M884 466 v34" stroke="#f4ede0" stroke-width="3"/>
+    </g>
+    <g fill="#2fb3a0">
+      <path d="M840 574 l20 -24 h6 l-14 24z"/>
+      <path d="M852 568 h34 v8 h-38z"/>
+      <path d="M900 574 l20 -24 h6 l-14 24z"/>
+      <path d="M912 568 h34 v8 h-38z"/>
+    </g>
+    <g stroke="#a8794f" stroke-width="4" stroke-linecap="round">
+      <path d="M846 574 v6 M884 576 v6 M906 574 v6 M944 576 v6"/>
+    </g>
+  </g>
+
+  <!-- Kite string, drawn over the beach so it reaches the flyer's hand -->
+  <path class="cb-kite-line" d="M706 234 C716 330 690 448 648 516"
+        stroke="#ffe6bc" stroke-width="1.3" fill="none" opacity="0.42"/>
+
+  <!-- Kite flyer -->
+  <g class="cb-flyer">
+    <ellipse cx="640" cy="596" rx="26" ry="6" fill="#7a5a2c" opacity="0.18"/>
+    <g class="cb-actor cb-sway cb-sway-1" data-slot="kite" transform="translate(640,596) scale(1.06)"></g>
+  </g>
+
+  <!-- Selfie pair -->
+  <g class="cb-selfie">
+    <ellipse cx="1160" cy="600" rx="66" ry="9" fill="#7a5a2c" opacity="0.18"/>
+    <g class="cb-actor cb-sway cb-sway-2" data-slot="selfie-a" transform="translate(1192,600) scale(1.1)"></g>
+    <g class="cb-actor cb-sway cb-sway-3" data-slot="selfie-b" transform="translate(1136,600) scale(1.08)"></g>
+  </g>
+
+  <!-- Palms framing the edges -->
+  <g class="cb-palm cb-palm-l">
+    <ellipse cx="40" cy="602" rx="44" ry="8" fill="#7a5a2c" opacity="0.2"/>
+    <path d="M40 602 C24 512 30 446 22 396" stroke="#6d451f" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <g class="cb-fronds" transform="translate(42,0)">
+      <path d="M-20 396 q56 -30 116 -14 q-62 8 -116 14z" fill="#1f7a53"/>
+      <path d="M-20 396 q26 -58 50 -84 q-18 62 -50 84z" fill="#2fa06c"/>
+      <path d="M-20 396 q-28 -54 -52 -78 q18 58 52 78z" fill="#1f7a53"/>
+      <path d="M-20 396 q58 12 100 50 q-62 -22 -100 -50z" fill="#2fa06c"/>
+    </g>
+  </g>
+  <g class="cb-palm cb-palm-r">
+    <ellipse cx="1386" cy="616" rx="50" ry="9" fill="#7a5a2c" opacity="0.2"/>
+    <path d="M1386 616 C1404 508 1394 432 1400 372" stroke="#6d451f" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <g class="cb-fronds" transform="translate(-38,0)">
+      <path d="M1438 372 q-60 -34 -126 -16 q68 8 126 16z" fill="#1f7a53"/>
+      <path d="M1438 372 q-30 -64 -54 -96 q18 68 54 96z" fill="#2fa06c"/>
+      <path d="M1438 372 q32 -62 58 -92 q-20 66 -58 92z" fill="#1f7a53"/>
+      <path d="M1438 372 q-66 12 -114 54 q70 -24 114 -54z" fill="#2fa06c"/>
+    </g>
+  </g>
+</svg>
 
     <div class="hero-halo" aria-hidden="true"></div>
 
@@ -284,6 +382,7 @@
 
   <script src="/js/common.js"></script>
   <script src="/js/upload-engine.js"></script>
+  <script src="/js/crew.js"></script>
   <script src="/js/tour.js"></script>
 </body>
 </html>

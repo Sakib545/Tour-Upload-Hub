@@ -196,22 +196,6 @@ function rebuildCategories(incoming, current) {
     return true;
   };
 
-  /**
-   * Place a category no matter what: the wanted folder, then the folder it had
-   * before, then a disambiguated name. A category must never silently vanish —
-   * a dropped built-in takes the upload routing and its gallery chip with it.
-   */
-  const placeCategory = (cat, previousFolder) => {
-    if (push(cat)) return true;
-    if (previousFolder && push({ ...cat, folder: previousFolder })) return true;
-    const stem = previousFolder || cat.folder;
-    for (let i = 2; i <= 20; i++) {
-      const alt = `${stem} (${i})`;
-      if (alt.length <= 80 && push({ ...cat, folder: alt })) return true;
-    }
-    return push({ ...cat, folder: `${stem.slice(0, 60)} (${cat.id})` });
-  };
-
   for (const raw of incoming) {
     if (!raw || typeof raw !== 'object') continue;
     if (out.length >= MAX_CATEGORIES) break;
@@ -219,9 +203,8 @@ function rebuildCategories(incoming, current) {
     const base = byId.get(id);
     if (base) {
       const next = sanitizeCategory(raw, base);
-      // Folder taken by another category — keep what this one had, and if that
-      // is taken too fall back to a disambiguated name rather than dropping it.
-      placeCategory(next, base.folder);
+      // Folder taken by another category — keep what this one had.
+      if (!push(next)) push({ ...next, folder: base.folder });
       byId.delete(id);
       continue;
     }
@@ -239,7 +222,7 @@ function rebuildCategories(incoming, current) {
   // Any built-in the payload left out is restored, so routing never breaks.
   for (const [, leftover] of byId) {
     if (!leftover.builtin) continue;
-    placeCategory(leftover, null);
+    if (!push(leftover)) push({ ...leftover, folder: `${leftover.folder} (${leftover.id})` });
   }
   return out.length ? out : current;
 }
@@ -303,7 +286,7 @@ function restorePeople(raw) {
   state.people = raw
     .filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string')
     .slice(0, 40)
-    .map((p) => ({
+    .map((p, i) => ({
       id: p.id,
       name: clean(p.name, 60),
       folder: clean(p.folder || p.name, 60),
@@ -312,6 +295,8 @@ function restorePeople(raw) {
             .filter((d) => Array.isArray(d) && d.length === 128 && d.every((n) => Number.isFinite(n)))
             .slice(-6)
         : [],
+      avatar: sanitizeAvatar(p.avatar, defaultAvatar(i)),
+      face: typeof p.face === 'string' && p.face.length < 90000 ? p.face : '',
     }));
 }
 
@@ -321,11 +306,13 @@ function snapshot() {
     categories: state.categories.map((c) => ({ ...c })),
     // Descriptors are big and useless to a human, so the admin view reports
     // only how many reference photos each person has.
-    people: state.people.map((p) => ({
+    people: state.people.map((p, i) => ({
       id: p.id,
       name: p.name,
       folder: p.folder,
       samples: (p.descriptors || []).length,
+      avatar: p.avatar || defaultAvatar(i),
+      hasFace: !!p.face,
     })),
   };
 }
@@ -333,6 +320,31 @@ function snapshot() {
 /** The full people records, descriptors included — for the sorter. */
 function peopleWithDescriptors() {
   return state.people.map((p) => ({ ...p, descriptors: (p.descriptors || []).map((d) => d.slice()) }));
+}
+
+/* Flat colours that sit well in the beach scene. */
+const SKIN_TONES = ['#efbd93', '#d1996a', '#9a6440', '#7a4a2c', '#f7d7bd'];
+const HAIR_TONES = ['#2b1d17', '#1c130f', '#c98b3c', '#5b3b21', '#6b6b6b'];
+const SHIRT_TONES = ['#17948f', '#d9483b', '#6b4bd6', '#f2ece1', '#f59e0b', '#0ea5e9', '#ec4899'];
+const SHORTS_TONES = ['#2b3a52', '#3b3f2c', '#243b46', '#4a3f6b'];
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+
+function defaultAvatar(index) {
+  return {
+    skin: SKIN_TONES[index % SKIN_TONES.length],
+    hair: HAIR_TONES[index % HAIR_TONES.length],
+    shirt: SHIRT_TONES[index % SHIRT_TONES.length],
+    shorts: SHORTS_TONES[index % SHORTS_TONES.length],
+  };
+}
+
+function sanitizeAvatar(raw, base) {
+  const out = { ...base };
+  for (const key of ['skin', 'hair', 'shirt', 'shorts']) {
+    const v = String((raw && raw[key]) || '').trim();
+    if (HEX_RE.test(v)) out[key] = v.toLowerCase();
+  }
+  return out;
 }
 
 const PERSON_ID_RE = /^p_[a-z0-9]{6}$/;
@@ -358,7 +370,14 @@ function addPerson(rawName) {
   if (state.people.some((p) => p.folder.toLowerCase() === folder.toLowerCase())) return null;
   const id = newPersonId(taken);
   if (!id) return null;
-  const person = { id, name, folder, descriptors: [] };
+  const person = {
+    id,
+    name,
+    folder,
+    descriptors: [],
+    avatar: defaultAvatar(state.people.length),
+    face: '', // base64 JPEG portrait, filled in at enrolment
+  };
   state.people.push(person);
   save();
   return { id, name, folder, samples: 0 };
@@ -388,6 +407,49 @@ function personById(id) {
   return state.people.find((p) => p.id === id) || null;
 }
 
+/** Change a person's name and/or their cartoon colours. */
+function updatePerson(id, patch = {}) {
+  const person = state.people.find((p) => p.id === id);
+  if (!person) return null;
+  if (typeof patch.name === 'string') {
+    const name = clean(patch.name, 60);
+    if (name) person.name = name;
+  }
+  if (patch.avatar && typeof patch.avatar === 'object') {
+    person.avatar = sanitizeAvatar(patch.avatar, person.avatar || defaultAvatar(0));
+  }
+  save();
+  return { id: person.id, name: person.name, folder: person.folder };
+}
+
+/** Store the small portrait taken from an enrolment photo. */
+function setPortrait(id, jpegBuffer) {
+  const person = state.people.find((p) => p.id === id);
+  if (!person || !Buffer.isBuffer(jpegBuffer) || !jpegBuffer.length) return false;
+  // Kept inline in the settings file so it survives a redeploy like everything
+  // else; a 160px JPEG is a few kilobytes.
+  if (jpegBuffer.length > 60 * 1024) return false;
+  person.face = jpegBuffer.toString('base64');
+  save();
+  return true;
+}
+
+function portrait(id) {
+  const person = state.people.find((p) => p.id === id);
+  if (!person || !person.face) return null;
+  return Buffer.from(person.face, 'base64');
+}
+
+/** What the public pages need to draw the beach crew. */
+function crew() {
+  return state.people.map((p, i) => ({
+    id: p.id,
+    name: p.name,
+    avatar: p.avatar || defaultAvatar(i),
+    hasFace: !!p.face,
+  }));
+}
+
 /** Update content / categories with sanitization. Never throws. */
 function update({ content, categories } = {}) {
   if (content && typeof content === 'object') {
@@ -412,6 +474,10 @@ module.exports = {
   categoryById,
   addPerson,
   removePerson,
+  updatePerson,
+  setPortrait,
+  portrait,
+  crew,
   addDescriptor,
   personById,
   peopleWithDescriptors,

@@ -95,6 +95,15 @@ async function init() {
           return found.map((f) => ({
             descriptor: Array.from(f.descriptor),
             score: f.detection.score,
+            // Box in the working image, so a caller can crop the face out.
+            box: {
+              x: Math.max(0, Math.round(f.detection.box.x)),
+              y: Math.max(0, Math.round(f.detection.box.y)),
+              width: Math.round(f.detection.box.width),
+              height: Math.round(f.detection.box.height),
+            },
+            imageWidth: info.width,
+            imageHeight: info.height,
           }));
         } finally {
           tensor.dispose();
@@ -113,6 +122,94 @@ async function init() {
     }
   })();
   return ready;
+}
+
+/** Crop one detected face to a small square JPEG (for the hero figures). */
+async function cropFace(buffer, face, size = 160) {
+  if (!face || !face.box) return null;
+  let sharp;
+  try {
+    sharp = require('sharp');
+  } catch (e) {
+    return null;
+  }
+  // Rotate first and read the metadata from the *rotated* bytes: sharp reports
+  // the file's original dimensions until the rotation is materialised, which
+  // silently mis-scales the crop for any phone photo with EXIF orientation.
+  const rotated = await sharp(buffer).rotate().removeAlpha().toBuffer();
+  const meta = await sharp(rotated).metadata();
+  // The box is in working-image coordinates; scale it back to the original.
+  const scale = face.imageWidth ? (meta.width || face.imageWidth) / face.imageWidth : 1;
+  const pad = 0.42; // include hair and chin, not just the detected rectangle
+  const cx = (face.box.x + face.box.width / 2) * scale;
+  const cy = (face.box.y + face.box.height / 2) * scale;
+  const half = (Math.max(face.box.width, face.box.height) * scale * (1 + pad)) / 2;
+  const left = Math.max(0, Math.round(cx - half));
+  const top = Math.max(0, Math.round(cy - half));
+  const side = Math.max(
+    16,
+    Math.round(Math.min(half * 2, (meta.width || 0) - left, (meta.height || 0) - top))
+  );
+  const out = await sharp(rotated)
+    .extract({ left, top, width: side, height: side })
+    .resize(size, size, { fit: 'cover' })
+    .jpeg({ quality: 72 })
+    .toBuffer();
+  return out;
+}
+
+/**
+ * Average skin tone from a face crop, so the cartoon body matches the person.
+ * Samples a band across the cheeks and chin — below the eyes, inside the face
+ * — and trims it to a believable range so a dark photo does not produce a
+ * muddy body.
+ */
+async function sampleSkin(cropBuffer) {
+  let sharp;
+  try {
+    sharp = require('sharp');
+  } catch (e) {
+    return null;
+  }
+  const img = sharp(cropBuffer);
+  const meta = await img.metadata();
+  const w = meta.width || 0;
+  const h = meta.height || 0;
+  if (w < 20 || h < 20) return null;
+  // Two cheek patches: left and right of centre, below the eyes and above the
+  // jaw. Sampling the middle instead would average in a beard or a mouth.
+  const patches = [0.22, 0.64].map((leftFrac) => ({
+    left: Math.round(w * leftFrac),
+    top: Math.round(h * 0.56),
+    width: Math.max(4, Math.round(w * 0.14)),
+    height: Math.max(4, Math.round(h * 0.12)),
+  }));
+  const samples = [];
+  for (const patch of patches) {
+    const { data } = await sharp(cropBuffer)
+      .extract(patch)
+      .resize(1, 1, { fit: 'fill' })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    if (data && data.length >= 3) samples.push([data[0], data[1], data[2]]);
+  }
+  if (!samples.length) return null;
+  // The brighter cheek wins: one side is usually in shadow.
+  const brightest = samples.sort((a, b) => (b[0] + b[1] + b[2]) - (a[0] + a[1] + a[2]))[0];
+  // Lift very dark samples (shadow, backlight) without changing the hue.
+  const rgb = brightest;
+  const max = Math.max(...rgb);
+  const min = Math.min(...rgb);
+  // Skin is warm: red highest, blue lowest, and never flat grey. Sunglasses,
+  // a shadow or a hand across the cheek fail this, and it is better to keep
+  // the assigned palette colour than to paint someone grey.
+  const saturation = max ? (max - min) / max : 0;
+  if (saturation < 0.12 || rgb[0] < rgb[2] || rgb[0] <= rgb[1]) return null;
+  const lift = max < 150 ? 150 / Math.max(max, 1) : 1;
+  return '#' + rgb
+    .map((v) => Math.min(255, Math.round(v * lift)).toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /** Test seam: swap in a describer so the plumbing can be exercised offline. */
@@ -222,6 +319,8 @@ function status() {
 module.exports = {
   init,
   describeImage,
+  cropFace,
+  sampleSkin,
   matchPerson,
   distance,
   enqueue,

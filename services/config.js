@@ -164,6 +164,9 @@ function publicConfig(state, site) {
     // Uploading always keeps its PIN gate; viewing can be opened up.
     galleryPinRequired: cfg.pinEnabled && !state.galleryPublic,
     faceSortEnabled: cfg.faces.enabled,
+    // The beach crew: one figure per enrolled person.
+    heroCrew: state.heroCrew,
+    crew: site.crew(),
     maxFileSizeMB: cfg.maxFileSizeMB,
     maxFilesPerUpload: cfg.maxFilesPerUpload,
     separateMediaFolders: cfg.google.separateMediaFolders,

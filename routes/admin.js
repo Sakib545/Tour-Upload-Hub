@@ -46,11 +46,7 @@ function categoryLabelFor(taggedCategory, mimeType) {
     : null;
   if (
     tagged &&
-    // 'any' custom categories (a day, a place, a drone set) take both kinds —
-    // this must match categoryForFile() in routes/api.js or the admin list and
-    // the gallery disagree about the same file.
-    (tagged.media === 'any' ||
-      (m.startsWith('image/') && tagged.media === 'photo') ||
+    ((m.startsWith('image/') && tagged.media === 'photo') ||
       (m.startsWith('video/') && tagged.media === 'video'))
   ) {
     return tagged.label;
@@ -152,6 +148,8 @@ router.put('/admin/settings', rl.adminApi, requireAdmin, asyncH(async (req, res)
   for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
     if (typeof body[key] === 'boolean') patch[key] = body[key];
   }
+  // How the beach crew is drawn: cartoon figures, real portraits, or neither.
+  if (['cartoon', 'photo', 'off'].includes(body.heroCrew)) patch.heroCrew = body.heroCrew;
   const next = state.update(patch);
   logger.info('admin: settings updated', {
     uploadsEnabled: next.uploadsEnabled,
@@ -186,7 +184,7 @@ router.put('/admin/site', rl.adminApi, requireAdmin, asyncH(async (req, res) => 
 /* ── People & face sorting ───────────────────────────────────── */
 
 router.get('/admin/faces', rl.adminApi, requireAdmin, (req, res) => {
-  res.json({ people: site.people, status: faces.status() });
+  res.json({ people: site.people, status: faces.status(), heroCrew: state.settings.heroCrew });
 });
 
 router.post('/admin/people', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
@@ -195,6 +193,14 @@ router.post('/admin/people', rl.adminApi, requireAdmin, asyncH(async (req, res) 
   await persist.saveAll();
   logger.info('admin: person added', { id: person.id, name: person.name });
   res.json({ person, people: site.people });
+}));
+
+router.patch('/admin/people/:id', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+  const body = req.body || {};
+  const updated = site.updatePerson(req.params.id, { name: body.name, avatar: body.avatar });
+  if (!updated) return res.status(404).json({ error: 'NOT_FOUND' });
+  await persist.saveAll();
+  res.json({ people: site.people });
 }));
 
 router.delete('/admin/people/:id', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
@@ -225,6 +231,10 @@ router.post(
     const result = await faceSorter.describeReference(req.body);
     if (!result.ok) return res.status(400).json({ error: result.code });
     site.addDescriptor(person.id, result.descriptor);
+    // The portrait is a by-product: a small square crop for the beach figure,
+    // and the skin tone read off it, so the cartoon body matches the face.
+    if (result.face) site.setPortrait(person.id, result.face);
+    if (result.skin) site.updatePerson(person.id, { avatar: { skin: result.skin } });
     await persist.saveAll();
     logger.info('admin: face enrolled', { id: person.id, name: person.name });
     res.json({ people: site.people });

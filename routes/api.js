@@ -633,6 +633,19 @@ router.post('/upload/cancel', rl.light, requireUploadAuth, asyncH(async (req, re
   res.json({ ok: true });
 }));
 
+/**
+ * Portrait for one beach figure. Public on purpose: it is part of the hero on
+ * the landing page, and it is only ever the small crop the organiser enrolled.
+ */
+router.get('/crew/:id/face.jpg', rl.light, (req, res) => {
+  const buf = site.portrait(req.params.id);
+  if (!buf) return fail(res, 404, 'NOT_FOUND');
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Content-Length', String(buf.length));
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.end(buf);
+});
+
 /* ── Gallery (PIN-protected when TOUR_UPLOAD_PIN is configured) ── */
 
 // Files verified to live in one of our folders (prevents probing other Drive
@@ -677,16 +690,8 @@ async function verifiedMeta(id) {
     return null;
   }
   const parents = Array.isArray(meta.parents) ? meta.parents : [];
-  const inScope = (list) => parents.some((pid) => list.includes(pid));
-  if (!inScope(drive.allowedParents())) {
-    // `allowedParents()` only knows the sub-folders resolved so far, and that
-    // cache is empty right after boot (persist.loadAll() resets it) or after a
-    // folder rename. Resolve them before deciding a file is out of scope —
-    // otherwise every direct media URL 404s until a listing warms the cache.
-    await drive.ensureMediaFolders().catch(() => null);
-    await drive.ensureAllCategoryFolders().catch(() => null);
-    if (!inScope(drive.allowedParents())) return null;
-  }
+  const allowed = drive.allowedParents();
+  if (!parents.some((pid) => allowed.includes(pid))) return null;
   const entry = {
     at: Date.now(),
     name: meta.name || 'file',

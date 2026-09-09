@@ -1447,7 +1447,9 @@ body.page-home .hero .scenery {
 body.page-home .hero::after {
   inset: 0 0 auto 0;
   height: var(--band);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 62%, var(--bg) 100%);
+  /* The fade blends sand into page, but it starts low: people stand at the
+     bottom of this band and were being swallowed by it. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 84%, var(--bg) 100%);
 }
 /* The halo existed only to darken the art behind the text — not needed now. */
 body.page-home .hero-halo { display: none; }
@@ -1555,3 +1557,129 @@ body.page-home .hero-eyebrow {
 .person-row .samples { color: var(--muted); font-size: 0.84rem; }
 .person-row .spacer { flex: 1 1 auto; }
 .person-row .warn { color: var(--warn); font-size: 0.84rem; font-weight: 600; }
+
+/* ── Cox's Bazar beach scene (hero artwork) ─────────────────── */
+.cb {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.cb * { transform-box: fill-box; }
+/* ── Sky ──────────────────────────────────────────────────── */
+.cb-glow  { transform-origin: center; animation: cb-glow 11s ease-in-out infinite alternate; }
+.cb-sun   { transform-origin: center; animation: cb-sunrise 17s ease-in-out infinite alternate; }
+@keyframes cb-glow    { from { opacity: .75; transform: scale(1); }
+@keyframes cb-sunrise { from { transform: translateY(0); }
+.cb-tw { animation: cb-tw 4s ease-in-out infinite alternate; }
+.cb-tw2 { animation-duration: 5.7s; animation-delay: -1.9s; }
+.cb-tw3 { animation-duration: 7.3s; animation-delay: -3.4s; }
+@keyframes cb-tw { from { opacity: .3; }
+.cb-gull { animation: cb-gull 26s linear infinite; }
+.cb-g2 { animation-duration: 34s; animation-delay: -12s; }
+.cb-g3 { animation-duration: 30s; animation-delay: -21s; }
+@keyframes cb-gull {
+  from { transform: translate(-260px, 22px); }
+.cb-kite-body {
+  transform-origin: 50% 22%;
+  animation: cb-kite 6.5s ease-in-out infinite alternate;
+}
+@keyframes cb-kite {
+  from { transform: translate(-16px, 6px) rotate(-7deg); }
+/* ── Water ────────────────────────────────────────────────── */
+.cb-drift-a { animation: cb-drift-a 23s linear infinite; }
+.cb-drift-b { animation: cb-drift-b 31s linear infinite; }
+@keyframes cb-drift-a { from { transform: translateX(0); }
+@keyframes cb-drift-b { from { transform: translateX(0); }
+.cb-path { transform-origin: 50% 0; animation: cb-path 8s ease-in-out infinite alternate; }
+@keyframes cb-path { from { opacity: .8; transform: scaleX(.94); }
+.cb-bob { transform-origin: 50% 100%; animation: cb-bob 4.3s ease-in-out infinite alternate; }
+.cb-bob-b { animation-duration: 5.9s; animation-delay: -2.4s; }
+@keyframes cb-bob {
+  from { transform: translateY(-2px) rotate(-1.6deg); }
+/* The foam paths are drawn several wavelengths wider than the frame,
+   so sliding them by exactly one wavelength loops without a jump. */
+.cb-foam-a { animation: cb-foam-a 7s linear infinite; }
+.cb-foam-b { animation: cb-foam-b 11s linear infinite; }
+@keyframes cb-foam-a { from { transform: translateX(0); }
+@keyframes cb-foam-b { from { transform: translateX(0); }
+/* ── Speedboat ────────────────────────────────────────────── */
+.cb-boat-run { animation: cb-boat-run 15s linear infinite; }
+@keyframes cb-boat-run {
+  from { transform: translateX(-360px); }
+.cb-boat-bob { transform-origin: 50% 100%; animation: cb-boat-bob 0.9s ease-in-out infinite alternate; }
+@keyframes cb-boat-bob {
+  from { transform: translateY(-3px) rotate(-1.2deg); }
+.cb-spray { animation: cb-spray 0.45s ease-in-out infinite alternate; }
+@keyframes cb-spray { from { opacity: .35; transform: translate(4px, 2px); }
+/* ── Splashing in the shallows ────────────────────────────── */
+.cb-splash-a .cb-jump { transform-origin: 50% 100%; animation: cb-jump 1.5s ease-in-out infinite alternate; }
+.cb-splash-b .cb-jump { transform-origin: 50% 100%; animation: cb-jump 1.15s ease-in-out infinite alternate; animation-delay: -0.6s; }
+@keyframes cb-jump {
+  from { transform: translateY(4px) rotate(-2deg); }
+.cb-splash-a .cb-drops { animation: cb-drops 1.5s ease-out infinite; }
+.cb-splash-b .cb-drops { animation: cb-drops 1.15s ease-out infinite; animation-delay: -0.6s; }
+@keyframes cb-drops {
+  0%   { opacity: 0; transform: translateY(6px) scale(.5); }
+/* ── Horse ride ───────────────────────────────────────────── */
+.cb-horse-run { animation: cb-horse-run 34s linear infinite; }
+@keyframes cb-horse-run {
+  from { transform: translateX(-1200px); }
+.cb-horse-bob { transform-origin: 50% 100%; animation: cb-horse-bob 0.62s ease-in-out infinite alternate; }
+@keyframes cb-horse-bob { from { transform: translateY(0); }
+.cb-leg { transform-origin: 50% 0; animation: cb-step 0.62s ease-in-out infinite alternate; }
+.cb-leg-2, .cb-leg-3 { animation-delay: -0.31s; }
+@keyframes cb-step { from { transform: rotate(-16deg); }
+.cb-tail { transform-origin: 100% 0; animation: cb-tail 1.7s ease-in-out infinite alternate; }
+@keyframes cb-tail { from { transform: rotate(-9deg); }
+.cb-rider { transform-origin: 50% 100%; animation: cb-rider 0.62s ease-in-out infinite alternate; }
+@keyframes cb-rider { from { transform: translateY(2px) rotate(-1.5deg); }
+/* ── The sitting crew ─────────────────────────────────────── */
+.cb-sit { transform-origin: 50% 100%; }
+.cb-sit-1 { animation: cb-sit 4.3s ease-in-out -0.5s infinite alternate; }
+.cb-sit-2 { animation: cb-sit 3.4s ease-in-out -2.1s infinite alternate; }
+.cb-sit-3 { animation: cb-sit 5.1s ease-in-out -3.3s infinite alternate; }
+.cb-sit-4 { animation: cb-sit 3.9s ease-in-out -1.2s infinite alternate; }
+@keyframes cb-sit {
+  from { transform: translateY(1px) rotate(-1.1deg); }
+.cb-arm-wave  { transform-origin: 0 100%; animation: cb-wave 1.4s ease-in-out infinite alternate; }
+@keyframes cb-wave { from { transform: rotate(-13deg); }
+.cb-arm-point { transform-origin: 0 100%; animation: cb-point 3.6s ease-in-out infinite alternate; }
+@keyframes cb-point { from { transform: rotate(-5deg); }
+/* ── Standing folk ────────────────────────────────────────── */
+.cb-sway { transform-origin: 50% 100%; }
+.cb-sway-1 { animation: cb-sway 3.7s ease-in-out infinite alternate; }
+.cb-sway-2 { animation: cb-sway 4.6s ease-in-out -1.8s infinite alternate; }
+.cb-sway-3 { animation: cb-sway 5.3s ease-in-out -3.1s infinite alternate; }
+@keyframes cb-sway {
+  from { transform: rotate(-1.4deg); }
+.cb-phone { transform-origin: 50% 100%; animation: cb-phone 5.3s ease-in-out infinite alternate; }
+@keyframes cb-phone { from { transform: translate(-2px, 1px) rotate(-3deg); }
+.cb-flash { transform-origin: center; animation: cb-flash 7.5s ease-out infinite; }
+@keyframes cb-flash {
+  0%, 88%  { opacity: 0; transform: scale(.4); }
+/* ── Palms & parasol ──────────────────────────────────────── */
+.cb-fronds { transform-origin: 50% 100%; animation: cb-fronds 6.8s ease-in-out infinite alternate; }
+.cb-palm-r .cb-fronds { animation-duration: 8.3s; animation-delay: -2.7s; }
+@keyframes cb-fronds { from { transform: rotate(-2.2deg); }
+.cb-canopy { transform-origin: 50% 100%; animation: cb-canopy 5.6s ease-in-out infinite alternate; }
+@keyframes cb-canopy { from { transform: rotate(-1.8deg); }
+@media (prefers-reduced-motion: reduce) {
+  .cb *, .cb *::before { animation: none !important; transform: none !important; }
+/* Hero frame — 42cqw here so the width buttons work; 42vw on the site. */
+.hero {
+  position: relative;
+  height: clamp(190px, 42cqw, 640px);
+  overflow: hidden;
+  background: #151848;
+}
+.hero .cb { position: absolute; inset: 0; }
+/* ── Preview chrome ───────────────────────────────────────── */
+:root { color-scheme: dark; }
+
+.person-row .swatches { display: inline-flex; gap: 5px; }
+.person-row .swatch {
+  width: 26px; height: 26px; padding: 0; border: 1px solid var(--line);
+  border-radius: 8px; background: none; cursor: pointer;
+}
+.person-row .swatch::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.person-row .swatch::-moz-color-swatch { border: 0; border-radius: 6px; }
