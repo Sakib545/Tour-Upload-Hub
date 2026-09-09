@@ -1380,12 +1380,12 @@ body.page-home .hero-eyebrow {
    data-friend-id, ready for a portrait/face replacement later. */
 .tf-group-shadow { fill: rgba(74, 48, 24, 0.14); }
 .tf-shadow { fill: rgba(74, 48, 24, 0.2); }
-.tf-shirt { fill: var(--shirt); }
-.tf-skin { fill: var(--skin); }
-.tf-hair { fill: var(--hair); }
+.tf-shirt { fill: var(--shirt, #2384d8); }
+.tf-skin { fill: var(--skin, #dba074); }
+.tf-hair { fill: var(--hair, #241710); }
 .tf-limbs {
   fill: none;
-  stroke: var(--skin);
+  stroke: var(--skin, #dba074);
   stroke-width: 9;
   stroke-linecap: round;
   stroke-linejoin: round;
