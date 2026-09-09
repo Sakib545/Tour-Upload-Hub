@@ -187,6 +187,30 @@
 
   const MEDIA_LABEL = { photo: 'PHOTO', video: 'VIDEO', any: 'ANY' };
 
+  /**
+   * Say plainly what the public page is doing right now. Without this the only
+   * symptom of an unsaved date is a missing countdown, which looks like a bug.
+   */
+  function showCountdownHint(content) {
+    const hint = $('#countdownHint');
+    if (!hint) return;
+    const start = content && content.startAt ? new Date(content.startAt) : null;
+    const end = content && content.endAt ? new Date(content.endAt) : null;
+    if (!start || isNaN(start)) {
+      hint.textContent = 'কোনো তারিখ দেওয়া নেই — public পেজে countdown দেখাবে না।';
+      return;
+    }
+    const now = Date.now();
+    if (now < start.getTime()) {
+      const days = Math.floor((start.getTime() - now) / 86400000);
+      hint.textContent = `Countdown চলছে — ${days} দিন বাকি (${start.toLocaleString()})।`;
+    } else if (!end || isNaN(end) || now <= end.getTime()) {
+      hint.textContent = 'ট্যুর চলছে — public পেজে "ট্যুর চলছে" বার্তা দেখাচ্ছে।';
+    } else {
+      hint.textContent = 'ট্যুর শেষ — public পেজে "বাকি ছবিগুলো Upload করুন" দেখাচ্ছে।';
+    }
+  }
+
   /** ISO instant → the "YYYY-MM-DDTHH:mm" a datetime-local input expects. */
   function toLocalInput(iso) {
     if (!iso) return '';
@@ -220,6 +244,7 @@
     // <input type="datetime-local"> wants the viewer's own local time.
     set('#siteStartAt', toLocalInput(c.startAt));
     set('#siteEndAt', toLocalInput(c.endAt));
+    showCountdownHint(c);
     buildCategoryRows(site.categories || []);
   }
 

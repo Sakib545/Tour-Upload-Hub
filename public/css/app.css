@@ -1789,3 +1789,56 @@ body.page-home .hero-eyebrow {
 }
 .person-row .swatch::-webkit-color-swatch { border: 0; border-radius: 6px; }
 .person-row .swatch::-moz-color-swatch { border: 0; border-radius: 6px; }
+
+/* ── Mini game: ঢেউয়ের রেস ──────────────────────────────────── */
+body.page-game { min-height: 100vh; }
+.game-container { max-width: 640px; }
+.game-shell {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  background: #0b2c4c;
+  aspect-ratio: 3 / 4;
+  max-height: 72vh;
+  margin: 0 auto;
+  touch-action: none;      /* dragging steers; it must not scroll the page */
+  user-select: none;
+}
+@media (min-width: 700px) { .game-shell { aspect-ratio: 16 / 11; } }
+.game-canvas { display: block; width: 100%; height: 100%; }
+
+.hud { position: absolute; top: 10px; left: 10px; right: 10px; display: grid; gap: 6px; pointer-events: none; }
+.hud-row { display: flex; gap: 8px; }
+.hud-chip {
+  background: rgba(6, 20, 35, 0.6); color: #eaf3fb; font-weight: 700; font-size: 0.85rem;
+  padding: 5px 12px; border-radius: 999px; font-variant-numeric: tabular-nums;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.hud-bar { height: 6px; border-radius: 999px; background: rgba(6, 20, 35, 0.55); overflow: hidden; }
+.hud-bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #38bdf8, #6366f1); transition: width 0.2s linear; }
+.hud-bar.fuel > i { background: linear-gradient(90deg, #f59e0b, #f43f5e); }
+
+.game-card {
+  position: absolute; inset: auto 12px 12px; padding: 18px 20px;
+  background: rgba(6, 20, 35, 0.86); border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px; color: #eaf3fb; text-align: center;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  animation: riseIn 0.35s var(--ease-out) both;
+}
+.game-card h2 { margin: 0 0 6px; font-size: 1.25rem; }
+.game-card .muted-text { color: #a9c0d6; font-size: 0.9rem; }
+.game-card .btn { margin-top: 12px; }
+
+.game-pads { position: absolute; inset: auto 0 0; display: flex; gap: 10px; padding: 14px; justify-content: space-between; }
+.pad {
+  width: 62px; height: 62px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 20, 35, 0.55); color: #eaf3fb; font-size: 1.3rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s var(--ease-out), background 0.15s ease;
+}
+.pad:active { transform: scale(0.92); background: rgba(14, 165, 233, 0.5); }
+@media (min-width: 700px) { .game-pads { display: none; } }
+
+.game-link-row { text-align: center; margin: 4px 0 10px; }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ঢেউয়ের রেস — Tour Memories</title>
+  <meta name="description" content="Tour Memories-এর মিনি গেম: ঢেউয়ের উপর নৌকা চালিয়ে রেস।" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230ea5e9'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle'%3E%F0%9F%9A%A4%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="page-game">
+  <header class="sub-header">
+    <a class="btn btn-ghost btn-xs" href="/">← Upload পেজে ফিরে যান</a>
+    <h1>ঢেউয়ের রেস 🚤</h1>
+  </header>
+
+  <main class="container game-container">
+    <div class="game-shell">
+      <canvas id="raceCanvas" class="game-canvas" aria-label="ঢেউয়ের রেস"></canvas>
+
+      <!-- Heads-up display -->
+      <div class="hud" id="hud" hidden>
+        <div class="hud-row">
+          <span class="hud-chip" id="hudPlace">১ম</span>
+          <span class="hud-chip" id="hudScore">০</span>
+          <span class="hud-chip" id="hudLives">❤❤❤</span>
+        </div>
+        <div class="hud-bar"><i id="hudProgress"></i></div>
+        <div class="hud-bar fuel"><i id="hudFuel"></i></div>
+      </div>
+
+      <!-- Start / end card -->
+      <div class="game-card" id="startCard">
+        <h2 id="cardTitle">ঢেউয়ের রেস</h2>
+        <p id="cardText" class="muted-text">
+          পাশে টেনে নৌকা ঘোরান, চেপে ধরলে নাইট্রো, ট্যাপ করলে লাফ।
+          বয়া আর জেলিফিশ এড়ান, তেল আর কয়েন তুলে নিন।
+        </p>
+        <p class="muted-text" id="cardBest"></p>
+        <button type="button" class="btn btn-primary btn-lg" id="btnPlay">শুরু করুন</button>
+      </div>
+
+      <!-- Touch controls -->
+      <div class="game-pads" id="pads" hidden>
+        <button type="button" class="pad pad-left" id="padLeft" aria-label="বাঁয়ে">◀</button>
+        <button type="button" class="pad pad-jump" id="padJump" aria-label="লাফ">⤒</button>
+        <button type="button" class="pad pad-boost" id="padBoost" aria-label="নাইট্রো">🔥</button>
+        <button type="button" class="pad pad-right" id="padRight" aria-label="ডানে">▶</button>
+      </div>
+    </div>
+
+    <p class="muted-text center note">
+      কীবোর্ড: ← → ঘোরানো • Space লাফ • Shift নাইট্রো
+    </p>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/game.js"></script>
+  <script src="/js/game-ui.js"></script>
+</body>
+</html>

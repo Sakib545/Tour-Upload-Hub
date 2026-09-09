@@ -49,6 +49,7 @@ function createApp() {
   };
   app.get(['/admin', '/admin/'], sendPage('admin.html'));
   app.get(['/gallery', '/gallery/'], sendPage('gallery.html'));
+  app.get(['/game', '/game/'], sendPage('game.html'));
 
   app.use('/api', apiRouter);
   app.use('/api', adminRouter);

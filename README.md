@@ -55,6 +55,10 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   enrolled portrait as the head. The skin tone is read off that portrait automatically,
   so the body matches the face. Hovering a figure shows the name.
 
+- **Mini game at `/game`**: ঢেউয়ের রেস, a third-person wave race — the camera sits
+  behind the boat, obstacles come at you down the channel, and the rival boats are named
+  after the enrolled crew. Touch or keyboard, no login, best score kept locally.
+
 ## 1. Local setup
 
 Prerequisites: **Node.js ≥ 18**.
