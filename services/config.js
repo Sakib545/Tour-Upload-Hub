@@ -34,6 +34,7 @@ const cfg = {
     // destination folder, so downloading "just the videos" is one click in Drive.
     separateMediaFolders: bool(env.SEPARATE_MEDIA_FOLDERS, true),
     photosFolderName: str(env.PHOTOS_FOLDER_NAME, 'Photos'),
+    groupFolderName: str(env.GROUP_FOLDER_NAME, 'Group Photos'),
     videosFolderName: str(env.VIDEOS_FOLDER_NAME, 'Videos'),
     serviceAccountJson: str(env.GOOGLE_SERVICE_ACCOUNT_JSON, ''),
     clientId: str(env.GOOGLE_CLIENT_ID, ''),
@@ -49,6 +50,9 @@ const cfg = {
   enableGallery: bool(env.ENABLE_GALLERY, true),
   defaultUploadsEnabled: bool(env.ENABLE_UPLOADS, true),
   defaultGalleryVisible: bool(env.GALLERY_VISIBLE, true),
+  // When true the gallery is readable without the PIN, while uploading still
+  // requires it. Admin can flip this live.
+  defaultGalleryPublic: bool(env.GALLERY_PUBLIC, false),
 
   maxFileBytes: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240) * 1024 * 1024,
   maxFileSizeMB: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240),
@@ -119,27 +123,33 @@ function validate() {
   }
 }
 
-/** Public (safe) configuration exposed to the frontend at /api/config. */
-function publicConfig(state) {
+/**
+ * Public (safe) configuration exposed to the frontend at /api/config.
+ * `store` is the live settings store (services/state.js) so admin edits show
+ * up on the next page load without a redeploy.
+ */
+function publicConfig(store) {
+  const flags = store.settings;
+  const site = store.site;
   return {
     siteName: 'Tour Memories',
-    tourTitle: cfg.tour.title,
-    tourSubtitle: cfg.tour.subtitle,
-    tourDate: cfg.tour.date,
-    tourLocation: cfg.tour.location,
-    coverUrl: cfg.tour.coverUrl,
-    privacyNote: cfg.tour.privacyNote,
-    galleryEnabled: cfg.enableGallery && state.galleryVisible,
-    uploadsEnabled: state.uploadsEnabled,
+    tourTitle: site.title,
+    tourSubtitle: site.subtitle,
+    tourDate: site.date,
+    tourLocation: site.location,
+    coverUrl: site.coverUrl,
+    privacyNote: site.privacyNote,
+    galleryEnabled: cfg.enableGallery && flags.galleryVisible,
+    uploadsEnabled: flags.uploadsEnabled,
+    // The gallery can be open to everyone while uploading still needs the PIN.
     pinRequired: cfg.pinEnabled,
+    galleryPinRequired: cfg.pinEnabled && !flags.galleryPublic,
     maxFileSizeMB: cfg.maxFileSizeMB,
     maxFilesPerUpload: cfg.maxFilesPerUpload,
     separateMediaFolders: cfg.google.separateMediaFolders,
-    photosFolderName: cfg.google.photosFolderName,
-    videosFolderName: cfg.google.videosFolderName,
+    folderNames: store.folders,
     chunkMB: cfg.chunkBytes / (1024 * 1024),
     maxFileBytes: cfg.maxFileBytes,
-    maxFilesPerUploadBytesLabel: `${cfg.maxFileSizeMB} MB`,
   };
 }
 

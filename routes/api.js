@@ -102,7 +102,7 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/config', noStore, (req, res) => {
-  res.json(publicConfig(state.settings));
+  res.json(publicConfig(state));
 });
 
 /* ── Public: PIN gate ─────────────────────────────────────────── */
@@ -416,6 +416,8 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
   const rawName = safeDecode(req.get('x-file-name') || '');
   const mime = String(req.get('x-mime') || '').slice(0, 200);
   const uploader = safeDecode(req.get('x-uploader') || '').slice(0, 60);
+  // The uploader tells us whether a photo belongs in the group-photo folder.
+  const isGroup = String(req.get('x-group') || '') === '1';
 
   // A normal first chunk is exactly min(chunkBytes, total). Anything smaller for
   // a multi-chunk file is "unusually tiny" and never warrants a Drive session.
@@ -457,7 +459,7 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
   // Photos and videos are filed into their own Drive sub-folders.
   let parentId;
   try {
-    parentId = await drive.folderIdForMime(v.mimeType);
+    parentId = await drive.folderIdFor({ mimeType: v.mimeType, group: isGroup });
   } catch (e) {
     parentId = null; // fall back to the root folder — never block an upload
   }
@@ -670,7 +672,8 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
   });
   // Mint one short-lived signed token per listing when the gallery is PIN-gated;
   // <img>/<video> cannot send headers, so media URLs carry it as ?gt=…
-  const gt = cfg.pinEnabled ? galleryToken() : null;
+  const gated = cfg.pinEnabled && !state.settings.galleryPublic;
+  const gt = gated ? galleryToken() : null;
   const q = gt ? `?gt=${encodeURIComponent(gt)}` : '';
   const items = files.map((f) => {
     const meta = sanitize.parseDescription(f.description);
@@ -682,6 +685,8 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
       name: f.name,
       isImage,
       isVideo,
+      // 'single' | 'group' | 'video' — which Drive folder it lives in.
+      category: drive.categoryOf(f),
       mimeType: f.mimeType || '',
       size: Number(f.size) || 0,
       createdTime: f.createdTime || null,

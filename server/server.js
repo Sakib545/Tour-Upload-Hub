@@ -31,13 +31,19 @@ server.keepAliveTimeout = 5 * 1000;
 
 // Non-fatal boot check so the admin sees credential/folder problems immediately.
 // Validates that GOOGLE_DRIVE_FOLDER_ID really points at a Drive folder.
-drive.verifyAccess().then((r) => {
-  state.setDriveHealth({ ok: r.ok, code: r.code, name: r.name || '', msg: r.msg });
+drive.verifyAccess().then(async (r) => {
+  state.setDriveHealth({
+    ok: r.ok, code: r.code, name: r.name || '', msg: r.msg, reason: r.reason || '',
+  });
   if (!r.ok) {
     logger.warn('startup Drive check failed — uploads will error until fixed', {
       code: r.code,
     });
+    return;
   }
+  // Admin-edited title/subtitle/folder names live in the Drive folder, so they
+  // survive redeploys (Railway's own disk does not).
+  await state.loadFromDrive();
 });
 
 function shutdown(signal) {

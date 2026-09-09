@@ -75,7 +75,9 @@ function requireUploadAuth(req, res, next) {
 /**
  * Gate for gallery routes. Order matters:
  *  1. Admin "hide gallery" blocks everything immediately (even valid tokens).
- *  2. Without a configured PIN the gallery stays public.
+ *  2. Without a configured PIN — or with the admin's "anyone can view"
+ *     setting on — the gallery is readable by everyone. Uploading always
+ *     keeps its own PIN gate.
  *  3. With a PIN, gallery list + every media URL require a signed token
  *     (X-Gallery-Token / X-Upload-Token header, or `?gt=` query param).
  */
@@ -84,7 +86,8 @@ function requireGalleryAuth(req, res, next) {
   if (!cfg.enableGallery || !s.galleryVisible) {
     return res.status(404).json({ error: 'GALLERY_DISABLED' });
   }
-  if (!cfg.pinEnabled) return next();
+  // Admin can open the gallery to everyone while uploads still need the PIN.
+  if (!cfg.pinEnabled || s.galleryPublic) return next();
 
   const bearer = (req.get('authorization') || '').startsWith('Bearer ')
     ? req.get('authorization').slice(7)

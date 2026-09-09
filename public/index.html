@@ -65,6 +65,15 @@
           <p class="drop-hint">অথবা ফাইল এখানে টেনে আনুন / Paste করুন</p>
         </div>
 
+        <!-- Which Drive folder the next photos belong in -->
+        <div class="kind-picker" id="kindPicker">
+          <span class="kind-label" id="kindLabel">ছবিগুলো কোন ফোল্ডারে যাবে?</span>
+          <div class="kind-chips">
+            <button type="button" class="chip is-on" id="chipSingle" data-group="0">👤 একক ছবি</button>
+            <button type="button" class="chip" id="chipGroup" data-group="1">👥 গ্রুপ ছবি</button>
+          </div>
+        </div>
+
         <div id="pickRow" class="pick-row top-row" hidden>
           <button type="button" class="btn btn-ghost" id="btnAddMore">+ আরও ফাইল যোগ করুন</button>
           <span class="muted-text" id="selSummary"></span>

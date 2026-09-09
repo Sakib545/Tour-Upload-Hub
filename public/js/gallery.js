@@ -160,17 +160,19 @@
     return tile;
   }
 
+  function categoryOf(item) {
+    return item.category || (item.isVideo ? 'video' : 'single');
+  }
+
   function render() {
-    shown = items.filter((it) => {
-      if (filter === 'photo') return !it.isVideo;
-      if (filter === 'video') return it.isVideo;
-      return true;
-    });
+    shown = items.filter((it) => (filter === 'all' ? true : categoryOf(it) === filter));
     grid.textContent = '';
     if (!shown.length) {
       status.hidden = false;
       status.textContent =
-        filter === 'video' ? 'এখনো কোনো ভিডিও নেই।' : 'এখনো কোনো ছবি নেই।';
+        filter === 'video' ? 'এখনো কোনো ভিডিও নেই।'
+          : filter === 'group' ? 'এখনো কোনো গ্রুপ ছবি নেই।'
+            : 'এখনো কোনো ছবি নেই।';
       return;
     }
     status.hidden = true;
@@ -358,11 +360,13 @@
       status.textContent = 'এখনো কোনো ছবি নেই — প্রথম ছবিটি Upload করুন!';
       return;
     }
-    const photos = items.filter((i) => !i.isVideo).length;
+    const count = (cat) => items.filter((i) => categoryOf(i) === cat).length;
     $('#nAll').textContent = items.length;
-    $('#nPhotos').textContent = photos;
-    $('#nVideos').textContent = items.length - photos;
+    $('#nSingle').textContent = count('single');
+    $('#nGroup').textContent = count('group');
+    $('#nVideos').textContent = count('video');
     bar.hidden = false;
+    $('#uploadInvite').hidden = false;
     refreshDownloadBtn();
     render();
   }
@@ -373,7 +377,9 @@
     try {
       cfg = await api('/api/config');
     } catch (e) { /* treat as no pin requirement; load() will surface errors */ }
-    if (cfg && cfg.pinRequired && cfg.galleryEnabled) {
+    // `galleryPinRequired` is false when the admin opened the gallery to
+    // everyone, even though uploading still needs the PIN.
+    if (cfg && cfg.galleryPinRequired && cfg.galleryEnabled) {
       const token = sessionStorage.getItem(PIN_KEY) || '';
       if (!token) {
         showPinGate('Gallery দেখতে PIN দিন।');

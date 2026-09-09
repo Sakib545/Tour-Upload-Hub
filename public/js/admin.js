@@ -22,6 +22,19 @@
     btnDriveTest: $('#btnDriveTest'),
     tglUploads: $('#tglUploads'),
     tglGallery: $('#tglGallery'),
+    tglPublic: $('#tglPublic'),
+    fTitle: $('#fTitle'),
+    fSubtitle: $('#fSubtitle'),
+    fDate: $('#fDate'),
+    fLocation: $('#fLocation'),
+    fPrivacy: $('#fPrivacy'),
+    fCover: $('#fCover'),
+    fFolderPhotos: $('#fFolderPhotos'),
+    fFolderGroup: $('#fFolderGroup'),
+    fFolderVideos: $('#fFolderVideos'),
+    btnSaveContent: $('#btnSaveContent'),
+    btnResetContent: $('#btnResetContent'),
+    saveHint: $('#saveHint'),
     recentBody: $('#recentBody'),
     recentNote: $('#recentNote'),
     qrImg: $('#qrImg'),
@@ -46,7 +59,7 @@
       const data = await apiAdmin('/api/admin/overview');
       renderStats(data);
       renderRecent(data.recent || []);
-      setToggles(data.settings || {});
+      applySettings(data.settings);
       return true;
     } catch (err) {
       if (!silent && err.code === 'ADMIN_UNAUTHORIZED') {
@@ -84,7 +97,8 @@
   function renderStats(data) {
     countTo(el.statFiles, data.stats.totalFiles);
     el.statSize.textContent = fmtBytes(data.stats.totalSize);
-    el.statSplit.textContent = `${(data.stats.photoCount || 0).toLocaleString()} / ${(data.stats.videoCount || 0).toLocaleString()}`;
+    const cats = data.stats.byCategory || {};
+    el.statSplit.textContent = `${cats.single || 0} / ${cats.group || 0} / ${cats.video || 0}`;
     el.statFolder.textContent = data.stats.folderName || '—';
     renderFolderLinks(data);
     if (data.drive) renderDrive(data.drive);
@@ -175,33 +189,96 @@
     el.recentNote.textContent = `Showing ${rows.length} most recent uploads.`;
   }
 
-  function setToggles(settings) {
-    el.tglUploads.checked = !!settings.uploadsEnabled;
-    el.tglGallery.checked = !!settings.galleryVisible;
+  // The settings the server last confirmed — used to fill the form and to undo.
+  let saved = null;
+
+  function applySettings(settings) {
+    if (!settings) return;
+    saved = settings;
+    const flags = settings.flags || {};
+    el.tglUploads.checked = !!flags.uploadsEnabled;
+    el.tglGallery.checked = !!flags.galleryVisible;
+    el.tglPublic.checked = !!flags.galleryPublic;
+    fillForm(settings);
+  }
+
+  function fillForm(settings) {
+    const site = settings.site || {};
+    const folders = settings.folders || {};
+    el.fTitle.value = site.title || '';
+    el.fSubtitle.value = site.subtitle || '';
+    el.fDate.value = site.date || '';
+    el.fLocation.value = site.location || '';
+    el.fPrivacy.value = site.privacyNote || '';
+    el.fCover.value = site.coverUrl || '';
+    el.fFolderPhotos.value = folders.photos || '';
+    el.fFolderGroup.value = folders.group || '';
+    el.fFolderVideos.value = folders.videos || '';
+    el.saveHint.textContent = '';
+  }
+
+  function formBody() {
+    return {
+      site: {
+        title: el.fTitle.value,
+        subtitle: el.fSubtitle.value,
+        date: el.fDate.value,
+        location: el.fLocation.value,
+        privacyNote: el.fPrivacy.value,
+        coverUrl: el.fCover.value,
+      },
+      folders: {
+        photos: el.fFolderPhotos.value,
+        group: el.fFolderGroup.value,
+        videos: el.fFolderVideos.value,
+      },
+    };
+  }
+
+  async function saveSettings(body, { successToast }) {
+    const data = await apiAdmin('/api/admin/settings', { method: 'PUT', body });
+    applySettings(data.settings);
+    // The durable copy lives in the Drive folder — say so when it did not land.
+    el.saveHint.textContent = data.persisted
+      ? 'Saved to your Drive folder.'
+      : 'Saved for now, but NOT written to Drive — it will reset on redeploy.';
+    if (successToast) toast(successToast, { bad: !data.persisted });
+    return data;
   }
 
   async function updateSetting() {
     try {
-      const data = await apiAdmin('/api/admin/settings', {
-        method: 'PUT',
-        body: {
+      const data = await saveSettings(
+        {
           uploadsEnabled: el.tglUploads.checked,
           galleryVisible: el.tglGallery.checked,
+          galleryPublic: el.tglPublic.checked,
         },
-      });
-      setToggles(data.settings);
-      toast(
-        data.settings.uploadsEnabled
-          ? 'Uploads are ENABLED.'
-          : 'Uploads are DISABLED — visitors will see a notice.',
-        { bad: !data.settings.uploadsEnabled }
+        { successToast: null }
       );
-      if (!data.settings.galleryVisible && el.tglGallery.checked === false) {
-        // nothing extra needed; gallery link disappears automatically
-      }
+      const flags = data.settings.flags;
+      toast(
+        !flags.uploadsEnabled
+          ? 'Uploads are DISABLED — visitors will see a notice.'
+          : flags.galleryPublic
+            ? 'Gallery is open to everyone. Uploading still asks for the PIN.'
+            : 'Settings saved.',
+        { bad: !flags.uploadsEnabled }
+      );
     } catch (err) {
       toast('Could not save setting: ' + (err.code || 'error'), { bad: true });
       loadOverview(true);
+    }
+  }
+
+  async function saveContent() {
+    el.btnSaveContent.disabled = true;
+    try {
+      await saveSettings(formBody(), { successToast: 'Page content updated.' });
+    } catch (err) {
+      toast('Could not save: ' + (err.code || 'error'), { bad: true });
+    } finally {
+      el.btnSaveContent.disabled = false;
     }
   }
 
@@ -354,7 +431,12 @@
     el.loginForm.addEventListener('submit', submitLogin);
     el.tglUploads.addEventListener('change', updateSetting);
     el.tglGallery.addEventListener('change', updateSetting);
+    el.tglPublic.addEventListener('change', updateSetting);
     el.btnDriveTest.addEventListener('click', testDrive);
+    el.btnSaveContent.addEventListener('click', saveContent);
+    el.btnResetContent.addEventListener('click', () => {
+      if (saved) fillForm(saved);
+    });
 
     token = sessionStorage.getItem(TOKEN_KEY) || '';
     if (token) {

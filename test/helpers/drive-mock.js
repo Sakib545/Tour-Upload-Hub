@@ -104,11 +104,21 @@ async function startDriveMock() {
         return json(res, 200, { files: mapped, nextPageToken: null });
       }
 
-      // Plain (non-resumable) create — the app only uses this for sub-folders.
+      // Plain (non-resumable) create — sub-folders and the settings file.
       if (req.method === 'POST' && path === '/drive/v3/files' && !u.searchParams.get('uploadType')) {
         const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
         if (body.mimeType !== FOLDER_MIME) {
-          return json(res, 400, { error: { code: 400, message: 'unsupported create' } });
+          // Metadata-only file; content arrives later via an uploadType=media PATCH.
+          const doc = {
+            id: 'doc_' + crypto.randomBytes(6).toString('hex'),
+            name: body.name,
+            mimeType: body.mimeType || 'application/octet-stream',
+            parents: Array.isArray(body.parents) ? body.parents : [FOLDER_ID],
+            buffer: Buffer.alloc(0),
+            createdTime: new Date().toISOString(),
+          };
+          files.push(doc);
+          return json(res, 200, { id: doc.id, name: doc.name, mimeType: doc.mimeType });
         }
         const folder = {
           id: 'fld_' + crypto.randomBytes(6).toString('hex'),
@@ -119,6 +129,16 @@ async function startDriveMock() {
         };
         folders.push(folder);
         return json(res, 200, { id: folder.id, name: folder.name, mimeType: FOLDER_MIME });
+      }
+
+      // Simple media update (used for the settings file).
+      if (req.method === 'PATCH' && path.startsWith('/drive/v3/files/')
+          && u.searchParams.get('uploadType') === 'media') {
+        const fileId = decodeURIComponent(path.slice('/drive/v3/files/'.length));
+        const doc = files.find((f) => f.id === fileId);
+        if (!doc) return json(res, 404, { error: { code: 404, message: 'File not found' } });
+        doc.buffer = await readBody(req);
+        return json(res, 200, { id: doc.id, name: doc.name });
       }
 
       if (req.method === 'GET' && path.startsWith('/drive/v3/files/')) {

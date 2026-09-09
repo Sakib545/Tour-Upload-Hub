@@ -9,10 +9,16 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   never sits in server memory or on Railway's ephemeral disk.
 - Mobile-first Bengali UI ("Tour Memories") with PIN gate, admin dashboard, optional
   public gallery, and QR-code sharing.
-- **Photos and videos land in separate Drive sub-folders** (`Photos/`, `Videos/`),
-  created automatically — so grabbing just the videos is one click in Drive.
+- **Three Drive sub-folders, filled automatically**: single photos, group photos and
+  videos each get their own (`Photos/`, `Group Photos/`, `Videos/`). The uploader picks
+  single or group with one tap; videos are routed by their MIME type.
 - **One-tap downloads**: every gallery tile has a download button, several files can be
   selected and pulled at once, and the admin gets direct links to each Drive folder.
+- **Public gallery, PIN-gated uploads**: with "Anyone can view the gallery" on, visitors
+  browse and download freely but still need the PIN to add anything.
+- **Editable from the admin panel**: title, subtitle, date, location, privacy note, cover
+  image and the three folder names — no redeploy. Settings are stored as a small JSON
+  file inside your own Drive folder, so they survive Railway redeploys.
 
 ---
 
@@ -151,8 +157,9 @@ See `.env.example` for the full commented list. Essentials:
 | `GOOGLE_CLIENT_ID` | option B | OAuth client id |
 | `GOOGLE_CLIENT_SECRET` | option B | OAuth client secret |
 | `GOOGLE_REFRESH_TOKEN` | option B | From step 5 |
-| `SEPARATE_MEDIA_FOLDERS` | no | `true` (default): photos → `Photos/`, videos → `Videos/` |
-| `PHOTOS_FOLDER_NAME` / `VIDEOS_FOLDER_NAME` | no | Sub-folder names (default `Photos` / `Videos`) |
+| `SEPARATE_MEDIA_FOLDERS` | no | `true` (default): single / group photos and videos get their own folders |
+| `PHOTOS_FOLDER_NAME` / `GROUP_FOLDER_NAME` / `VIDEOS_FOLDER_NAME` | no | Sub-folder names (defaults `Photos` / `Group Photos` / `Videos`) — also editable in the admin panel |
+| `GALLERY_PUBLIC` | no | `false` (default). `true` = gallery readable without the PIN; uploads still need it |
 | `ADMIN_PASSWORD` | **yes** | Password for `/admin` |
 | `TOUR_UPLOAD_PIN` | no | If set, visitors must enter it before uploading |
 | `ENABLE_GALLERY` | no | `true`/`false`, default `true` |
@@ -285,6 +292,9 @@ share with the tour group.
 - **Gallery safety:** normal visitors get read-only thumbnails/lightbox. There is no
   edit/delete control anywhere for visitors. The gallery proxy verifies each file really
   lives in your folder before serving it, so random Drive file IDs can't be probed.
+- **Where settings live:** admin edits are written to `.tour-hub-settings.json` inside the
+  destination Drive folder (and cached locally). The file is hidden from the gallery and
+  from the admin file list. Deleting it just resets everything to the env defaults.
 - **Drive diagnostics:** the admin dashboard shows the live Drive connection status and
   has a **Test Drive access** button that opens (and immediately aborts) a real upload
   session — nothing is stored, but permission and storage-quota failures surface with
@@ -309,7 +319,8 @@ npm run check     # syntax-check every JS file
 npm audit
 ```
 
-Covered: photo/video sub-folder routing, download filenames, PIN auth + expiry,
+Covered: single/group/video folder routing, admin content editing, public-gallery mode
+with PIN-gated uploads, the Drive settings file, download filenames, PIN auth + expiry,
 gallery access with/without PIN, upload-disabled mode,
 valid/invalid file signatures, normal 308→201 chunk flow, partial chunk acceptance,
 duplicate chunk re-send, `UNKNOWN_UPLOAD`/`OUT_OF_ORDER`/network/stall/session-loss

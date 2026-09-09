@@ -33,15 +33,19 @@
     </section>
 
     <div class="gallery-bar" id="galleryBar" hidden>
-      <button type="button" class="chip is-on" id="chipAll" data-filter="all">সব <span class="chip-n" id="nAll"></span></button>
-      <button type="button" class="chip" id="chipPhotos" data-filter="photo">ছবি <span class="chip-n" id="nPhotos"></span></button>
-      <button type="button" class="chip" id="chipVideos" data-filter="video">ভিডিও <span class="chip-n" id="nVideos"></span></button>
+      <button type="button" class="chip is-on" data-filter="all">সব <span class="chip-n" id="nAll"></span></button>
+      <button type="button" class="chip" data-filter="single">👤 একক ছবি <span class="chip-n" id="nSingle"></span></button>
+      <button type="button" class="chip" data-filter="group">👥 গ্রুপ ছবি <span class="chip-n" id="nGroup"></span></button>
+      <button type="button" class="chip" data-filter="video">🎬 ভিডিও <span class="chip-n" id="nVideos"></span></button>
       <span class="bar-spacer"></span>
       <button type="button" class="chip" id="btnSelect">নির্বাচন করুন</button>
       <button type="button" class="btn btn-primary" id="btnDownload" hidden>⬇ Download</button>
     </div>
 
     <p class="muted-text center" id="galleryStatus">ছবি লোড হচ্ছে…</p>
+    <p class="muted-text center" id="uploadInvite" hidden>
+      আপনার কাছেও Tour-এর ছবি আছে? <a href="/">এখানে Upload করুন</a> — PIN লাগবে।
+    </p>
     <div class="gallery-grid" id="gallerySkeleton" aria-hidden="true"></div>
     <div class="gallery-grid" id="galleryGrid"></div>
   </main>

@@ -250,11 +250,35 @@ async function getFolderMeta() {
   });
 }
 
-/* ── Photos / Videos sub-folders ──────────────────────────────── */
+/* ── Media sub-folders ────────────────────────────────────────── */
 
-// Resolved once and cached: { photos, videos } (ids) or null while unavailable.
+// Resolved once and cached: { photos, group, videos } ids, or null while
+// unavailable.
 let mediaFolders = null;
 let mediaFoldersInflight = null;
+
+/**
+ * Folder names are editable from the admin panel, so they are read through a
+ * provider (services/state.js) rather than from the env snapshot. The provider
+ * also remembers every folder id we have ever used, so files stay listed after
+ * a folder is renamed.
+ */
+let folderProvider = null;
+function configureFolders(provider) {
+  folderProvider = provider;
+}
+function folderNames() {
+  const fromStore = folderProvider && folderProvider.names && folderProvider.names();
+  return {
+    photos: (fromStore && fromStore.photos) || cfg.google.photosFolderName,
+    group: (fromStore && fromStore.group) || cfg.google.groupFolderName,
+    videos: (fromStore && fromStore.videos) || cfg.google.videosFolderName,
+  };
+}
+function rememberedFolderIds() {
+  const seen = folderProvider && folderProvider.seen && folderProvider.seen();
+  return Array.isArray(seen) ? seen : [];
+}
 
 async function findChildFolder(name) {
   const q =
@@ -296,10 +320,15 @@ async function ensureMediaFolders() {
   if (mediaFoldersInflight) return mediaFoldersInflight;
   mediaFoldersInflight = (async () => {
     try {
-      const photos = await resolveChildFolder(cfg.google.photosFolderName);
-      const videos = await resolveChildFolder(cfg.google.videosFolderName);
-      mediaFolders = { photos, videos };
-      logger.info('drive: media sub-folders ready', { photos, videos });
+      const names = folderNames();
+      const photos = await resolveChildFolder(names.photos);
+      const group = await resolveChildFolder(names.group);
+      const videos = await resolveChildFolder(names.videos);
+      mediaFolders = { photos, group, videos };
+      if (folderProvider && folderProvider.remember) {
+        folderProvider.remember([photos, group, videos]);
+      }
+      logger.info('drive: media sub-folders ready', { photos, group, videos });
       return mediaFolders;
     } catch (e) {
       logger.warn('drive: could not prepare media sub-folders, using the root folder', {
@@ -313,27 +342,43 @@ async function ensureMediaFolders() {
   return mediaFoldersInflight;
 }
 
-/** Destination folder id for one upload, based on its MIME type. */
-async function folderIdForMime(mimeType) {
+/**
+ * Destination folder for one upload: videos always go to the video folder,
+ * photos go to the single or the group folder depending on what the uploader
+ * picked.
+ */
+async function folderIdFor({ mimeType, group = false } = {}) {
   const folders = await ensureMediaFolders();
   if (!folders) return cfg.google.folderId;
   const m = String(mimeType || '').toLowerCase();
   if (m.startsWith('video/')) return folders.videos;
-  if (m.startsWith('image/')) return folders.photos;
+  if (m.startsWith('image/')) return group ? folders.group : folders.photos;
   return cfg.google.folderId;
+}
+
+/** Which bucket a stored file belongs to — used by the gallery filters. */
+function categoryOf(file) {
+  const mime = String((file && file.mimeType) || '').toLowerCase();
+  if (mime.startsWith('video/')) return 'video';
+  const parents = Array.isArray(file && file.parents) ? file.parents : [];
+  if (mediaFolders && parents.includes(mediaFolders.group)) return 'group';
+  return 'single';
 }
 
 /** Every folder a gallery/admin file is allowed to live in. */
 function allowedParents() {
   const ids = [cfg.google.folderId];
-  if (mediaFolders) ids.push(mediaFolders.photos, mediaFolders.videos);
-  return ids.filter(Boolean);
+  if (mediaFolders) ids.push(mediaFolders.photos, mediaFolders.group, mediaFolders.videos);
+  // Folders used before a rename still hold files people uploaded.
+  ids.push(...rememberedFolderIds());
+  return Array.from(new Set(ids.filter(Boolean)));
 }
 
 /** Test/dev hook: forget the resolved sub-folder ids. */
 function resetFolderCache() {
   mediaFolders = null;
   mediaFoldersInflight = null;
+  settingsFileId = null;
 }
 
 /** Returns true if at least one non-trashed file with this exact name exists. */
@@ -526,7 +571,7 @@ function probeSession(sessionUri, total) {
 async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) {
   const wanted =
     fields ||
-    'files(id,name,mimeType,size,createdTime,description,thumbnailLink,webViewLink),nextPageToken';
+    'files(id,name,mimeType,size,createdTime,description,thumbnailLink,webViewLink,parents),nextPageToken';
   let mimeFilter = '';
   if (kinds === 'media') {
     mimeFilter = " and (mimeType contains 'image/' or mimeType contains 'video/')";
@@ -561,11 +606,13 @@ async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) 
       break;
     }
   }
-  if (files.length > cap) {
+  // The settings file lives in the same folder but is not tour content.
+  const visible = files.filter((f) => f.name !== SETTINGS_FILE);
+  if (visible.length > cap) {
     truncated = true;
-    files.length = cap;
+    visible.length = cap;
   }
-  return { files, truncated };
+  return { files: visible, truncated };
 }
 
 async function getFileMeta(fileId) {
@@ -643,6 +690,79 @@ async function openContentStream(fileId, rangeHeader) {
   }
 }
 
+/* ── Durable settings file (survives Railway redeploys) ───────── */
+
+const SETTINGS_FILE = '.tour-hub-settings.json';
+let settingsFileId = null;
+
+async function findSettingsFile() {
+  if (settingsFileId) return settingsFileId;
+  const q =
+    `'${escapeDriveQuery(cfg.google.folderId)}' in parents and ` +
+    `name = '${escapeDriveQuery(SETTINGS_FILE)}' and trashed = false`;
+  const data = await apiJson('GET', '/drive/v3/files', {
+    query: `?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id)&supportsAllDrives=true`,
+  });
+  const hit = Array.isArray(data.files) ? data.files[0] : null;
+  settingsFileId = (hit && hit.id) || null;
+  return settingsFileId;
+}
+
+/** Read the saved settings object, or null when there is none yet. */
+async function readSettingsFile() {
+  const id = await findSettingsFile();
+  if (!id) return null;
+  const headers = await authHeaders();
+  const url = `${ep('api')}/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`;
+  let res;
+  try {
+    res = await fetch(url, { headers });
+  } catch (e) {
+    throw new DriveError('NETWORK', 'could not read settings file', { retryable: true });
+  }
+  if (res.status === 404) {
+    settingsFileId = null;
+    return null;
+  }
+  const text = await res.text().catch(() => '');
+  if (!res.ok) throw mapApiError(res.status, text, 'DRIVE_ERROR');
+  try { return JSON.parse(text); } catch (e) { return null; }
+}
+
+/** Create or overwrite the settings file. Small JSON, single media upload. */
+async function writeSettingsFile(obj, retry = true) {
+  let id = await findSettingsFile();
+  if (!id) {
+    const created = await apiJson('POST', '/drive/v3/files', {
+      query: '?fields=id&supportsAllDrives=true',
+      body: { name: SETTINGS_FILE, parents: [cfg.google.folderId], mimeType: 'application/json' },
+    });
+    id = created && created.id;
+    if (!id) throw new DriveError('DRIVE_ERROR', 'could not create settings file', { status: 500 });
+    settingsFileId = id;
+  }
+  const headers = await authHeaders();
+  headers['content-type'] = 'application/json';
+  const url = `${ep('upload')}/drive/v3/files/${encodeURIComponent(id)}?uploadType=media&supportsAllDrives=true`;
+  let res;
+  try {
+    res = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(obj, null, 2) });
+  } catch (e) {
+    throw new DriveError('NETWORK', 'could not save settings file', { retryable: true });
+  }
+  const text = await res.text().catch(() => '');
+  if (!res.ok) {
+    if (res.status === 404) {
+      // Someone deleted the file (or it belongs to another folder now) —
+      // forget the id and recreate it once.
+      settingsFileId = null;
+      if (retry) return writeSettingsFile(obj, false);
+    }
+    throw mapApiError(res.status, text, 'DRIVE_ERROR');
+  }
+  return true;
+}
+
 /**
  * Boot check (non-fatal): verifies credentials work AND that the configured
  * destination is really a folder. Surfaces { ok:false, code } otherwise.
@@ -675,7 +795,7 @@ async function verifyAccess() {
  * failures surface with Google's own reason string.
  */
 async function testWrite() {
-  const parentId = await folderIdForMime('image/jpeg').catch(() => cfg.google.folderId);
+  const parentId = await folderIdFor({ mimeType: 'image/jpeg' }).catch(() => cfg.google.folderId);
   let sessionUri;
   try {
     sessionUri = await createResumableSession({
@@ -696,12 +816,18 @@ async function testWrite() {
 module.exports = {
   DriveError,
   testWrite,
+  configureFolders,
+  folderNames,
+  categoryOf,
+  readSettingsFile,
+  writeSettingsFile,
+  SETTINGS_FILE,
   apiJson,
   setEndpoints,
   parseRangeOffset,
   getFolderMeta,
   ensureMediaFolders,
-  folderIdForMime,
+  folderIdFor,
   allowedParents,
   resetFolderCache,
   nameExistsInFolder,

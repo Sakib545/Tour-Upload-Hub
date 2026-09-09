@@ -11,6 +11,8 @@
   const rowEls = new Map(); // entry id -> { pct, bar, status, row }
   let rafPending = false;
   let wasRunning = false;
+  // Which folder newly picked photos go to; each row can still be changed.
+  let groupMode = false;
 
   const el = {
     heroTitle: $('#heroTitle'),
@@ -42,6 +44,10 @@
     batchBar: $('#batchBar'),
     batchLabel: $('#batchLabel'),
     batchPct: $('#batchPct'),
+    kindPicker: $('#kindPicker'),
+    kindLabel: $('#kindLabel'),
+    chipSingle: $('#chipSingle'),
+    chipGroup: $('#chipGroup'),
     dock: $('#dock'),
     btnStart: $('#btnStart'),
     btnStartLabel: $('#btnStartLabel'),
@@ -168,7 +174,7 @@
     // Which Drive folder this file is heading for.
     const kind = document.createElement('span');
     kind.className = 'file-kind';
-    kind.textContent = entry.type === 'video' ? 'VID' : 'PIC';
+    kind.textContent = entry.type === 'video' ? 'VID' : entry.group ? '👥' : '👤';
     if (entry.type === 'video' || !entry.url) {
       const icon = document.createElement('span');
       icon.textContent = entry.type === 'video' ? '🎬' : '🖼️';
@@ -215,6 +221,26 @@
     mini.appendChild(fill);
     info.appendChild(name);
     info.appendChild(meta);
+
+    // Photos can be moved between the single- and group-photo folders until
+    // they start uploading.
+    let kindSelect = null;
+    if (entry.type !== 'video') {
+      kindSelect = document.createElement('select');
+      kindSelect.className = 'file-kind-select';
+      for (const [value, text] of [['0', '👤 একক ছবি'], ['1', '👥 গ্রুপ ছবি']]) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        kindSelect.appendChild(opt);
+      }
+      kindSelect.value = entry.group ? '1' : '0';
+      kindSelect.addEventListener('change', () => {
+        engine.setGroup(entry.id, kindSelect.value === '1');
+      });
+      info.appendChild(kindSelect);
+    }
+
     info.appendChild(mini);
 
     const status = document.createElement('div');
@@ -228,13 +254,20 @@
     remove.addEventListener('click', () => removeEntry(entry.id));
 
     row.append(thumb, info, status, remove);
-    return { row, fill, status };
+    return { row, fill, status, kindSelect };
   }
 
   function refreshRow(entry) {
     const cached = rowEls.get(entry.id);
     if (!cached) return;
-    const { row, fill, status } = cached;
+    const { row, fill, status, kindSelect } = cached;
+
+    if (kindSelect) {
+      kindSelect.value = entry.group ? '1' : '0';
+      kindSelect.disabled = entry.status === 'uploading' || entry.status === 'done';
+      const badge = row.querySelector('.file-kind');
+      if (badge) badge.textContent = entry.group ? '👥' : '👤';
+    }
 
     row.classList.toggle('is-done', entry.status === 'done');
     row.classList.toggle('is-error', entry.status === 'error');
@@ -298,7 +331,9 @@
       if (!rowEls.has(entry.id)) {
         const built = buildRow(entry);
         el.fileList.appendChild(built.row);
-        rowEls.set(entry.id, { row: built.row, fill: built.fill, status: built.status });
+        rowEls.set(entry.id, {
+          row: built.row, fill: built.fill, status: built.status, kindSelect: built.kindSelect,
+        });
       }
       refreshRow(entry);
     }
@@ -385,11 +420,16 @@
 
     if (bad === 0) {
       const n = entries.length;
-      const photos = entries.filter((e) => e.type !== 'video').length;
-      const videos = n - photos;
-      const where = videos
-        ? `${photos}টি ছবি ও ${videos}টি ভিডিও আলাদা ফোল্ডারে জমা হয়েছে`
-        : `${n}টি ছবি Drive-এ জমা হয়েছে`;
+      const single = entries.filter((e) => e.type !== 'video' && !e.group).length;
+      const group = entries.filter((e) => e.type !== 'video' && e.group).length;
+      const videos = entries.filter((e) => e.type === 'video').length;
+      const bits = [];
+      if (single) bits.push(`${single}টি একক ছবি`);
+      if (group) bits.push(`${group}টি গ্রুপ ছবি`);
+      if (videos) bits.push(`${videos}টি ভিডিও`);
+      const where = bits.length > 1
+        ? `${bits.join(', ')} আলাদা ফোল্ডারে জমা হয়েছে`
+        : `${n}টি ফাইল Drive-এ জমা হয়েছে`;
       celebrate();
       showBanner(
         'ok big',
@@ -523,7 +563,7 @@
 
   function addPicked(fileList) {
     if (!fileList || !fileList.length) return;
-    const res = engine.addFiles(fileList);
+    const res = engine.addFiles(fileList, { group: groupMode });
     for (const r of res.rejected) {
       const why =
         r.code === 'FILE_TOO_LARGE'
@@ -536,7 +576,9 @@
     if (res.added.length) {
       for (const a of res.added) makeThumbUrl(a);
       hideBanner();
-      toast(`${res.added.length}টি ফাইল বাছাই হয়েছে`);
+      const photos = res.added.filter((a) => a.type !== 'video').length;
+      const where = photos && groupMode ? ' — গ্রুপ ছবি ফোল্ডারে যাবে' : '';
+      toast(`${res.added.length}টি ফাইল বাছাই হয়েছে${where}`);
     }
   }
 
@@ -565,6 +607,7 @@
       img.src = cfg.coverUrl;
     }
     if (cfg.galleryEnabled) el.galleryLinkWrap.hidden = false;
+    el.kindPicker.hidden = !cfg.separateMediaFolders;
 
     // Restore uploader name
     try {
@@ -592,6 +635,14 @@
     el.pinForm.addEventListener('submit', submitPin);
     el.btnPick.addEventListener('click', () => el.fileInput.click());
     el.btnAddMore.addEventListener('click', () => el.fileInput.click());
+    for (const chip of [el.chipSingle, el.chipGroup]) {
+      chip.addEventListener('click', () => {
+        groupMode = chip.dataset.group === '1';
+        el.chipSingle.classList.toggle('is-on', !groupMode);
+        el.chipGroup.classList.toggle('is-on', groupMode);
+      });
+    }
+
     el.btnCamera.addEventListener('click', () => el.cameraInput.click());
     el.btnVideo.addEventListener('click', () => el.videoInput.click());
 

@@ -36,7 +36,7 @@
       <div class="stats-row">
         <div class="card stat-card"><div class="stat-num" id="statFiles">–</div><div class="stat-label">Files uploaded</div></div>
         <div class="card stat-card"><div class="stat-num" id="statSize">–</div><div class="stat-label">Total size</div></div>
-        <div class="card stat-card"><div class="stat-num" id="statSplit">–</div><div class="stat-label">Photos / Videos</div></div>
+        <div class="card stat-card"><div class="stat-num" id="statSplit">–</div><div class="stat-label">Single / Group / Video</div></div>
         <div class="card stat-card"><div class="stat-num small" id="statFolder">–</div><div class="stat-label">Drive folder</div></div>
       </div>
 
@@ -49,11 +49,53 @@
             <span class="toggle" aria-hidden="true"></span>
           </label>
           <label class="toggle-row">
-            <span>Show gallery <small>public gallery visible on the site</small></span>
+            <span>Show gallery <small>the gallery page is reachable at all</small></span>
             <input type="checkbox" id="tglGallery" />
             <span class="toggle" aria-hidden="true"></span>
           </label>
-          <p class="muted-text note">Changes apply instantly. They reset to the ENABLE_UPLOADS / GALLERY_VISIBLE env defaults after a Railway redeploy.</p>
+          <label class="toggle-row">
+            <span>Anyone can view the gallery <small>view and download without the PIN — uploading still asks for it</small></span>
+            <input type="checkbox" id="tglPublic" />
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+          <p class="muted-text note">Changes apply instantly and are saved into your Drive folder, so they survive a redeploy.</p>
+        </section>
+
+        <section class="card admin-section">
+          <h2>Page content</h2>
+          <p class="muted-text">What visitors see on the upload page.</p>
+          <div class="field-grid">
+            <label class="field"><span>Title</span>
+              <input class="input" id="fTitle" maxlength="80" placeholder="Tour Memories" /></label>
+            <label class="field"><span>Subtitle</span>
+              <textarea class="input" id="fSubtitle" maxlength="200" rows="2"></textarea></label>
+            <label class="field"><span>Date</span>
+              <input class="input" id="fDate" maxlength="60" placeholder="১২–১৪ ডিসেম্বর" /></label>
+            <label class="field"><span>Location</span>
+              <input class="input" id="fLocation" maxlength="60" placeholder="সাজেক" /></label>
+            <label class="field"><span>Privacy note</span>
+              <textarea class="input" id="fPrivacy" maxlength="300" rows="2"></textarea></label>
+            <label class="field"><span>Cover image URL</span>
+              <input class="input" id="fCover" maxlength="500" placeholder="https://…" /></label>
+          </div>
+
+          <h2 class="sub-h2">Drive folder names</h2>
+          <p class="muted-text">Renaming makes new uploads go to the new folder. Files already uploaded stay
+            where they are and keep showing in the gallery.</p>
+          <div class="field-grid">
+            <label class="field"><span>Single photos</span>
+              <input class="input" id="fFolderPhotos" maxlength="60" /></label>
+            <label class="field"><span>Group photos</span>
+              <input class="input" id="fFolderGroup" maxlength="60" /></label>
+            <label class="field"><span>Videos</span>
+              <input class="input" id="fFolderVideos" maxlength="60" /></label>
+          </div>
+
+          <div class="save-row">
+            <button type="button" class="btn btn-primary" id="btnSaveContent">Save changes</button>
+            <button type="button" class="btn btn-ghost" id="btnResetContent">Undo edits</button>
+            <span class="muted-text" id="saveHint"></span>
+          </div>
         </section>
 
         <section class="card admin-section">

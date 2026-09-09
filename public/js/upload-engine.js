@@ -95,7 +95,7 @@
       );
     }
 
-    function addFiles(fileList) {
+    function addFiles(fileList, { group = false } = {}) {
       const added = [];
       const rejected = [];
       const current = state.entries.length;
@@ -115,6 +115,9 @@
           name: file.name,
           size: file.size,
           type: isVideo ? 'video' : 'image',
+          // Photos can go to the single-photo or the group-photo folder;
+          // videos always have their own.
+          group: isVideo ? false : !!group,
           status: 'pending',   // pending | uploading | done | error
           pct: 0,
           sent: 0,
@@ -323,6 +326,7 @@
           'X-File-Name': encodeURIComponent(e.file.name),
           'X-Mime': e.file.type || '',
           'X-Uploader': encodeURIComponent(uploader),
+          'X-Group': e.group ? '1' : '0',
           'X-Upload-Token': getToken() || '',
         };
         const result = await sendChunkRetry(e, chunk, headers, offset);
@@ -449,6 +453,15 @@
       return true;
     }
 
+    /** Move a queued photo between the single- and group-photo folders. */
+    function setGroup(id, group) {
+      const e = entry(id);
+      if (!e || e.type === 'video') return;
+      if (e.status === 'uploading' || e.status === 'done') return;
+      e.group = !!group;
+      notify();
+    }
+
     function retry(id) {
       const e = entry(id);
       if (!e || e.status !== 'error') return;
@@ -466,6 +479,7 @@
       addFiles,
       remove,
       retry,
+      setGroup,
       clearFinished,
       clearAll,
       start,

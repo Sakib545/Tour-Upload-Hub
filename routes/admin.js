@@ -93,6 +93,9 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
     }
   } catch (e) { /* sub-folders are optional */ }
 
+  const byCategory = { single: 0, group: 0, video: 0 };
+  for (const f of files) byCategory[drive.categoryOf(f)] += 1;
+
   res.json({
     stats: {
       totalFiles: files.length,
@@ -100,26 +103,48 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
       folderName: folder,
       photoCount,
       videoCount,
+      byCategory,
     },
+    settings: state.snapshot(),
+    settingsPersisted: state.driveSynced,
     folderLinks,
     rootFolderUrl: `https://drive.google.com/drive/folders/${cfg.google.folderId}`,
     recent,
-    settings: state.settings,
     drive: state.driveHealth,
   });
 }));
 
 /* ── Live settings toggles ────────────────────────────────────── */
 
-router.put('/admin/settings', rl.adminApi, requireAdmin, (req, res) => {
+router.put('/admin/settings', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
   const body = req.body || {};
-  const patch = {};
-  if (typeof body.uploadsEnabled === 'boolean') patch.uploadsEnabled = body.uploadsEnabled;
-  if (typeof body.galleryVisible === 'boolean') patch.galleryVisible = body.galleryVisible;
+  const patch = { flags: {}, site: {}, folders: {} };
+
+  for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
+    if (typeof body[key] === 'boolean') patch.flags[key] = body[key];
+    else if (body.flags && typeof body.flags[key] === 'boolean') patch.flags[key] = body.flags[key];
+  }
+  if (body.site && typeof body.site === 'object') {
+    for (const key of ['title', 'subtitle', 'date', 'location', 'privacyNote', 'coverUrl']) {
+      if (typeof body.site[key] === 'string') patch.site[key] = body.site[key];
+    }
+  }
+  if (body.folders && typeof body.folders === 'object') {
+    for (const key of ['photos', 'group', 'videos']) {
+      if (typeof body.folders[key] === 'string') patch.folders[key] = body.folders[key];
+    }
+  }
+
   const next = state.update(patch);
-  logger.info('admin: settings updated', { uploadsEnabled: next.uploadsEnabled, galleryVisible: next.galleryVisible });
-  res.json({ settings: next });
-});
+  logger.info('admin: settings updated', {
+    uploadsEnabled: next.flags.uploadsEnabled,
+    galleryVisible: next.flags.galleryVisible,
+    galleryPublic: next.flags.galleryPublic,
+  });
+  // The durable copy lives in Drive; report honestly if it could not be saved.
+  const persisted = await state.saveToDrive();
+  res.json({ settings: next, persisted });
+}));
 
 /* ── Drive diagnostics ────────────────────────────────────────── */
 
