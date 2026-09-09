@@ -277,34 +277,6 @@ body.page-home .container { padding-bottom: 180px; }
   transform: scale(1.01);
 }
 
-/* ── Folder picker (single photo / group photo) ─────────────── */
-.kind-picker {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  justify-content: center;
-  margin: 14px 0 4px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--line);
-}
-.kind-label { color: var(--muted); font-size: 0.9rem; }
-.kind-chips { display: flex; gap: 8px; }
-
-.file-kind-select {
-  font-family: var(--font);
-  font-size: 0.76rem;
-  font-weight: 600;
-  margin-top: 6px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-}
-.file-kind-select:disabled { opacity: 0.6; cursor: default; }
-
 /* ── File list ──────────────────────────────────────────────── */
 .file-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
 .file-row {
@@ -682,15 +654,6 @@ body.page-home .container { padding-bottom: 180px; }
 .admin-section { margin: 12px 0; }
 .folder-links { display: grid; gap: 8px; margin-top: 10px; }
 
-.field-grid { display: grid; gap: 12px; margin-top: 12px; }
-@media (min-width: 620px) { .field-grid { grid-template-columns: 1fr 1fr; } }
-.field { display: grid; gap: 5px; }
-.field > span { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
-.field textarea.input { resize: vertical; line-height: 1.45; }
-.sub-h2 { font-size: 1.05rem; margin: 22px 0 0; }
-.save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-.save-row .muted-text { font-size: 0.86rem; }
-
 .drive-status { display: grid; gap: 6px; margin: 4px 0 12px; }
 .drive-pill {
   display: inline-flex; align-items: center; gap: 8px; align-self: start;
@@ -760,4 +723,122 @@ body.page-gallery, body.page-admin { padding-bottom: 40px; }
     transition-duration: 0.001ms !important;
   }
   .hero h1 { background-size: 100% 100%; }
+}
+
+/* ═══ Category picker (upload page: single / group photos) ═══ */
+
+.cat-pick {
+  margin: 2px 0 12px;
+  text-align: center;
+}
+.cat-pick-label {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+.cat-pick-label small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.78rem;
+}
+.cat-chips {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.cat-chip {
+  min-width: 96px;
+  justify-content: center;
+}
+
+/* Per-file category row inside an upload list item */
+.file-catline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  min-height: 22px;
+  align-items: center;
+}
+.mini-seg {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.mini-seg:hover { border-color: var(--brand-1); color: var(--brand-1); }
+.mini-seg.is-on {
+  background: var(--brand-grad);
+  color: var(--brand-ink);
+  border-color: transparent;
+}
+.file-cat-static {
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--brand-1);
+}
+
+/* Gallery dynamic chips container */
+.chips-dyn {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ═══ Admin: tour page & folders form ═══ */
+
+.site-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.field textarea { resize: vertical; font: inherit; line-height: 1.5; }
+.sub-h {
+  margin: 18px 0 4px;
+  font-size: 0.98rem;
+  color: var(--text);
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.cat-table input.input {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  border-radius: 12px;
+  min-width: 130px;
+}
+#siteSavedNote { font-size: 0.85rem; color: var(--ok); font-weight: 600; }
+
+@media (max-width: 620px) {
+  .field-row { grid-template-columns: 1fr; }
+  .cat-table input.input { min-width: 90px; }
 }
