@@ -31,6 +31,17 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
 - **Tidy up old uploads**: the admin's **Sort existing files into folders** button
   re-parents files added before the category folders existed.
 
+- **Admin-defined categories**: the three built-ins (single / group / video) can be
+  renamed, and the organiser can add their own — "Day 1", "Drone shots" — each with its
+  own Drive folder. A custom category set to ANY takes both photos and videos.
+- **Upload from the dashboard**: the admin token stands in for the PIN, so the organiser
+  can add files straight from /admin, into any category, even while visitor uploads are
+  paused.
+
+- **Countdown to the tour**: set a start (and optional end) in the admin panel and the
+  public page counts down the days, hours, minutes and seconds in Bengali numerals,
+  switching to a "tour is on" banner and then a gentle "upload the rest" note by itself.
+
 ## 1. Local setup
 
 Prerequisites: **Node.js ≥ 18**.
