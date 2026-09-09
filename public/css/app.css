@@ -1156,6 +1156,226 @@ body.page-home .hero-eyebrow {
 .lb-hint { color: #64748b; font-size: 0.78rem; margin-top: 6px; text-align: center; }
 @media (max-width: 640px) { .lb-hint { display: none; } }
 
+/* ═══ 2D animated Cox's Bazar beach cover ══════════════════════
+   Flat cartoon sea-beach scene painted in SVG behind the home
+   hero: sunset sky, drifting clouds, gulls, sparkling sea with
+   bobbing fishing boats, foam on the waterline, coconut palms
+   swaying and a starfish on the sand. Colors are CSS variables
+   scoped to `.cx-scene`, so light/dark themes re-tint it. All
+   motion is transform/opacity/dash-offset based and dies under
+   `prefers-reduced-motion` (global rule) with every element left
+   in its authored position. */
+
+.cx-scene {
+  --bx-s1: #5ba9de;            /* sky top        */
+  --bx-s2: #bce2f8;            /* sky mid        */
+  --bx-s3: #ffe0b4;            /* sky horizon    */
+  --bx-haze: #ffe3b2;
+  --bx-glow: rgba(255, 182, 92, 0.55);
+  --bx-sun: #ffd87a;
+  --bx-cloud: rgba(255, 255, 255, 0.92);
+  --bx-sea1: #2e86b6;          /* sea far        */
+  --bx-sea2: #46aacd;          /* sea mid        */
+  --bx-sea3: #7fd2e6;          /* sea near/shallow */
+  --bx-shallow: rgba(215, 244, 252, 0.55);
+  --bx-glim: rgba(255, 214, 128, 0.55);
+  --bx-l1: rgba(255, 255, 255, 0.7);
+  --bx-l2: rgba(255, 255, 255, 0.4);
+  --bx-swell: rgba(255, 255, 255, 0.16);
+  --bx-swell2: rgba(255, 255, 255, 0.2);
+  --bx-wet1: #e0ba7c;
+  --bx-wet2: #f5e2b2;
+  --bx-sand: #f7e5ba;
+  --bx-mark: #ecd09a;
+  --bx-foam: rgba(255, 255, 255, 0.92);
+  --bx-foam2: rgba(255, 255, 255, 0.65);
+  --bx-star: #f29150;
+  --bx-shell: #fdf3d9;
+  --bx-shell2: #f9e7c3;
+  --bx-trunk: #7a5230;
+  --bx-coco: #6d451f;
+  --bx-fr1: #2fa06c;
+  --bx-fr2: #22855a;
+  --bx-shade: rgba(93, 61, 22, 0.16);
+  --bx-hull1: #e05a46;
+  --bx-rim1: #b8432f;
+  --bx-hull2: #2e94a4;
+  --bx-rim2: #1f6f7d;
+  --bx-mast: #5a4126;
+  --bx-flag: #ffd75e;
+  --bx-wake: rgba(255, 255, 255, 0.6);
+  --bx-bird: rgba(255, 255, 255, 0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+  .cx-scene {
+    --bx-s1: #10233f;
+    --bx-s2: #2a335c;
+    --bx-s3: #b85a3a;
+    --bx-haze: #c97a45;
+    --bx-glow: rgba(255, 158, 74, 0.4);
+    --bx-sun: #ffc97e;
+    --bx-cloud: rgba(255, 255, 255, 0.13);
+    --bx-sea1: #1c4a72;
+    --bx-sea2: #1e6d94;
+    --bx-sea3: #3f9dbd;
+    --bx-shallow: rgba(190, 230, 245, 0.28);
+    --bx-glim: rgba(255, 204, 130, 0.5);
+    --bx-l1: rgba(255, 255, 255, 0.5);
+    --bx-l2: rgba(255, 255, 255, 0.26);
+    --bx-swell: rgba(255, 255, 255, 0.1);
+    --bx-swell2: rgba(255, 255, 255, 0.13);
+    --bx-wet1: #9a7847;
+    --bx-wet2: #c9a76b;
+    --bx-sand: #dcc290;
+    --bx-mark: #b79a68;
+    --bx-foam: rgba(255, 240, 220, 0.85);
+    --bx-foam2: rgba(255, 244, 230, 0.55);
+    --bx-trunk: #5c3e24;
+    --bx-coco: #4e3318;
+    --bx-fr1: #1d7a52;
+    --bx-fr2: #146242;
+    --bx-shade: rgba(0, 0, 0, 0.3);
+    --bx-hull1: #c34b3b;
+    --bx-rim1: #93362a;
+    --bx-hull2: #237783;
+    --bx-rim2: #175a64;
+    --bx-mast: #3c2b17;
+    --bx-bird: rgba(255, 255, 255, 0.85);
+  }
+}
+
+/* Gradient stops & solid fills */
+.bxst-s1 { stop-color: var(--bx-s1); }
+.bxst-s2 { stop-color: var(--bx-s2); }
+.bxst-s3 { stop-color: var(--bx-s3); }
+.bxst-g  { stop-color: var(--bx-glow); }
+.bxst-w1 { stop-color: var(--bx-sea1); }
+.bxst-w2 { stop-color: var(--bx-sea2); }
+.bxst-w3 { stop-color: var(--bx-sea3); }
+.bxst-d1 { stop-color: var(--bx-wet1); }
+.bxst-d2 { stop-color: var(--bx-wet2); }
+.bxst-r  { stop-color: var(--bx-glim); }
+
+.bx-haze { fill: var(--bx-haze); }
+.bx-sun-core { fill: var(--bx-sun); }
+.bx-glow { fill: url(#bxGlow); }
+.bx-shallow { fill: var(--bx-shallow); }
+.bx-sand { fill: var(--bx-sand); }
+.bx-mark { fill: var(--bx-mark); }
+.bx-star { fill: var(--bx-star); }
+.bx-shell { fill: var(--bx-shell); }
+.bx-shell2 { fill: var(--bx-shell2); }
+.bx-trunk { stroke: var(--bx-trunk); stroke-width: 10; stroke-linecap: round; fill: none; }
+.bx-coco { fill: var(--bx-coco); }
+.bx-frond-a { fill: var(--bx-fr1); }
+.bx-frond-b { fill: var(--bx-fr2); }
+.bx-shade { fill: var(--bx-shade); }
+.bx-hull1 { fill: var(--bx-hull1); }
+.bx-rim1 { stroke: var(--bx-rim1); stroke-width: 2.4; fill: none; }
+.bx-hull2 { fill: var(--bx-hull2); }
+.bx-rim2 { stroke: var(--bx-rim2); stroke-width: 2.4; fill: none; }
+.bx-mast { stroke: var(--bx-mast); stroke-width: 2.6; stroke-linecap: round; fill: none; }
+.bx-flag { fill: var(--bx-flag); }
+.bx-wake { stroke: var(--bx-wake); stroke-width: 1.6; fill: none; stroke-linecap: round; }
+
+/* Water sparkle lines */
+.bx-l1 { stroke: var(--bx-l1); fill: none; stroke-linecap: round; }
+.bx-l2 { stroke: var(--bx-l2); fill: none; stroke-linecap: round; }
+.bx-swell { stroke: var(--bx-swell); stroke-width: 7; fill: none; stroke-linecap: round; }
+.bx-swell2 { stroke: var(--bx-swell2); stroke-width: 6; fill: none; stroke-linecap: round; }
+.bx-foam { stroke: var(--bx-foam); stroke-width: 3.2; fill: none; stroke-linecap: round; }
+.bx-foam2 { stroke: var(--bx-foam2); stroke-width: 2; fill: none; stroke-linecap: round; stroke-dasharray: 2 22; }
+.bx-drift { stroke: var(--bx-foam2); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-dasharray: 3 40; }
+
+/* Clouds drift across the sky */
+@keyframes bxDrift {
+  from { transform: translateX(var(--cx0, -560px)); }
+  to   { transform: translateX(var(--cx1, 1640px)); }
+}
+.bx-cloud { fill: var(--bx-cloud); animation: bxDrift linear infinite; }
+.bx-cl1 { animation-duration: 92s; animation-delay: -16s; }
+.bx-cl2 { animation-duration: 118s; animation-delay: -52s; }
+.bx-cl3 { animation-duration: 76s; animation-delay: -64s; }
+
+/* Gulls */
+@keyframes bxFly {
+  from { transform: translateX(-180px); }
+  to   { transform: translateX(1580px); }
+}
+.bx-bird {
+  stroke: var(--bx-bird);
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: bxFly linear infinite;
+}
+.bx-bd1 { animation-duration: 80s; animation-delay: -28s; }
+.bx-bd2 { animation-duration: 106s; animation-delay: -75s; }
+
+/* Sun pulse + glitter path shimmer */
+@keyframes bxSun {
+  from { transform: scale(1); opacity: 0.94; }
+  to   { transform: scale(1.07); opacity: 1; }
+}
+.cx-sun {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bxSun 8s ease-in-out infinite alternate;
+}
+.cx-glow { animation: bxGlow 8s ease-in-out infinite alternate; }
+@keyframes bxGlow {
+  from { opacity: 0.45; }
+  to   { opacity: 0.8; }
+}
+.cx-glim { animation: bxGlim 6.5s ease-in-out infinite; }
+@keyframes bxGlim {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+/* Water glints run downstream; foam bits drift along the shoreline */
+@keyframes bxFlow {
+  to { stroke-dashoffset: -460; }
+}
+@keyframes bxFlow2 {
+  to { stroke-dashoffset: -260; }
+}
+.bx-w1 { stroke-width: 1.8; stroke-dasharray: 1 16; opacity: 0.8;  animation: bxFlow 30s linear infinite; }
+.bx-w2 { stroke-width: 2;   stroke-dasharray: 3 24; opacity: 0.65; animation: bxFlow 48s linear -18s infinite; }
+.bx-w3 { stroke-width: 2.2; stroke-dasharray: 2 20; opacity: 0.75; animation: bxFlow 24s linear -8s infinite; }
+.bx-w4 { stroke-width: 2.4; stroke-dasharray: 4 18; opacity: 0.55; animation: bxFlow 60s linear -40s infinite; }
+.bx-foam2 { animation: bxFlow2 30s linear infinite; }
+.bx-drift { animation: bxFlow2 17s linear infinite; }
+
+/* Fishing boats bob gently */
+@keyframes bxBob {
+  from { transform: translateY(1.5px) rotate(-2deg); }
+  to   { transform: translateY(-4px) rotate(2.2deg); }
+}
+.cx-boat {
+  transform-box: fill-box;
+  transform-origin: 50% 85%;
+  animation: bxBob ease-in-out infinite alternate;
+}
+.cx-b1 { animation-duration: 4.6s; }
+.cx-b2 { animation-duration: 5.8s; animation-delay: -2.2s; }
+
+/* Coconut palms sway from their base */
+@keyframes bxSway {
+  from { transform: rotate(-2deg); }
+  to   { transform: rotate(2.3deg); }
+}
+.bx-palm {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: bxSway ease-in-out infinite alternate;
+}
+.bx-p1 { animation-duration: 7s; }
+.bx-p2 { animation-duration: 6.2s; animation-delay: -3.6s; }
+.bx-p3 { animation-duration: 5.4s; animation-delay: -1.4s; }
+
 /* ── Countdown to the tour ──────────────────────────────────── */
 .countdown {
   margin: 18px auto 0;
