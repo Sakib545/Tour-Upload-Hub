@@ -406,6 +406,7 @@ function resetFolderCache() {
   folderInflight.clear();
   mediaFolders = null;
   ensureMediaInflight = null;
+  settingsFileId = null;
 }
 
 /** Returns true if at least one non-trashed file with this exact name exists. */
@@ -634,11 +635,127 @@ async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) 
       break;
     }
   }
-  if (files.length > cap) {
+  // The settings file lives in the same folder but is not tour content.
+  const visible = files.filter((f) => f.name !== SETTINGS_FILE);
+  if (visible.length > cap) {
     truncated = true;
-    files.length = cap;
+    visible.length = cap;
   }
-  return { files, truncated };
+  return { files: visible, truncated };
+}
+
+/** List the files sitting directly in one folder (no sub-folder contents). */
+async function listFilesInFolder(folderId, { cap = 2000 } = {}) {
+  const q =
+    `'${escapeDriveQuery(folderId)}' in parents and trashed = false and ` +
+    `mimeType != '${FOLDER_MIME}'`;
+  const files = [];
+  let pageToken = null;
+  for (let page = 0; page < 20; page++) {
+    const params = new URLSearchParams({
+      q,
+      pageSize: '1000',
+      fields: 'files(id,name,mimeType),nextPageToken',
+      supportsAllDrives: 'true',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+    const data = await apiJson('GET', '/drive/v3/files', { query: `?${params.toString()}` });
+    if (Array.isArray(data.files)) files.push(...data.files);
+    pageToken = data.nextPageToken || null;
+    if (!pageToken || files.length >= cap) break;
+  }
+  return files.filter((f) => f.name !== SETTINGS_FILE).slice(0, cap);
+}
+
+/** Re-parent one file: a Drive move is an add + remove of parents. */
+async function moveFile(fileId, { from, to }) {
+  const params = new URLSearchParams({
+    addParents: to,
+    removeParents: from,
+    fields: 'id,parents',
+    supportsAllDrives: 'true',
+  });
+  return apiJson('PATCH', `/drive/v3/files/${encodeURIComponent(fileId)}`, {
+    query: `?${params.toString()}`,
+    body: {},
+  });
+}
+
+/* ── Durable settings file (survives Railway redeploys) ───────── */
+
+/**
+ * Railway wipes the container disk on every redeploy, so admin-edited content
+ * is kept in a small JSON file inside the tour's own Drive folder. It is hidden
+ * from every listing above.
+ */
+const SETTINGS_FILE = '.tour-hub-settings.json';
+let settingsFileId = null;
+
+async function findSettingsFile() {
+  if (settingsFileId) return settingsFileId;
+  const q =
+    `'${escapeDriveQuery(cfg.google.folderId)}' in parents and ` +
+    `name = '${escapeDriveQuery(SETTINGS_FILE)}' and trashed = false`;
+  const data = await apiJson('GET', '/drive/v3/files', {
+    query: `?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id)&supportsAllDrives=true`,
+  });
+  const hit = Array.isArray(data.files) ? data.files[0] : null;
+  settingsFileId = (hit && hit.id) || null;
+  return settingsFileId;
+}
+
+/** Read the saved settings object, or null when nothing has been saved yet. */
+async function readSettingsFile() {
+  const id = await findSettingsFile();
+  if (!id) return null;
+  const headers = await authHeaders();
+  const url = `${ep('api')}/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`;
+  let res;
+  try {
+    res = await fetch(url, { headers });
+  } catch (e) {
+    throw new DriveError('NETWORK', 'could not read settings file', { retryable: true });
+  }
+  if (res.status === 404) {
+    settingsFileId = null;
+    return null;
+  }
+  const text = await res.text().catch(() => '');
+  if (!res.ok) throw mapApiError(res.status, text, 'DRIVE_ERROR');
+  try { return JSON.parse(text); } catch (e) { return null; }
+}
+
+/** Create or overwrite the settings file. Small JSON, single media upload. */
+async function writeSettingsFile(obj, retry = true) {
+  let id = await findSettingsFile();
+  if (!id) {
+    const created = await apiJson('POST', '/drive/v3/files', {
+      query: '?fields=id&supportsAllDrives=true',
+      body: { name: SETTINGS_FILE, parents: [cfg.google.folderId], mimeType: 'application/json' },
+    });
+    id = created && created.id;
+    if (!id) throw new DriveError('DRIVE_ERROR', 'could not create settings file', { status: 500 });
+    settingsFileId = id;
+  }
+  const headers = await authHeaders();
+  headers['content-type'] = 'application/json';
+  const url = `${ep('upload')}/drive/v3/files/${encodeURIComponent(id)}?uploadType=media&supportsAllDrives=true`;
+  let res;
+  try {
+    res = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(obj, null, 2) });
+  } catch (e) {
+    throw new DriveError('NETWORK', 'could not save settings file', { retryable: true });
+  }
+  const text = await res.text().catch(() => '');
+  if (!res.ok) {
+    if (res.status === 404) {
+      // Someone deleted it — forget the id and recreate it once.
+      settingsFileId = null;
+      if (retry) return writeSettingsFile(obj, false);
+    }
+    throw mapApiError(res.status, text, 'DRIVE_ERROR');
+  }
+  return true;
 }
 
 async function getFileMeta(fileId) {
@@ -786,6 +903,11 @@ module.exports = {
   probeSession,
   abortSession,
   listFolderFiles,
+  listFilesInFolder,
+  moveFile,
+  readSettingsFile,
+  writeSettingsFile,
+  SETTINGS_FILE,
   getFileMeta,
   openContentStream,
   verifyAccess,
