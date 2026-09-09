@@ -125,7 +125,12 @@
       img.classList.add('lazy');
       img.loading = 'lazy';
       img.dataset.src = item.thumb;
-      img.addEventListener('error', () => img.remove());
+      img.addEventListener('error', () => {
+        img.remove();
+        // Usually just a file Drive cannot render a preview for, but an expired
+        // media token looks identical from here — a refresh settles it.
+        refreshMediaTokens();
+      });
       tile.appendChild(img);
       lazyObserver.observe(img);
     }
@@ -365,6 +370,7 @@
       video.addEventListener('error', () => {
         if (video.src) { video.removeAttribute('src'); video.load(); }
         captionEl.textContent = 'ভিডিওটি এখানে দেখা যাচ্ছে না — Download করে দেখুন।';
+        refreshMediaTokens();
       }, { once: true });
     } else {
       const img = document.createElement('img');
@@ -378,6 +384,7 @@
       img.addEventListener('error', () => {
         if (img.src.endsWith(item.src)) {
           captionEl.textContent = 'এই ছবিটি ব্রাউজারে দেখা যাচ্ছে না — Download করে দেখুন।';
+          refreshMediaTokens();
         } else {
           img.src = item.src;
         }
@@ -461,6 +468,54 @@
   });
 
   /* ── Load ─────────────────────────────────────────────────── */
+
+  /**
+   * Media URLs carry a short-lived signed token (`?gt=`) minted with the
+   * listing. On a page left open past its lifetime every thumbnail and every
+   * original starts failing, so a media error re-fetches the listing once and
+   * swaps in fresh URLs. Debounced, because a broken grid fires many errors.
+   */
+  const TOKEN_REFRESH_GAP_MS = 30000;
+  let lastTokenRefresh = 0;
+  let tokenRefresh = null;
+
+  function refreshMediaTokens() {
+    if (!pageCfg || !pageCfg.galleryPinRequired) return Promise.resolve(false);
+    if (tokenRefresh) return tokenRefresh;
+    if (Date.now() - lastTokenRefresh < TOKEN_REFRESH_GAP_MS) return Promise.resolve(false);
+    lastTokenRefresh = Date.now();
+    tokenRefresh = (async () => {
+      try {
+        const token = sessionStorage.getItem(PIN_KEY) || '';
+        const data = await api('/api/gallery', {
+          headers: token ? { 'X-Upload-Token': token } : {},
+        });
+        const fresh = new Map((data.items || []).map((i) => [i.id, i]));
+        let changed = false;
+        for (const item of items) {
+          const next = fresh.get(item.id);
+          if (!next) continue;
+          if (next.src !== item.src) changed = true;
+          item.thumb = next.thumb;
+          item.src = next.src;
+          item.download = next.download;
+        }
+        if (changed) {
+          render();
+          if (!lightbox.hidden && shown[current]) renderLightbox();
+        }
+        return changed;
+      } catch (err) {
+        if (err.code === 'GALLERY_PIN_REQUIRED' || err.status === 401) {
+          showPinGate('সময় শেষ — আবার PIN দিন।');
+        }
+        return false;
+      } finally {
+        tokenRefresh = null;
+      }
+    })();
+    return tokenRefresh;
+  }
 
   async function load() {
     let data;

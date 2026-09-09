@@ -194,6 +194,22 @@ function rebuildCategories(incoming, current) {
     return true;
   };
 
+  /**
+   * Place a category no matter what: the wanted folder, then the folder it had
+   * before, then a disambiguated name. A category must never silently vanish —
+   * a dropped built-in takes the upload routing and its gallery chip with it.
+   */
+  const placeCategory = (cat, previousFolder) => {
+    if (push(cat)) return true;
+    if (previousFolder && push({ ...cat, folder: previousFolder })) return true;
+    const stem = previousFolder || cat.folder;
+    for (let i = 2; i <= 20; i++) {
+      const alt = `${stem} (${i})`;
+      if (alt.length <= 80 && push({ ...cat, folder: alt })) return true;
+    }
+    return push({ ...cat, folder: `${stem.slice(0, 60)} (${cat.id})` });
+  };
+
   for (const raw of incoming) {
     if (!raw || typeof raw !== 'object') continue;
     if (out.length >= MAX_CATEGORIES) break;
@@ -201,8 +217,9 @@ function rebuildCategories(incoming, current) {
     const base = byId.get(id);
     if (base) {
       const next = sanitizeCategory(raw, base);
-      // Folder taken by another category — keep what this one had.
-      if (!push(next)) push({ ...next, folder: base.folder });
+      // Folder taken by another category — keep what this one had, and if that
+      // is taken too fall back to a disambiguated name rather than dropping it.
+      placeCategory(next, base.folder);
       byId.delete(id);
       continue;
     }
@@ -220,7 +237,7 @@ function rebuildCategories(incoming, current) {
   // Any built-in the payload left out is restored, so routing never breaks.
   for (const [, leftover] of byId) {
     if (!leftover.builtin) continue;
-    if (!push(leftover)) push({ ...leftover, folder: `${leftover.folder} (${leftover.id})` });
+    placeCategory(leftover, null);
   }
   return out.length ? out : current;
 }

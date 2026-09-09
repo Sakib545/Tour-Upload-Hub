@@ -44,7 +44,11 @@ function categoryLabelFor(taggedCategory, mimeType) {
     : null;
   if (
     tagged &&
-    ((m.startsWith('image/') && tagged.media === 'photo') ||
+    // 'any' custom categories (a day, a place, a drone set) take both kinds —
+    // this must match categoryForFile() in routes/api.js or the admin list and
+    // the gallery disagree about the same file.
+    (tagged.media === 'any' ||
+      (m.startsWith('image/') && tagged.media === 'photo') ||
       (m.startsWith('video/') && tagged.media === 'video'))
   ) {
     return tagged.label;

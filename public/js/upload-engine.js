@@ -107,7 +107,9 @@
       const anyCategory = String((opts && opts.category) || '').slice(0, 24);
 
       for (const file of Array.from(fileList || [])) {
-        if (room > 0 && added.length >= room) {
+        // NOTE: no `room > 0 &&` guard here — with a full queue room is 0 and
+        // that guard would let every remaining file through unchecked.
+        if (added.length >= room) {
           rejected.push({ name: file.name, code: 'TOO_MANY_FILES' });
           continue;
         }

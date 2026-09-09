@@ -667,8 +667,16 @@ async function verifiedMeta(id) {
     return null;
   }
   const parents = Array.isArray(meta.parents) ? meta.parents : [];
-  const allowed = drive.allowedParents();
-  if (!parents.some((pid) => allowed.includes(pid))) return null;
+  const inScope = (list) => parents.some((pid) => list.includes(pid));
+  if (!inScope(drive.allowedParents())) {
+    // `allowedParents()` only knows the sub-folders resolved so far, and that
+    // cache is empty right after boot (persist.loadAll() resets it) or after a
+    // folder rename. Resolve them before deciding a file is out of scope —
+    // otherwise every direct media URL 404s until a listing warms the cache.
+    await drive.ensureMediaFolders().catch(() => null);
+    await drive.ensureAllCategoryFolders().catch(() => null);
+    if (!inScope(drive.allowedParents())) return null;
+  }
   const entry = {
     at: Date.now(),
     name: meta.name || 'file',
