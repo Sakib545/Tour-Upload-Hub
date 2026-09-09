@@ -842,3 +842,237 @@ body.page-gallery, body.page-admin { padding-bottom: 40px; }
   .field-row { grid-template-columns: 1fr; }
   .cat-table input.input { min-width: 90px; }
 }
+
+/* ═══ Animated scenery hero — river · city · mountains ═══════════
+   A dusk scene painted in SVG behind the home-page hero text.
+   Sky gradient + drifting clouds + sun, layered mountain ridges,
+   a city skyline with twinkling windows, light reflections and a
+   flowing river with a drifting sailboat. Everything uses the CSS
+   custom properties below so light/dark themes just re-tint it.
+   The global `prefers-reduced-motion` rule freezes the loops with
+   every element parked in its authored, visible position. */
+
+.scenery {
+  --sc-1: #67b8ea;          /* sky top            */
+  --sc-2: #a7d9f5;          /* sky mid            */
+  --sc-3: #ffdfb0;          /* sky horizon glow   */
+  --sc-sunA: rgba(255, 203, 140, 0.62);
+  --sc-sun: #fff4d6;
+  --sc-cloud: rgba(255, 255, 255, 0.95);
+  --sc-mtnFar: #93a6d8;
+  --sc-cap: rgba(255, 255, 255, 0.8);
+  --sc-mtnNear: #6f83b8;
+  --sc-city: #36497f;
+  --sc-winBase: rgba(228, 246, 255, 0.9);
+  --sc-winAcc: #ffd98f;
+  --sc-reflCool: rgba(200, 232, 255, 0.55);
+  --sc-reflWarm: rgba(255, 212, 140, 0.55);
+  --sc-water1: #8fd0ee;
+  --sc-water2: #bce2f6;
+  --sc-water3: #e3f1fa;
+  --sc-line: rgba(255, 255, 255, 0.85);
+  --sc-line2: rgba(122, 192, 235, 0.55);
+  --sc-bird: #42567f;
+  --sc-hull: #3d5a85;
+  --sc-sail: #fff7e4;
+  --sc-wake: rgba(255, 255, 255, 0.65);
+}
+
+@media (prefers-color-scheme: dark) {
+  .scenery {
+    --sc-1: #0a1f3a;
+    --sc-2: #26295a;
+    --sc-3: #5f3f74;
+    --sc-sunA: rgba(255, 170, 96, 0.5);
+    --sc-sun: #ffc982;
+    --sc-cloud: rgba(255, 255, 255, 0.11);
+    --sc-mtnFar: #2c3d66;
+    --sc-cap: rgba(255, 255, 255, 0.16);
+    --sc-mtnNear: #202e4f;
+    --sc-city: #0f1b38;
+    --sc-winBase: rgba(168, 202, 255, 0.5);
+    --sc-winAcc: #ffcf85;
+    --sc-reflCool: rgba(150, 195, 255, 0.3);
+    --sc-reflWarm: rgba(255, 190, 120, 0.32);
+    --sc-water1: #1a3a63;
+    --sc-water2: #122a4c;
+    --sc-water3: #0c1c33;
+    --sc-line: rgba(160, 205, 255, 0.5);
+    --sc-line2: rgba(255, 255, 255, 0.2);
+    --sc-bird: #8aa3cd;
+    --sc-hull: #0d1a30;
+    --sc-sail: #ffe7c0;
+    --sc-wake: rgba(150, 200, 255, 0.4);
+  }
+}
+
+.scenery {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* Painted fills pull from the palette above */
+.st-s1 { stop-color: var(--sc-1); }
+.st-s2 { stop-color: var(--sc-2); }
+.st-s3 { stop-color: var(--sc-3); }
+.st-sun { stop-color: var(--sc-sunA); }
+.st-w1 { stop-color: var(--sc-water1); }
+.st-w2 { stop-color: var(--sc-water2); }
+.st-w3 { stop-color: var(--sc-water3); }
+.st-rc { stop-color: var(--sc-reflCool); }
+.st-rw { stop-color: var(--sc-reflWarm); }
+.p-base { fill: var(--sc-winBase); }
+.p-acc { fill: var(--sc-winAcc); }
+.sc-mtn-far { fill: var(--sc-mtnFar); }
+.sc-cap { fill: var(--sc-cap); }
+.sc-mtn-near { fill: var(--sc-mtnNear); }
+.sc-tree { fill: var(--sc-city); }
+.sc-city { fill: var(--sc-city); }
+.sc-ant { stroke: var(--sc-city); stroke-width: 2.6; stroke-linecap: round; fill: none; }
+.sc-sun-glow { fill: url(#scSunGlow); }
+.sc-sun-core { fill: var(--sc-sun); }
+.sc-hull { fill: var(--sc-hull); }
+.sc-mast { stroke: var(--sc-hull); stroke-width: 2; stroke-linecap: round; fill: none; }
+.sc-sail { fill: var(--sc-sail); }
+.sc-wake { stroke: var(--sc-wake); stroke-width: 1.6; fill: none; stroke-linecap: round; }
+.sc-blink { fill: var(--sc-winAcc); }
+
+/* ── Hero becomes a scenic stage ──────────────────────────────── */
+body.page-home .hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: clamp(400px, 58vh, 580px);
+  padding: 0;
+}
+body.page-home .hero .hero-inner {
+  position: relative;
+  z-index: 2;
+  margin: 0 auto;
+  padding: 52px 18px 46px;
+}
+/* Soft fade at the bottom so the river melts into the page background */
+body.page-home .hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 52%, var(--bg) 99%);
+}
+/* Readability halo behind the headline, the artwork stays visible around it */
+.hero-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  width: min(760px, 92%);
+  aspect-ratio: 2.15 / 1;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(52% 52% at 50% 46%, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0) 74%);
+  filter: blur(3px);
+}
+@media (prefers-color-scheme: dark) {
+  .hero-halo {
+    background: radial-gradient(52% 52% at 50% 46%, rgba(8, 20, 34, 0.62), rgba(8, 20, 34, 0) 74%);
+  }
+}
+body.page-home .hero-eyebrow {
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 22px rgba(11, 37, 59, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  body.page-home .hero-eyebrow {
+    background: rgba(10, 24, 38, 0.78);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* ── Scenery animation keyframes ──────────────────────────────── */
+@keyframes scCloud {
+  from { transform: translateX(var(--c0, -520px)); }
+  to   { transform: translateX(var(--c1, 1600px)); }
+}
+.sc-cloud { fill: var(--sc-cloud); animation: scCloud linear infinite; }
+.sc-c1 { animation-duration: 95s; animation-delay: -18s; }
+.sc-c2 { animation-duration: 120s; animation-delay: -45s; }
+.sc-c3 { animation-duration: 78s; animation-delay: -60s; }
+.sc-c4 { animation-duration: 135s; animation-delay: -80s; }
+
+@keyframes scFly {
+  from { transform: translateX(-180px); }
+  to   { transform: translateX(1560px); }
+}
+.sc-bird {
+  stroke: var(--sc-bird);
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: scFly linear infinite;
+}
+.sc-bd1 { animation-duration: 82s; animation-delay: -34s; }
+.sc-bd2 { animation-duration: 108s; animation-delay: -70s; }
+
+@keyframes scSun {
+  from { transform: scale(1); opacity: 0.92; }
+  to   { transform: scale(1.07); opacity: 1; }
+}
+.sc-sun {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: scSun 9s ease-in-out infinite alternate;
+}
+.sc-sun-glow { animation: scGlow 9s ease-in-out infinite alternate; }
+@keyframes scGlow {
+  from { opacity: 0.5; }
+  to   { opacity: 0.78; }
+}
+
+/* City lights breathe… */
+@keyframes scTw {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+.sc-tw { animation: scTw 5.4s ease-in-out infinite; }
+.sc-refl-a { animation: scTw 5.4s ease-in-out infinite; }
+.sc-refl-b { animation: scTw 7.6s ease-in-out 0.9s infinite; }
+
+/* …and a few individual windows blink on their own */
+@keyframes scBl {
+  0%, 100% { opacity: 0.12; }
+  38%      { opacity: 1; }
+  62%      { opacity: 0.3; }
+}
+.sc-blk1 { animation: scBl 2.8s ease-in-out infinite; }
+.sc-blk2 { animation: scBl 3.9s ease-in-out 0.5s infinite; }
+.sc-blk3 { animation: scBl 5.6s ease-in-out 1.4s infinite; }
+
+/* River glints flow downstream */
+@keyframes scFlow {
+  to { stroke-dashoffset: -420; }
+}
+.sc-line  { stroke: var(--sc-line);  fill: none; stroke-linecap: round; }
+.sc-line2 { stroke: var(--sc-line2); fill: none; stroke-linecap: round; }
+.sc-f1 { stroke-width: 2;   stroke-dasharray: 1 18; opacity: 0.85; animation: scFlow 34s linear infinite; }
+.sc-f2 { stroke-width: 1.6; stroke-dasharray: 3 26; opacity: 0.6;  animation: scFlow 52s linear -16s infinite; }
+.sc-f3 { stroke-width: 2.2; stroke-dasharray: 2 22; opacity: 0.75; animation: scFlow 26s linear -9s infinite; }
+.sc-f4 { stroke-width: 1.4; stroke-dasharray: 4 20; opacity: 0.4;  animation: scFlow 64s linear -38s infinite; }
+
+/* Sailboat gently rocks */
+@keyframes scBob {
+  from { transform: translateY(1px) rotate(-2.4deg); }
+  to   { transform: translateY(-4px) rotate(2.8deg); }
+}
+.sc-boat {
+  transform-box: fill-box;
+  transform-origin: 50% 80%;
+  animation: scBob 5.2s ease-in-out infinite alternate;
+}
