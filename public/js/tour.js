@@ -658,9 +658,11 @@
     if (node.textContent === next) return;
     node.textContent = next;
     if (reducedMotion) return;
-    node.classList.remove('tick');
+    // `cd-bump`, not `tick`: `.tick` belongs to the file-row checkmark SVG and
+    // sizes it to 15px, which would crush the digits.
+    node.classList.remove('cd-bump');
     void node.offsetWidth; // restart the animation
-    node.classList.add('tick');
+    node.classList.add('cd-bump');
   }
 
   function dayText(ms) {
