@@ -9,16 +9,16 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   never sits in server memory or on Railway's ephemeral disk.
 - Mobile-first Bengali UI ("Tour Memories") with PIN gate, admin dashboard, optional
   public gallery, and QR-code sharing.
-- **Three Drive sub-folders, filled automatically**: single photos, group photos and
-  videos each get their own (`Photos/`, `Group Photos/`, `Videos/`). The uploader picks
-  single or group with one tap; videos are routed by their MIME type.
+- **Uploads are filed into category folders**: single photos → `Photos/`,
+  group photos → `Group Photos/`, videos → `Videos/` (created automatically;
+  visitors pick a category on the upload page). Grabbing just the videos is
+  one click in Drive.
+- **Admin-editable site content**: title / subtitle / date / location /
+  privacy note / cover URL and the category labels + Drive folder names can be
+  changed live from the `/admin` dashboard (persisted in `data/site.json`) —
+  no redeploy or env-var editing needed.
 - **One-tap downloads**: every gallery tile has a download button, several files can be
   selected and pulled at once, and the admin gets direct links to each Drive folder.
-- **Public gallery, PIN-gated uploads**: with "Anyone can view the gallery" on, visitors
-  browse and download freely but still need the PIN to add anything.
-- **Editable from the admin panel**: title, subtitle, date, location, privacy note, cover
-  image and the three folder names — no redeploy. Settings are stored as a small JSON
-  file inside your own Drive folder, so they survive Railway redeploys.
 
 ---
 
@@ -157,9 +157,8 @@ See `.env.example` for the full commented list. Essentials:
 | `GOOGLE_CLIENT_ID` | option B | OAuth client id |
 | `GOOGLE_CLIENT_SECRET` | option B | OAuth client secret |
 | `GOOGLE_REFRESH_TOKEN` | option B | From step 5 |
-| `SEPARATE_MEDIA_FOLDERS` | no | `true` (default): single / group photos and videos get their own folders |
-| `PHOTOS_FOLDER_NAME` / `GROUP_FOLDER_NAME` / `VIDEOS_FOLDER_NAME` | no | Sub-folder names (defaults `Photos` / `Group Photos` / `Videos`) — also editable in the admin panel |
-| `GALLERY_PUBLIC` | no | `false` (default). `true` = gallery readable without the PIN; uploads still need it |
+| `SEPARATE_MEDIA_FOLDERS` | no | `true` (default): each upload category gets its own Drive sub-folder |
+| `PHOTOS_FOLDER_NAME` / `VIDEOS_FOLDER_NAME` | no | Default folder names for the single-photo / video categories (default `Photos` / `Videos`; group photos default to `Group Photos`). All three are editable live in `/admin` |
 | `ADMIN_PASSWORD` | **yes** | Password for `/admin` |
 | `TOUR_UPLOAD_PIN` | no | If set, visitors must enter it before uploading |
 | `ENABLE_GALLERY` | no | `true`/`false`, default `true` |
@@ -174,7 +173,7 @@ See `.env.example` for the full commented list. Essentials:
 | `MAX_SESSION_CREATES_PER_MIN_PER_IP` | no | Max new Drive sessions/IP/minute (default `60`) |
 | `UPLOAD_SESSION_IDLE_MINUTES` | no | Idle uploads aborted after this (default `120`) |
 | `GALLERY_TOKEN_TTL_HOURS` | no | Signed media-URL lifetime in PIN mode (default `3`) |
-| `TOUR_TITLE` / `TOUR_SUBTITLE` / `TOUR_DATE` / `TOUR_LOCATION` / `TOUR_PRIVACY_NOTE` / `TOUR_COVER_URL` | no | Page content |
+| `TOUR_TITLE` / `TOUR_SUBTITLE` / `TOUR_DATE` / `TOUR_LOCATION` / `TOUR_PRIVACY_NOTE` / `TOUR_COVER_URL` | no | Page content — these are just the defaults; the admin can override them live from `/admin` ("Tour page & Drive folders") |
 
 All values above are read **only** server-side. `.env` is git-ignored — never commit it.
 
@@ -292,9 +291,6 @@ share with the tour group.
 - **Gallery safety:** normal visitors get read-only thumbnails/lightbox. There is no
   edit/delete control anywhere for visitors. The gallery proxy verifies each file really
   lives in your folder before serving it, so random Drive file IDs can't be probed.
-- **Where settings live:** admin edits are written to `.tour-hub-settings.json` inside the
-  destination Drive folder (and cached locally). The file is hidden from the gallery and
-  from the admin file list. Deleting it just resets everything to the env defaults.
 - **Drive diagnostics:** the admin dashboard shows the live Drive connection status and
   has a **Test Drive access** button that opens (and immediately aborts) a real upload
   session — nothing is stored, but permission and storage-quota failures surface with
@@ -319,14 +315,15 @@ npm run check     # syntax-check every JS file
 npm audit
 ```
 
-Covered: single/group/video folder routing, admin content editing, public-gallery mode
-with PIN-gated uploads, the Drive settings file, download filenames, PIN auth + expiry,
-gallery access with/without PIN, upload-disabled mode,
-valid/invalid file signatures, normal 308→201 chunk flow, partial chunk acceptance,
-duplicate chunk re-send, `UNKNOWN_UPLOAD`/`OUT_OF_ORDER`/network/stall/session-loss
-recovery, active-session limits, simultaneous duplicate filenames, and preview
-retention until completion. A real end-to-end upload still needs the organizer's
-Google credentials (see the 5-minute smoke test in `docs/03-qa-report.md`).
+Covered: photo/video sub-folder routing, category (single/group/video) folder
+routing + gallery tagging, admin site-content/category updates, download
+filenames, PIN auth + expiry, gallery access with/without PIN, upload-disabled
+mode, valid/invalid file signatures, normal 308→201 chunk flow, partial chunk
+acceptance, duplicate chunk re-send, `UNKNOWN_UPLOAD`/`OUT_OF_ORDER`/network/
+stall/session-loss recovery, active-session limits, simultaneous duplicate
+filenames, and preview retention until completion. A real end-to-end upload
+still needs the organizer's Google credentials (see the 5-minute smoke test in
+`docs/03-qa-report.md`).
 
 ---
 
@@ -362,7 +359,8 @@ For each file:
 ├── server/                   # app.js (Express app factory), server.js (entry point)
 ├── routes/                   # api.js (config/pin/upload/gallery), admin.js
 ├── services/                 # drive.js (OAuth + resumable), uploads registry,
-│                             # reservations.js (filename lock), config, state
+│                             # reservations.js (filename lock), config, state,
+│                             # site.js (admin-editable content & categories)
 ├── middleware/               # security headers, rate limiters, auth guards
 ├── utils/                    # logger, sanitizer, sniff.js (magic bytes), HMAC tokens
 ├── scripts/get-refresh-token.js
