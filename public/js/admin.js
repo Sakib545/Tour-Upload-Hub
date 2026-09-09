@@ -53,9 +53,6 @@
       renderRecent(data.recent || []);
       setToggles(data.settings || {});
       fillSiteForm(siteData);
-      // The dashboard's own uploader needs the same category list; without
-      // this the dropdown stayed empty until a page save happened.
-      fillUploadCategories(siteData.categories || []);
       return true;
     } catch (err) {
       if (!silent && err.code === 'ADMIN_UNAUTHORIZED') {
@@ -97,6 +94,7 @@
     el.statFolder.textContent = data.stats.folderName || '—';
     renderFolderLinks(data);
     if (data.drive) renderDrive(data.drive);
+    loadFaces();
   }
 
   function folderLink(label, url) {
@@ -457,27 +455,21 @@
       li.append(name, state);
       list.appendChild(li);
     }
-    // Only a running upload disables the start button. Files sitting in
-    // "অপেক্ষা…" (pending) are exactly when the admin must be able to press it.
-    const uploading = entries.some((e) => e.status === 'uploading');
-    const waiting = entries.some((e) => e.status === 'pending' || e.status === 'error');
+    const busy = entries.some((e) => e.status === 'pending' || e.status === 'uploading');
     const btn = $('#btnAdminUpload');
     if (btn) {
-      btn.hidden = !waiting;
-      btn.disabled = uploading;
+      btn.hidden = !entries.some((e) => e.status === 'pending' || e.status === 'error');
+      btn.disabled = busy;
     }
     const hint = $('#adminUploadHint');
     if (hint && entries.length) {
       const done = entries.filter((e) => e.status === 'done').length;
       const failed = entries.filter((e) => e.status === 'error').length;
-      const pending = entries.filter((e) => e.status === 'pending').length;
-      hint.textContent = uploading
+      hint.textContent = busy
         ? `${done}/${entries.length} শেষ…`
-        : failed && !pending
+        : failed
           ? `${done} সফল, ${failed} ব্যর্থ।`
-          : pending
-            ? `${entries.length}টি ফাইল বাছাই হয়েছে — “Upload শুরু করুন” চাপুন।`
-            : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
+          : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
     }
   }
 
@@ -492,10 +484,8 @@
       },
       getToken: () => token,
       getUploader: () => 'Admin',
-      // The engine notifies with its whole state object, not the entries
-      // array — unwrap it before rendering.
-      onChange: (s) => renderAdminUploads((s && s.entries) || []),
-      onProgress: (s) => renderAdminUploads((s && s.entries) || []),
+      onChange: (entries) => renderAdminUploads(entries),
+      onProgress: (entries) => renderAdminUploads(entries),
     });
     return adminEngine;
   }
@@ -506,13 +496,9 @@
   }
 
   async function addAdminFiles(fileList) {
-    // Snapshot the FileList NOW: the <input> value is cleared right after the
-    // change event, which empties a live FileList before the await below.
-    const files = Array.from(fileList || []);
     const engine = await ensureAdminEngine();
     const chosen = $('#adminUploadCat').value;
-    if (!files.length) return;
-    const res = engine.addFiles(files, { category: chosen });
+    const res = engine.addFiles(fileList, { category: chosen });
     if (res.rejected && res.rejected.length) {
       toast(`${res.rejected.length}টি ফাইল নেওয়া যায়নি (ধরন বা আকার)।`, { bad: true });
     }
@@ -528,6 +514,151 @@
       if (e.status === 'error') engine.retry(e.id);
     }
     engine.start();
+  }
+
+  /* ── People & face sorting ────────────────────────────────── */
+
+  let enrollTargetId = null;
+
+  function personRow(person, enabled) {
+    const li = document.createElement('li');
+    li.className = 'person-row';
+
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = person.name;
+
+    const samples = document.createElement('span');
+    samples.className = person.samples ? 'samples' : 'warn';
+    samples.textContent = person.samples
+      ? `${person.samples}টি নমুনা ছবি`
+      : 'নমুনা ছবি দিন — নইলে চেনা যাবে না';
+
+    const spacer = document.createElement('span');
+    spacer.className = 'spacer';
+
+    const enroll = document.createElement('button');
+    enroll.type = 'button';
+    enroll.className = 'btn btn-ghost btn-xs';
+    enroll.textContent = '+ নমুনা ছবি';
+    enroll.disabled = !enabled;
+    enroll.title = enabled ? 'এই ব্যক্তির স্পষ্ট, একা একটি ছবি দিন' : 'FACE_SORT চালু করুন';
+    enroll.addEventListener('click', () => {
+      enrollTargetId = person.id;
+      $('#enrollInput').click();
+    });
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'cat-remove';
+    remove.title = 'সরিয়ে দিন (Drive-এর ছবি বা ফোল্ডার মুছবে না)';
+    remove.textContent = '✕';
+    remove.addEventListener('click', () => removePerson(person));
+
+    li.append(who, samples, spacer, enroll, remove);
+    return li;
+  }
+
+  function renderPeople(data) {
+    const list = $('#peopleList');
+    if (!list) return;
+    const enabled = !!(data.status && data.status.enabled);
+    $('#facesOff').hidden = enabled;
+    list.textContent = '';
+    for (const person of data.people || []) list.appendChild(personRow(person, enabled));
+    if (!(data.people || []).length) {
+      const li = document.createElement('li');
+      li.className = 'muted-text';
+      li.textContent = 'এখনো কেউ যোগ করা হয়নি।';
+      list.appendChild(li);
+    }
+    $('#btnRescan').disabled = !enabled;
+
+    const st = data.status || {};
+    const bits = [];
+    if (st.pending) bits.push(`${st.pending}টি বাকি`);
+    if (st.moved) bits.push(`${st.moved}টি ছবি সরানো হয়েছে`);
+    if (st.failed) bits.push(`${st.failed}টি ব্যর্থ`);
+    if (st.lastError) bits.push(st.lastError);
+    $('#facesStatus').textContent = bits.join(' · ');
+  }
+
+  async function loadFaces() {
+    try {
+      renderPeople(await apiAdmin('/api/admin/faces'));
+    } catch (err) { /* the section simply stays empty */ }
+  }
+
+  async function addPerson() {
+    const input = $('#personName');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      await apiAdmin('/api/admin/people', { method: 'POST', body: { name } });
+      input.value = '';
+      loadFaces();
+    } catch (err) {
+      toast(err.code === 'BAD_NAME' ? 'এই নামটি ব্যবহার করা যাচ্ছে না।' : 'যোগ করা যায়নি।', { bad: true });
+    }
+  }
+
+  async function removePerson(person) {
+    try {
+      await apiAdmin('/api/admin/people/' + person.id, { method: 'DELETE' });
+      loadFaces();
+    } catch (err) {
+      toast('সরানো যায়নি।', { bad: true });
+    }
+  }
+
+  // The enrolment photo is sent as raw bytes and never stored — only the
+  // 128-number descriptor it produces is kept.
+  async function enrollPhoto(file) {
+    if (!file || !enrollTargetId) return;
+    const target = enrollTargetId;
+    enrollTargetId = null;
+    $('#facesStatus').textContent = 'মুখ শনাক্ত করা হচ্ছে…';
+    try {
+      const res = await fetch('/api/admin/people/' + target + '/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'image/jpeg', Authorization: 'Bearer ' + token },
+        body: file,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          NO_FACE: 'ছবিতে কোনো মুখ পাওয়া যায়নি।',
+          MANY_FACES: 'একাধিক মুখ আছে — একজনের ছবি দিন।',
+          FACES_UNAVAILABLE: 'Face recognition চালু নেই।',
+        }[data.error] || 'নমুনা ছবি নেওয়া যায়নি।', { bad: true });
+        $('#facesStatus').textContent = '';
+        return;
+      }
+      toast('নমুনা ছবি যোগ হয়েছে।');
+      loadFaces();
+    } catch (err) {
+      toast('নমুনা ছবি পাঠানো যায়নি।', { bad: true });
+    }
+  }
+
+  async function rescanFaces() {
+    $('#btnRescan').disabled = true;
+    $('#facesStatus').textContent = 'পুরনো ছবিগুলো সারিতে দেওয়া হচ্ছে…';
+    try {
+      const r = await apiAdmin('/api/admin/faces/rescan', { method: 'POST', body: {} });
+      toast(`${r.queued}টি ছবি মিলিয়ে দেখা হচ্ছে…`);
+      // The queue runs in the background; poll a few times so the count moves.
+      for (let i = 0; i < 10; i++) {
+        await new Promise((done) => setTimeout(done, 1500));
+        const data = await apiAdmin('/api/admin/faces');
+        renderPeople(data);
+        if (!data.status.pending && !data.status.working) break;
+      }
+    } catch (err) {
+      toast('চালানো যায়নি।', { bad: true });
+    } finally {
+      $('#btnRescan').disabled = false;
+    }
   }
 
   /* ── Drive connection ─────────────────────────────────────── */
@@ -681,6 +812,15 @@
     el.tglGallery.addEventListener('change', updateSetting);
     el.tglPublic.addEventListener('change', updateSetting);
     el.btnOrganise.addEventListener('click', organise);
+    $('#btnAddPerson').addEventListener('click', addPerson);
+    $('#personName').addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); addPerson(); }
+    });
+    $('#btnRescan').addEventListener('click', rescanFaces);
+    $('#enrollInput').addEventListener('change', (ev) => {
+      enrollPhoto(ev.target.files && ev.target.files[0]);
+      ev.target.value = '';
+    });
     el.btnDriveTest.addEventListener('click', testDrive);
     const saveBtn = $('#btnSaveSite');
     if (saveBtn) saveBtn.addEventListener('click', saveSite);

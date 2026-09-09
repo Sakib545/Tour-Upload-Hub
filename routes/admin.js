@@ -8,6 +8,8 @@ const state = require('../services/state');
 const site = require('../services/site');
 const drive = require('../services/drive');
 const persist = require('../services/persist');
+const faces = require('../services/faces');
+const faceSorter = require('../services/face-sorter');
 const sanitize = require('../utils/sanitize');
 const { safeEqual } = require('../utils/tokens');
 const { requireAdmin, adminToken } = require('../middleware/auth');
@@ -44,11 +46,7 @@ function categoryLabelFor(taggedCategory, mimeType) {
     : null;
   if (
     tagged &&
-    // 'any' custom categories (a day, a place, a drone set) take both kinds —
-    // this must match categoryForFile() in routes/api.js or the admin list and
-    // the gallery disagree about the same file.
-    (tagged.media === 'any' ||
-      (m.startsWith('image/') && tagged.media === 'photo') ||
+    ((m.startsWith('image/') && tagged.media === 'photo') ||
       (m.startsWith('video/') && tagged.media === 'video'))
   ) {
     return tagged.label;
@@ -179,6 +177,60 @@ router.put('/admin/site', rl.adminApi, requireAdmin, asyncH(async (req, res) => 
   });
   const persisted = await persist.saveAll();
   res.json({ site: next, persisted });
+}));
+
+/* ── People & face sorting ───────────────────────────────────── */
+
+router.get('/admin/faces', rl.adminApi, requireAdmin, (req, res) => {
+  res.json({ people: site.people, status: faces.status() });
+});
+
+router.post('/admin/people', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+  const person = site.addPerson((req.body || {}).name);
+  if (!person) return res.status(400).json({ error: 'BAD_NAME' });
+  await persist.saveAll();
+  logger.info('admin: person added', { id: person.id, name: person.name });
+  res.json({ person, people: site.people });
+}));
+
+router.delete('/admin/people/:id', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+  // Removing a person leaves their Drive folder and photos untouched.
+  if (!site.removePerson(req.params.id)) return res.status(404).json({ error: 'NOT_FOUND' });
+  await persist.saveAll();
+  res.json({ people: site.people });
+}));
+
+/**
+ * Enrolment: one photo of one person, sent as raw image bytes. We keep only
+ * the 128-number descriptor — the photo itself is never stored.
+ */
+router.post(
+  '/admin/people/:id/enroll',
+  rl.adminApi,
+  requireAdmin,
+  express.raw({ type: 'image/*', limit: '12mb' }),
+  asyncH(async (req, res) => {
+    const person = site.personById(req.params.id);
+    if (!person) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!Buffer.isBuffer(req.body) || !req.body.length) {
+      return res.status(400).json({ error: 'NO_IMAGE' });
+    }
+    if (!(await faces.init())) {
+      return res.status(503).json({ error: 'FACES_UNAVAILABLE', detail: faces.status().lastError });
+    }
+    const result = await faceSorter.describeReference(req.body);
+    if (!result.ok) return res.status(400).json({ error: result.code });
+    site.addDescriptor(person.id, result.descriptor);
+    await persist.saveAll();
+    logger.info('admin: face enrolled', { id: person.id, name: person.name });
+    res.json({ people: site.people });
+  })
+);
+
+router.post('/admin/faces/rescan', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+  if (!cfg.faces.enabled) return res.status(400).json({ error: 'FACES_DISABLED' });
+  const out = await faceSorter.rescanAll();
+  res.json({ ...out, status: faces.status() });
 }));
 
 /* ── Drive diagnostics ────────────────────────────────────────── */

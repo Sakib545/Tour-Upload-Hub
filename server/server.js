@@ -43,6 +43,10 @@ drive.verifyAccess().then(async (r) => {
   // Admin-edited content and folder names live in the Drive folder, so they
   // survive redeploys (Railway's own disk does not).
   await persist.loadAll();
+  // Warm the recognition models so the first upload is not the one that waits.
+  require('../services/faces').init().then((ok) => {
+    if (ok) logger.info('faces: sorting is on');
+  });
 });
 
 function shutdown(signal) {

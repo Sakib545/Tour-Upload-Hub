@@ -51,9 +51,9 @@ const script = `
     var t = bn(v);
     if (n.textContent === t) return;
     n.textContent = t;
-    n.classList.remove('tick');
+    n.classList.remove('cd-bump');
     void n.offsetWidth;
-    n.classList.add('tick');
+    n.classList.add('cd-bump');
   }
   function tick() {
     var left = Math.max(0, start - Date.now());

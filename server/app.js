@@ -24,6 +24,10 @@ function createApp() {
   app.use(securityHeaders);
   app.use(express.json({ limit: '64kb' }));
 
+  // Face sorting listens for finished uploads; installing the handler here
+  // keeps services/faces free of any route knowledge.
+  require('../services/face-sorter').install();
+
   const publicDir = path.join(__dirname, '..', 'public');
   app.use(
     express.static(publicDir, {

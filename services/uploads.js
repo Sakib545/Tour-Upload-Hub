@@ -117,11 +117,9 @@ function complete(id, { fileId, name, total } = {}) {
     try { s.release(); } catch (e) { /* ignore */ }
   }
   sessions.delete(id);
-  // A tombstone is recorded even without a file id: Drive can confirm a file is
-  // complete without the 201 (and its id) ever reaching us. Skipping it there
-  // would answer a re-sent final chunk with UNKNOWN_UPLOAD and the client would
-  // upload the whole file a second time.
-  tombstones.set(id, { fileId: fileId || null, name: finalName, total: finalTotal, at: Date.now() });
+  if (fileId) {
+    tombstones.set(id, { fileId, name: finalName, total: finalTotal, at: Date.now() });
+  }
 }
 
 /** Look up a recently completed upload (lost-final-response recovery). */

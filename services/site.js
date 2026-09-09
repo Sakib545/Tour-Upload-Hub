@@ -112,6 +112,8 @@ let state = {
     endAt: '',
   },
   categories: defaultCategories(),
+  // Enrolled faces: [{ id, name, folder, descriptors: number[128][] }]
+  people: [],
 };
 
 function ensureFile() {
@@ -194,22 +196,6 @@ function rebuildCategories(incoming, current) {
     return true;
   };
 
-  /**
-   * Place a category no matter what: the wanted folder, then the folder it had
-   * before, then a disambiguated name. A category must never silently vanish —
-   * a dropped built-in takes the upload routing and its gallery chip with it.
-   */
-  const placeCategory = (cat, previousFolder) => {
-    if (push(cat)) return true;
-    if (previousFolder && push({ ...cat, folder: previousFolder })) return true;
-    const stem = previousFolder || cat.folder;
-    for (let i = 2; i <= 20; i++) {
-      const alt = `${stem} (${i})`;
-      if (alt.length <= 80 && push({ ...cat, folder: alt })) return true;
-    }
-    return push({ ...cat, folder: `${stem.slice(0, 60)} (${cat.id})` });
-  };
-
   for (const raw of incoming) {
     if (!raw || typeof raw !== 'object') continue;
     if (out.length >= MAX_CATEGORIES) break;
@@ -217,9 +203,8 @@ function rebuildCategories(incoming, current) {
     const base = byId.get(id);
     if (base) {
       const next = sanitizeCategory(raw, base);
-      // Folder taken by another category — keep what this one had, and if that
-      // is taken too fall back to a disambiguated name rather than dropping it.
-      placeCategory(next, base.folder);
+      // Folder taken by another category — keep what this one had.
+      if (!push(next)) push({ ...next, folder: base.folder });
       byId.delete(id);
       continue;
     }
@@ -237,7 +222,7 @@ function rebuildCategories(incoming, current) {
   // Any built-in the payload left out is restored, so routing never breaks.
   for (const [, leftover] of byId) {
     if (!leftover.builtin) continue;
-    placeCategory(leftover, null);
+    if (!push(leftover)) push({ ...leftover, folder: `${leftover.folder} (${leftover.id})` });
   }
   return out.length ? out : current;
 }
@@ -249,6 +234,8 @@ function merge(raw) {
     const next = sanitizeContent(raw.content);
     if (next) state.content = { ...state.content, ...next };
   }
+
+  if (Array.isArray(raw.people)) restorePeople(raw.people);
 
   if (Array.isArray(raw.categories) && raw.categories.length) {
     // Saved payloads may carry custom categories, so start from the defaults
@@ -293,11 +280,95 @@ function save() {
   }
 }
 
+/** Accept a saved people list (local cache or the Drive settings file). */
+function restorePeople(raw) {
+  if (!Array.isArray(raw)) return;
+  state.people = raw
+    .filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string')
+    .slice(0, 40)
+    .map((p) => ({
+      id: p.id,
+      name: clean(p.name, 60),
+      folder: clean(p.folder || p.name, 60),
+      descriptors: Array.isArray(p.descriptors)
+        ? p.descriptors
+            .filter((d) => Array.isArray(d) && d.length === 128 && d.every((n) => Number.isFinite(n)))
+            .slice(-6)
+        : [],
+    }));
+}
+
 function snapshot() {
   return {
     content: { ...state.content },
     categories: state.categories.map((c) => ({ ...c })),
+    // Descriptors are big and useless to a human, so the admin view reports
+    // only how many reference photos each person has.
+    people: state.people.map((p) => ({
+      id: p.id,
+      name: p.name,
+      folder: p.folder,
+      samples: (p.descriptors || []).length,
+    })),
   };
+}
+
+/** The full people records, descriptors included — for the sorter. */
+function peopleWithDescriptors() {
+  return state.people.map((p) => ({ ...p, descriptors: (p.descriptors || []).map((d) => d.slice()) }));
+}
+
+const PERSON_ID_RE = /^p_[a-z0-9]{6}$/;
+const MAX_PEOPLE = 40;
+const MAX_SAMPLES = 6;
+
+function newPersonId(taken) {
+  for (let i = 0; i < 50; i++) {
+    const id = 'p_' + Math.random().toString(36).slice(2, 8).replace(/[^a-z0-9]/g, '0');
+    if (PERSON_ID_RE.test(id) && !taken.has(id)) return id;
+  }
+  return null;
+}
+
+/** Add a person. Returns the record, or null when the name/folder is unusable. */
+function addPerson(rawName) {
+  const name = clean(rawName || '', 60);
+  if (!name || state.people.length >= MAX_PEOPLE) return null;
+  // The folder is the name, cleaned to something Drive is happy with.
+  const folder = name.replace(/[\\/'"]/g, '').trim() || null;
+  if (!folder || !FOLDER_RE.test(folder)) return null;
+  const taken = new Set(state.people.map((p) => p.id));
+  if (state.people.some((p) => p.folder.toLowerCase() === folder.toLowerCase())) return null;
+  const id = newPersonId(taken);
+  if (!id) return null;
+  const person = { id, name, folder, descriptors: [] };
+  state.people.push(person);
+  save();
+  return { id, name, folder, samples: 0 };
+}
+
+function removePerson(id) {
+  const before = state.people.length;
+  state.people = state.people.filter((p) => p.id !== id);
+  if (state.people.length === before) return false;
+  save();
+  return true;
+}
+
+/** Store one more reference descriptor for a person. */
+function addDescriptor(id, descriptor) {
+  const person = state.people.find((p) => p.id === id);
+  if (!person || !Array.isArray(descriptor) || descriptor.length !== 128) return false;
+  // Four decimals is well inside the noise floor and keeps the settings file
+  // small enough to live in Drive.
+  const rounded = descriptor.map((v) => Math.round(v * 1e4) / 1e4);
+  person.descriptors = (person.descriptors || []).concat([rounded]).slice(-MAX_SAMPLES);
+  save();
+  return true;
+}
+
+function personById(id) {
+  return state.people.find((p) => p.id === id) || null;
 }
 
 /** Update content / categories with sanitization. Never throws. */
@@ -322,6 +393,15 @@ load();
 module.exports = {
   update,
   categoryById,
+  addPerson,
+  removePerson,
+  addDescriptor,
+  personById,
+  peopleWithDescriptors,
+  restorePeople,
+  get people() {
+    return snapshot().people;
+  },
   // Full view (labels + Drive folder names) — admin only.
   adminView: snapshot,
   get content() {

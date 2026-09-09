@@ -8,7 +8,8 @@
     "dev": "node --watch server/server.js",
     "get-token": "node scripts/get-refresh-token.js",
     "check": "node --check server/server.js && node --check server/app.js && for f in routes/*.js services/*.js middleware/*.js utils/*.js public/js/*.js scripts/*.js test/helpers/*.js test/*.test.js; do node --check \"$f\" || exit 1; done",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "faces:install": "npm install @vladmandic/face-api @tensorflow/tfjs @tensorflow/tfjs-backend-wasm sharp"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -29,5 +30,11 @@
     "express": "^4.19.2",
     "express-rate-limit": "^6.11.2",
     "qrcode": "^1.5.3"
+  },
+  "optionalDependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@vladmandic/face-api": "^1.7.15",
+    "sharp": "^0.33.5"
   }
 }

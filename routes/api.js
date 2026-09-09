@@ -9,6 +9,7 @@ const site = require('../services/site');
 const uploads = require('../services/uploads');
 const reservations = require('../services/reservations');
 const drive = require('../services/drive');
+const faces = require('../services/faces');
 const sanitize = require('../utils/sanitize');
 const sniff = require('../utils/sniff');
 const { safeEqual } = require('../utils/tokens');
@@ -171,6 +172,9 @@ async function reconcileWithDrive(res, entry, id) {
   if (rec.done) {
     const fileId = rec.file && rec.file.id;
     uploads.complete(id, { fileId, name: entry.name, total: entry.total });
+    // Face sorting (when enabled) runs in the background — never in the
+    // request that just stored the bytes.
+    faces.enqueue({ fileId });
     sendJson(res, 200, {
       done: true,
       file: { id: fileId, name: entry.name, size: entry.total },
@@ -225,6 +229,9 @@ async function reconcileGap(res, entry, id, { offset, contentLength }) {
   if (rec.done) {
     const fileId = rec.file && rec.file.id;
     uploads.complete(id, { fileId, name: entry.name, total: entry.total });
+    // Face sorting (when enabled) runs in the background — never in the
+    // request that just stored the bytes.
+    faces.enqueue({ fileId });
     sendJson(res, 200, {
       done: true,
       file: { id: fileId, name: entry.name, size: entry.total },
@@ -311,6 +318,9 @@ async function sendChunkToDrive({ clientReq, stream, res, entry, id, offset, con
   if (out.done) {
     const fileId = out.file && out.file.id;
     uploads.complete(id, { fileId, name: entry.name, total: entry.total });
+    // Face sorting (when enabled) runs in the background — never in the
+    // request that just stored the bytes.
+    faces.enqueue({ fileId });
     sendJson(res, 200, {
       done: true,
       file: { id: fileId, name: entry.name, size: entry.total },
@@ -667,16 +677,8 @@ async function verifiedMeta(id) {
     return null;
   }
   const parents = Array.isArray(meta.parents) ? meta.parents : [];
-  const inScope = (list) => parents.some((pid) => list.includes(pid));
-  if (!inScope(drive.allowedParents())) {
-    // `allowedParents()` only knows the sub-folders resolved so far, and that
-    // cache is empty right after boot (persist.loadAll() resets it) or after a
-    // folder rename. Resolve them before deciding a file is out of scope —
-    // otherwise every direct media URL 404s until a listing warms the cache.
-    await drive.ensureMediaFolders().catch(() => null);
-    await drive.ensureAllCategoryFolders().catch(() => null);
-    if (!inScope(drive.allowedParents())) return null;
-  }
+  const allowed = drive.allowedParents();
+  if (!parents.some((pid) => allowed.includes(pid))) return null;
   const entry = {
     at: Date.now(),
     name: meta.name || 'file',

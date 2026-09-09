@@ -42,6 +42,12 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   public page counts down the days, hours, minutes and seconds in Bengali numerals,
   switching to a "tour is on" banner and then a gentle "upload the rest" note by itself.
 
+- **Face sorting (optional)**: enrol each person once from the admin panel, and any
+  photo showing exactly that one face is filed into `People/<name>` automatically —
+  no more hunting through the gallery for your own pictures. Group shots stay put,
+  since a Drive file lives in one folder. Runs on a pure JS/WASM model, in the
+  background, after the upload is safely stored; off unless `FACE_SORT=true`.
+
 ## 1. Local setup
 
 Prerequisites: **Node.js ≥ 18**.
@@ -163,6 +169,24 @@ GOOGLE_REFRESH_TOKEN=1//0xxxx...
 The folder stays **private** — it is never made publicly writable or shared.
 
 ---
+
+## Face sorting (optional)
+
+1. `npm run faces:install` — adds `@vladmandic/face-api`, `@tensorflow/tfjs`,
+   `@tensorflow/tfjs-backend-wasm` and `sharp` (~300 MB of `node_modules`; they are
+   declared as optional dependencies so a normal deploy installs them too — use
+   `npm install --omit=optional` if you never plan to switch this on).
+2. Set `FACE_SORT=true` and redeploy. Model weights (~12 MB) are fetched once at boot
+   and cached under `data/face-models`.
+3. In the admin dashboard, add each person and give them **one clear photo of just
+   them**. Only the 128-number descriptor is kept — the photo itself is never stored.
+4. New uploads are sorted as they arrive. **পুরনো ছবিগুলোও মিলিয়ে দেখুন** re-runs the
+   whole gallery, which is what you want right after enrolling someone.
+
+Accuracy notes: the same face across renditions measures around 0.33–0.39 apart and
+two different faces around 0.64, so the default threshold of 0.5 separates them with
+room on both sides. Raise `FACE_MATCH_THRESHOLD` for looser matching, lower it for
+stricter. A photo is only moved when it contains exactly one recognised face.
 
 ## 7. Environment variables
 

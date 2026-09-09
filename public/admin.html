@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#0ea5e9" />
   <meta name="robots" content="noindex,nofollow" />
   <title>Admin — Tour Upload Hub</title>
@@ -117,6 +116,31 @@
           <input type="file" id="adminFileInput" multiple
                  accept="image/*,video/*,.heic,.heif,.mov,.m4v,.3gp,.3g2" hidden />
           <ul class="admin-upload-list" id="adminUploadList"></ul>
+        </section>
+
+        <section class="card admin-section" id="facesSection">
+          <h2>People &amp; face sorting</h2>
+          <p class="muted-text" id="facesIntro">
+            একটি ছবিতে যদি ঠিক একজনের মুখ থাকে আর সেই মুখ চেনা যায়, ছবিটা নিজে থেকেই তার ফোল্ডারে চলে যাবে —
+            তখন আর বেছে বেছে নামাতে হবে না। গ্রুপ ছবি যেখানে আছে সেখানেই থাকে।
+          </p>
+          <p class="drive-fix" id="facesOff" hidden>
+            <strong>এখন বন্ধ আছে।</strong> চালু করতে Railway-তে <code>FACE_SORT=true</code> দিন
+            (আর face-recognition প্যাকেজগুলো ইনস্টল থাকতে হবে)।
+          </p>
+
+          <div class="form-actions">
+            <input class="input" id="personName" maxlength="60" placeholder="নাম লিখুন (যেমন: রিফাত)" />
+            <button type="button" class="btn btn-primary" id="btnAddPerson">+ যোগ করুন</button>
+          </div>
+
+          <ul class="people-list" id="peopleList"></ul>
+
+          <div class="save-row">
+            <button type="button" class="btn btn-ghost" id="btnRescan">পুরনো ছবিগুলোও মিলিয়ে দেখুন</button>
+            <span class="muted-text" id="facesStatus"></span>
+          </div>
+          <input type="file" id="enrollInput" accept="image/*" hidden />
         </section>
 
         <section class="card admin-section">

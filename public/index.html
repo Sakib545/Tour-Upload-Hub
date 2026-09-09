@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#0ea5e9" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -13,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/app.css?v=20260909-4" />
+  <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body class="page-home">
   <svg class="hero-blob hero-blob-a" aria-hidden="true" viewBox="0 0 200 200"><circle cx="100" cy="100" r="100"/></svg>
@@ -46,36 +45,6 @@
           <stop offset="0.45" class="bxst-r" stop-opacity="0.22" />
           <stop offset="1" class="bxst-r" stop-opacity="0" />
         </linearGradient>
-        <!-- Generic seated boy; each use below has a permanent friend number.
-             The face layer can be swapped for real portraits later. -->
-        <g id="tourBoy">
-          <ellipse cx="0" cy="88" rx="38" ry="7" class="tf-shadow" />
-          <path d="M-8 65 Q-29 74 -39 86 M8 65 Q29 74 39 86" class="tf-limbs" />
-          <path d="M-22 43 Q0 34 22 43 L18 71 H-18Z" class="tf-shirt" />
-          <path d="M-18 48 Q-32 55 -30 70 M18 48 Q32 55 30 70" class="tf-limbs" />
-          <rect x="-5" y="32" width="10" height="11" rx="4" class="tf-skin" />
-          <circle cx="0" cy="21" r="15" class="tf-skin" />
-          <path d="M-15 18 Q-12 3 -3 6 Q2 0 7 6 Q16 4 15 20 Q6 13 -5 14Z" class="tf-hair" />
-          <path d="M-6 22 h2 M5 22 h2 M-5 28 Q0 33 6 28" class="tf-face" />
-        </g>
-        <g id="tourBoyStand">
-          <ellipse cx="0" cy="94" rx="25" ry="6" class="tf-shadow" />
-          <path d="M-9 67 L-13 93 M9 67 L13 93" class="tf-limbs" />
-          <path d="M-21 42 Q0 33 21 42 L15 69 H-15Z" class="tf-shirt" />
-          <path d="M-17 47 L-29 65 M17 47 L29 64" class="tf-limbs" />
-          <rect x="-5" y="31" width="10" height="11" rx="4" class="tf-skin" />
-          <circle cx="0" cy="20" r="15" class="tf-skin" />
-          <path d="M-15 17 Q-10 2 -2 5 Q4 0 8 6 Q17 5 15 20 Q6 12 -5 14Z" class="tf-hair" />
-          <path d="M-6 21 h2 M5 21 h2 M-5 27 Q0 32 6 27" class="tf-face" />
-        </g>
-        <g id="tourBoySplash">
-          <path d="M-20 42 Q0 34 20 42 L15 66 H-15Z" class="tf-shirt" />
-          <path d="M-17 47 L-30 34 M17 47 L30 31" class="tf-limbs" />
-          <rect x="-5" y="31" width="10" height="11" rx="4" class="tf-skin" />
-          <circle cx="0" cy="20" r="15" class="tf-skin" />
-          <path d="M-15 17 Q-11 2 -2 5 Q4 0 8 6 Q17 5 15 20 Q6 12 -5 14Z" class="tf-hair" />
-          <path d="M-6 21 h2 M5 21 h2 M-5 27 Q0 32 6 27" class="tf-face" />
-        </g>
       </defs>
 
       <!-- Sky -->
@@ -195,82 +164,11 @@
         <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
         <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
       </g></g>
-
-      <!-- Exactly eight male friends across a lively set of tour activities. -->
-      <g class="tour-friends" aria-label="Eight male friends enjoying a lively beach tour">
-        <!-- Friends 1–2: sitting low on the sand and chatting -->
-        <ellipse cx="402" cy="443" rx="105" ry="13" class="tf-group-shadow" />
-        <g class="tour-friend tf-chat" data-friend-id="1" transform="translate(350 350)" style="--delay:-.4s"><use href="#tourBoy" style="--skin:#dba074;--shirt:#0f9f98;--hair:#241710" /></g>
-        <g class="tour-friend tf-chat" data-friend-id="2" transform="translate(445 346)" style="--delay:-2.1s"><use href="#tourBoy" style="--skin:#efbd93;--shirt:#ef6b45;--hair:#5a311b" /></g>
-        <!-- Friend 3: driving a speedboat across the sea -->
-        <g class="tf-speedboat-run" data-friend-id="3" transform="translate(-260 202)">
-          <g class="tf-boat-bob">
-            <path d="M-104 20 Q-138 16 -174 24 M-96 31 Q-132 30 -158 38" class="tf-boat-wake" />
-            <path d="M-82 0 H78 L52 34 H-58 Q-76 25 -82 0Z" fill="#f04f3d" />
-            <path d="M-58 0 H58 L42 -24 H-34Z" fill="#f7f4e9" />
-            <path d="M-29 -23 H30 L18 -45 H-18Z" fill="#1f9ec7" />
-            <rect x="-10" y="-56" width="36" height="17" rx="7" fill="#213047" />
-            <circle cx="-1" cy="-48" r="6" fill="#86d5ee" />
-            <path d="M-82 0 Q0 13 78 0" fill="none" stroke="#7a2423" stroke-width="5" />
-            <g transform="translate(22 -85) scale(.55)"><use href="#tourBoySplash" style="--skin:#9a6440;--shirt:#6d55d9;--hair:#17120f" /></g>
-            <g class="tf-boat-spray" fill="#fff"><circle cx="-93" cy="25" r="5"/><circle cx="-112" cy="17" r="3.5"/><circle cx="-124" cy="30" r="2.5"/></g>
-          </g>
-        </g>
-
-        <!-- Friend 4: riding a horse along the dry sand -->
-        <g class="tf-horse-run" data-friend-id="4" transform="translate(1500 392)">
-          <g class="tf-horse-bob">
-            <ellipse cx="0" cy="0" rx="58" ry="27" fill="#8a4f2a" />
-            <path d="M40 -8 Q58 -43 79 -42 L88 -22 Q72 -8 51 4Z" fill="#8a4f2a" />
-            <path d="M72 -40 L68 -57 L82 -43 M84 -38 L94 -52 L92 -31" fill="#6b371e" />
-            <circle cx="82" cy="-29" r="3" fill="#17110f" />
-            <path d="M-52 -5 Q-78 -22 -91 -8 Q-73 2 -53 8" class="tf-horse-tail" fill="#4a291b" />
-            <path d="M-38 18 L-45 57 M-8 22 L-2 59 M27 20 L34 58 M47 14 L55 52" class="tf-horse-leg" />
-            <path d="M-28 -22 Q0 -35 29 -21" fill="none" stroke="#f1b850" stroke-width="6" />
-            <g transform="translate(-2 -92) scale(.62)"><use href="#tourBoySplash" style="--skin:#c8895b;--shirt:#f0b62f;--hair:#3d2115" /></g>
-          </g>
-        </g>
-
-        <!-- Friend 7: flying a kite -->
-        <path class="tf-kite-line" d="M684 382 C720 294 754 210 812 122" fill="none" stroke="rgba(255,243,207,.62)" stroke-width="1.4" />
-        <g class="tf-kite" transform="translate(812 116)">
-          <path d="M0 -22 L20 0 L0 24 L-20 0Z" fill="#f7b731" />
-          <path d="M0 -22 V24 M-20 0 H20" stroke="#fff3cf" stroke-width="2" />
-          <path d="M0 24 q16 9 2 20 q-14 10 3 20" class="tf-kite-tail" />
-        </g>
-        <g class="tour-friend tf-kite-flyer" data-friend-id="7" transform="translate(675 344)" style="--delay:-3s"><use href="#tourBoyStand" style="--skin:#efbd93;--shirt:#e95d86;--hair:#6b351e" /></g>
-
-        <!-- Friends 5–6: splashing in the shallows -->
-        <g class="tf-water-friend tf-splash-a" data-friend-id="5" transform="translate(845 178)" style="--delay:-1.8s">
-          <use href="#tourBoySplash" style="--skin:#dda87f;--shirt:#2384d8;--hair:#151313" />
-          <path d="M-42 70 q12 -10 24 0 t24 0 t24 0" class="tf-water-ring" />
-          <g class="tf-drops"><circle cx="-35" cy="38" r="3"/><circle cx="34" cy="30" r="3.5"/><circle cx="43" cy="48" r="2.5"/></g>
-        </g>
-        <g class="tf-water-friend tf-splash-b" data-friend-id="6" transform="translate(945 184)" style="--delay:-.9s">
-          <use href="#tourBoySplash" style="--skin:#84512f;--shirt:#26915f;--hair:#26170f" />
-          <path d="M-42 70 q12 -10 24 0 t24 0 t24 0" class="tf-water-ring" />
-          <g class="tf-drops"><circle cx="-37" cy="32" r="3.5"/><circle cx="35" cy="39" r="3"/><circle cx="45" cy="24" r="2.5"/></g>
-        </g>
-
-        <!-- Friend 8: taking a sunset selfie -->
-        <g class="tf-selfie-pair">
-          <g class="tour-friend tf-selfie-right" data-friend-id="8" transform="translate(1190 349)" style="--delay:-3.4s"><use href="#tourBoyStand" style="--skin:#b8784d;--shirt:#ee8335;--hair:#17110f" /></g>
-          <g class="tf-phone" transform="translate(1162 330)">
-            <path d="M0 18 L-22 44" stroke="#efbd93" stroke-width="8" stroke-linecap="round" />
-            <rect x="-8" y="-2" width="20" height="31" rx="4" fill="#20283a" />
-            <rect x="-5" y="2" width="14" height="22" rx="2" fill="#8fd6f5" />
-            <circle class="tf-flash" cx="2" cy="9" r="25" fill="#fff" />
-          </g>
-        </g>
-      </g>
     </svg>
-  </header>
 
-  <main class="container">
+    <div class="hero-halo" aria-hidden="true"></div>
 
-    <!-- Tour title, meta & countdown live BELOW the scenery, on the page
-         background — nothing sits on top of the beach artwork. -->
-    <div class="hero-content">
+    <div class="hero-inner">
       <img id="heroCover" class="hero-cover" alt="" hidden />
       <p class="hero-eyebrow" id="heroMeta">✈️ Tour</p>
       <h1 id="heroTitle">Tour Memories</h1>
@@ -288,7 +186,9 @@
         <p class="cd-when" id="cdWhen"></p>
       </div>
     </div>
+  </header>
 
+  <main class="container">
     <noscript>
       <div class="card warn-card">এই সাইটটি ব্যবহার করতে অনুগ্রহ করে JavaScript চালু করুন।</div>
     </noscript>

@@ -53,6 +53,23 @@ const cfg = {
   // requires it. The admin can flip this live.
   defaultGalleryPublic: bool(env.GALLERY_PUBLIC, false),
 
+  // Face sorting: single-person photos are filed into that person's folder.
+  faces: {
+    enabled: bool(env.FACE_SORT, false),
+    peopleFolderName: str(env.FACE_PEOPLE_FOLDER, 'People'),
+    // Euclidean distance between 128-d descriptors. Measured on real photos:
+    // the same face across renditions lands around 0.33-0.39, two different
+    // faces around 0.64, so 0.5 separates them with room on both sides.
+    threshold: num(env.FACE_MATCH_THRESHOLD, 0.5, 0.2, 0.9),
+    // Weights are fetched once at boot and cached on disk.
+    modelUrl: str(
+      env.FACE_MODEL_URL,
+      'https://raw.githubusercontent.com/vladmandic/face-api/master/model'
+    ),
+    // Recognition runs on a downscaled copy — plenty for a 128-d descriptor.
+    workingWidth: num(env.FACE_WORKING_WIDTH, 1024, 320, 2048),
+  },
+
   maxFileBytes: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240) * 1024 * 1024,
   maxFileSizeMB: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240),
   maxFilesPerUpload: num(env.MAX_FILES_PER_UPLOAD, 50, 1, 500),
@@ -146,6 +163,7 @@ function publicConfig(state, site) {
     pinRequired: cfg.pinEnabled,
     // Uploading always keeps its PIN gate; viewing can be opened up.
     galleryPinRequired: cfg.pinEnabled && !state.galleryPublic,
+    faceSortEnabled: cfg.faces.enabled,
     maxFileSizeMB: cfg.maxFileSizeMB,
     maxFilesPerUpload: cfg.maxFilesPerUpload,
     separateMediaFolders: cfg.google.separateMediaFolders,

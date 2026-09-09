@@ -31,7 +31,9 @@ function payload() {
       galleryVisible: s.galleryVisible,
       galleryPublic: s.galleryPublic,
     },
-    site: site.adminView(),
+    // The admin view hides face descriptors; the durable copy needs them, or
+    // every redeploy would forget who is who.
+    site: { ...site.adminView(), people: site.peopleWithDescriptors() },
   };
 }
 
@@ -50,6 +52,7 @@ async function loadAll() {
   if (raw.flags && typeof raw.flags === 'object') state.update(raw.flags);
   if (raw.site && typeof raw.site === 'object') {
     site.update({ content: raw.site.content, categories: raw.site.categories });
+    site.restorePeople(raw.site.people);
     // Folder names may differ from the env defaults we started with.
     drive.resetFolderCache();
   }

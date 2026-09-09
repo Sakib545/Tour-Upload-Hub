@@ -390,8 +390,8 @@ body.page-home .container { padding-bottom: 180px; }
 }
 
 /* A small check that draws itself when Drive confirms the file. */
-.tick { width: 15px; height: 15px; vertical-align: -2px; margin-right: 3px; }
-.tick path {
+svg.tick { width: 15px; height: 15px; vertical-align: -2px; margin-right: 3px; }
+svg.tick path {
   fill: none;
   stroke: var(--ok);
   stroke-width: 3.4;
@@ -1376,173 +1376,6 @@ body.page-home .hero-eyebrow {
 .bx-p2 { animation-duration: 6.2s; animation-delay: -3.6s; }
 .bx-p3 { animation-duration: 5.4s; animation-delay: -1.4s; }
 
-/* Eight generic friends in the beach hero. Every SVG group has a stable
-   data-friend-id, ready for a portrait/face replacement later. */
-.tf-group-shadow { fill: rgba(74, 48, 24, 0.14); }
-.tf-shadow { fill: rgba(74, 48, 24, 0.2); }
-.tf-shirt { fill: var(--shirt, #2384d8); }
-.tf-skin { fill: var(--skin, #dba074); }
-.tf-hair { fill: var(--hair, #241710); }
-.tf-limbs {
-  fill: none;
-  stroke: var(--skin, #dba074);
-  stroke-width: 9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.tf-face {
-  fill: none;
-  stroke: #3b2418;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-.tour-friend {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: tfChat 3.8s ease-in-out var(--delay, 0s) infinite alternate;
-}
-.tour-friend:nth-of-type(3n) { animation-duration: 3.1s; }
-.tour-friend:nth-of-type(4n) { animation-duration: 4.6s; }
-@keyframes tfChat {
-  from { translate: 0 1px; rotate: -1deg; }
-  to   { translate: 0 -3px; rotate: 1deg; }
-}
-
-/* Speedboat: crosses the water, bobs over waves and throws spray. */
-.tf-speedboat-run { animation: tfBoatRun 15s linear infinite; }
-@keyframes tfBoatRun {
-  from { translate: 0 0; }
-  to   { translate: 1900px 0; }
-}
-.tf-boat-bob {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: tfBoatBob .85s ease-in-out infinite alternate;
-}
-@keyframes tfBoatBob {
-  from { translate: 0 -3px; rotate: -1.2deg; }
-  to   { translate: 0 3px; rotate: 1.2deg; }
-}
-.tf-boat-wake {
-  fill: none;
-  stroke: rgba(255,255,255,.82);
-  stroke-width: 5;
-  stroke-linecap: round;
-}
-.tf-boat-spray { animation: tfBoatSpray .42s ease-in-out infinite alternate; }
-@keyframes tfBoatSpray {
-  from { opacity: .35; translate: 5px 2px; }
-  to   { opacity: 1; translate: -7px -4px; }
-}
-
-/* Horse: a slower pass across the foreground with a light gallop. */
-.tf-horse-run { animation: tfHorseRun 31s linear infinite; }
-@keyframes tfHorseRun {
-  from { translate: 0 0; }
-  to   { translate: -1840px 0; }
-}
-.tf-horse-bob {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: tfHorseBob .58s ease-in-out infinite alternate;
-}
-@keyframes tfHorseBob {
-  from { translate: 0 1px; }
-  to   { translate: 0 -5px; }
-}
-.tf-horse-leg {
-  fill: none;
-  stroke: #6b371e;
-  stroke-width: 10;
-  stroke-linecap: round;
-  transform-box: fill-box;
-  transform-origin: 50% 0;
-  animation: tfHorseStep .58s ease-in-out infinite alternate;
-}
-@keyframes tfHorseStep {
-  from { skew: -5deg 0deg; }
-  to   { skew: 5deg 0deg; }
-}
-.tf-horse-tail {
-  transform-box: fill-box;
-  transform-origin: 100% 50%;
-  animation: tfHorseTail 1.2s ease-in-out infinite alternate;
-}
-@keyframes tfHorseTail {
-  from { rotate: -7deg; }
-  to   { rotate: 9deg; }
-}
-
-/* Activity-specific motion: the group feels alive without every person
-   repeating the same movement. */
-.tf-kite-line {
-  fill: none;
-  stroke: rgba(255, 243, 207, 0.62);
-  stroke-width: 1.4;
-}
-.tf-kite {
-  transform-box: fill-box;
-  transform-origin: 50% 60%;
-  animation: tfKite 5.8s ease-in-out infinite alternate;
-}
-.tf-kite-tail { fill: none; stroke: #fff3cf; stroke-width: 2; stroke-linecap: round; }
-@keyframes tfKite {
-  from { translate: -12px 5px; rotate: -7deg; }
-  to   { translate: 13px -7px; rotate: 7deg; }
-}
-.tf-kite-flyer { animation-duration: 4.9s; }
-
-.tf-water-friend {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: tfSplash 1.45s ease-in-out var(--delay, 0s) infinite alternate;
-}
-.tf-splash-b { animation-duration: 1.12s; }
-@keyframes tfSplash {
-  from { translate: 0 4px; rotate: -2deg; }
-  to   { translate: 0 -8px; rotate: 2deg; }
-}
-.tf-water-ring {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.86);
-  stroke-width: 4;
-  stroke-linecap: round;
-}
-.tf-drops { fill: #fff; animation: tfDrops 1.45s ease-out infinite; }
-.tf-splash-b .tf-drops { animation-duration: 1.12s; animation-delay: -.55s; }
-@keyframes tfDrops {
-  0% { opacity: 0; translate: 0 6px; }
-  40% { opacity: 1; translate: 0 -7px; }
-  100% { opacity: 0; translate: 0 2px; }
-}
-
-.tf-selfie-pair { transform-box: fill-box; transform-origin: 50% 100%; }
-.tf-selfie-left { rotate: 3deg; }
-.tf-selfie-right { rotate: -3deg; }
-.tf-phone {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: tfPhone 4.7s ease-in-out infinite alternate;
-}
-@keyframes tfPhone {
-  from { translate: -2px 1px; rotate: -3deg; }
-  to   { translate: 2px -2px; rotate: 3deg; }
-}
-.tf-flash { opacity: 0; animation: tfFlash 7s ease-out infinite; }
-@keyframes tfFlash {
-  0%, 88% { opacity: 0; scale: .45; }
-  90% { opacity: .85; scale: 1; }
-  97%, 100% { opacity: 0; scale: 1.3; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tour-friend, .tf-kite, .tf-water-friend, .tf-drops, .tf-phone, .tf-flash,
-  .tf-speedboat-run, .tf-boat-bob, .tf-boat-spray, .tf-horse-run,
-  .tf-horse-bob, .tf-horse-leg, .tf-horse-tail {
-    animation: none !important;
-  }
-}
-
 /* ── Countdown to the tour ──────────────────────────────────── */
 .countdown {
   margin: 18px auto 0;
@@ -1570,7 +1403,7 @@ body.page-home .hero-eyebrow {
   color: var(--text);
 }
 /* A small lift each time a number changes, so the clock feels alive. */
-.cd-n.tick { animation: cdTick 0.4s var(--ease-spring); }
+.cd-n.cd-bump { animation: cdTick 0.4s var(--ease-spring); }
 @keyframes cdTick {
   0% { transform: translateY(-6px) scale(0.92); opacity: 0.4; }
   100% { transform: none; opacity: 1; }
@@ -1590,52 +1423,61 @@ body.page-home .hero-eyebrow {
   display: inline-block;
 }
 
-/* ── Home hero: readable AND colourful over the scenery ─────── */
+/* ── Home hero: the beach stays clean, the words sit below it ── */
 
-/* One calm plate behind the words — but tinted with the sky and the sea
-   instead of flat grey, so the beach scene continues into the panel. */
+/* The artwork is a band across the top with nothing written on it; the title,
+   the subtitle and the countdown follow underneath on the page background.
+   Two things read better for it: the illustration is never covered, and the
+   text never has to fight it for contrast. */
+body.page-home .hero {
+  /* The artwork is 1440 x 460, so a band of width / 3.13 shows the whole scene
+     — sun included — instead of slicing the sky off the top. Clamped so it
+     never gets stubby on a phone or enormous on a wide monitor; where it does
+     slice, xMidYMax keeps the waves and the sand, which is the good part. */
+  --band: clamp(200px, calc(100vw / 3.13), 430px);
+  display: block;
+  min-height: 0;
+  padding: var(--band) 16px 4px;
+}
+body.page-home .hero .scenery {
+  inset: 0 0 auto 0;
+  height: var(--band);
+}
+/* The fade lives in the band, melting the sand into the page. */
+body.page-home .hero::after {
+  inset: 0 0 auto 0;
+  height: var(--band);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 62%, var(--bg) 100%);
+}
+/* The halo existed only to darken the art behind the text — not needed now. */
+body.page-home .hero-halo { display: none; }
+
 body.page-home .hero .hero-inner {
-  background:
-    linear-gradient(150deg, rgba(12, 34, 62, 0.62), rgba(38, 20, 62, 0.58) 55%, rgba(10, 40, 60, 0.62));
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 28px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 24px 60px rgba(3, 12, 24, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  position: relative;
+  z-index: 2;
   max-width: 620px;
-  padding: 34px 22px 30px;
-}
-@media (prefers-color-scheme: light) {
-  body.page-home .hero .hero-inner {
-    background:
-      linear-gradient(150deg, rgba(255, 255, 255, 0.72), rgba(255, 244, 232, 0.66) 55%, rgba(233, 248, 255, 0.72));
-    border-color: rgba(255, 255, 255, 0.9);
-  }
+  margin: 0 auto;
+  padding: 22px 4px 8px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-/* Sunset in the title: warm gold into coral into sea blue. A clipped gradient
-   cannot take a text-shadow, so the lift comes from a drop-shadow filter. */
+/* Sunset in the title: warm gold into coral into sea blue. */
 body.page-home .hero h1 {
-  background: linear-gradient(100deg, #ffd79a 0%, #ff9bb0 42%, #7dd3fc 100%);
+  background: linear-gradient(100deg, #f59e0b 0%, #f43f5e 45%, #0ea5e9 100%);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 3px 14px rgba(3, 12, 24, 0.55));
   animation: shimmer 9s linear infinite;
 }
-body.page-home .hero-sub {
-  color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 1px 10px rgba(3, 12, 24, 0.5);
-}
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   body.page-home .hero h1 {
-    background-image: linear-gradient(100deg, #ea580c 0%, #db2777 45%, #0284c7 100%);
-    filter: none;
+    background-image: linear-gradient(100deg, #fbbf24 0%, #fb7185 45%, #38bdf8 100%);
   }
-  body.page-home .hero-sub { color: #33536b; text-shadow: none; }
 }
 
 /* Each countdown cell takes one colour from the scene — sunset, sea, dusk,
@@ -1645,32 +1487,34 @@ body.page-home .hero-sub {
 .cd-cell:nth-child(3) { --cd-a: #8b5cf6; --cd-b: #6366f1; }
 .cd-cell:nth-child(4) { --cd-a: #f472b6; --cd-b: #f43f5e; }
 
-body.page-home .countdown .cd-cell {
+.countdown .cd-cell {
   background: linear-gradient(160deg, var(--cd-a), var(--cd-b));
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 10px 26px rgba(3, 12, 24, 0.32),
+    0 10px 24px rgba(11, 37, 59, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-body.page-home .countdown .cd-n {
+.countdown .cd-n {
   color: #ffffff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
-body.page-home .countdown .cd-u { color: rgba(255, 255, 255, 0.88); }
+.countdown .cd-u { color: rgba(255, 255, 255, 0.9); }
 
-/* The label sits in its own soft pill so it never fades into the sand. */
-body.page-home .countdown .cd-label {
+/* The label sits in its own soft pill, matching the palette. */
+.countdown .cd-label {
   display: inline-block;
-  color: #fff7ed;
-  background: linear-gradient(120deg, rgba(249, 115, 22, 0.45), rgba(99, 102, 241, 0.45));
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #9a3412;
+  background: linear-gradient(120deg, rgba(249, 115, 22, 0.18), rgba(99, 102, 241, 0.18));
+  border: 1px solid rgba(249, 115, 22, 0.25);
   border-radius: 999px;
   padding: 7px 18px;
 }
-body.page-home .countdown .cd-when { color: rgba(255, 255, 255, 0.86); }
-@media (prefers-color-scheme: light) {
-  body.page-home .countdown .cd-label { color: #7c2d12; }
-  body.page-home .countdown .cd-when { color: #3f5d76; }
+@media (prefers-color-scheme: dark) {
+  .countdown .cd-label {
+    color: #ffe6c7;
+    background: linear-gradient(120deg, rgba(249, 115, 22, 0.28), rgba(99, 102, 241, 0.28));
+    border-color: rgba(255, 200, 150, 0.28);
+  }
 }
 
 /* Wider cells and a touch more air, so "সেকেন্ড" never wraps mid-word. */
@@ -1685,319 +1529,29 @@ body.page-home .countdown .cd-when { color: rgba(255, 255, 255, 0.86); }
 
 /* The date + place pill picks up the same sunset palette. */
 body.page-home .hero-eyebrow {
-  background: linear-gradient(120deg, rgba(255, 247, 237, 0.94), rgba(255, 228, 230, 0.94));
+  background: linear-gradient(120deg, rgba(255, 247, 237, 0.96), rgba(255, 228, 230, 0.96));
   color: #9a3412;
-  border-color: rgba(249, 115, 22, 0.35);
-  box-shadow: 0 8px 22px rgba(11, 37, 59, 0.16);
+  border-color: rgba(249, 115, 22, 0.3);
+  box-shadow: 0 8px 22px rgba(11, 37, 59, 0.1);
 }
 @media (prefers-color-scheme: dark) {
   body.page-home .hero-eyebrow {
-    background: linear-gradient(120deg, rgba(124, 45, 18, 0.55), rgba(30, 41, 99, 0.55));
+    background: linear-gradient(120deg, rgba(124, 45, 18, 0.5), rgba(30, 41, 99, 0.5));
     color: #ffe6c7;
-    border-color: rgba(255, 200, 150, 0.3);
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    border-color: rgba(255, 200, 150, 0.28);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Design polish — layered on top of the core system.
-   Only look & feel; no class hooks or layout contracts change.
-   ═══════════════════════════════════════════════════════════════ */
-
-::selection { background: rgba(14, 165, 233, 0.28); }
-
-/* Slightly deeper page backdrop so white cards sit on a calm gradient. */
-body {
-  background-image:
-    radial-gradient(1100px 560px at 88% -6%, rgba(14, 165, 233, 0.10), transparent 62%),
-    radial-gradient(900px 500px at -8% 10%, rgba(99, 102, 241, 0.08), transparent 58%),
-    radial-gradient(700px 420px at 50% 118%, rgba(16, 185, 129, 0.06), transparent 60%);
+/* ── Admin: enrolled people ─────────────────────────────────── */
+.people-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.person-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 14px; padding: 10px 12px;
+  animation: rowIn 0.3s var(--ease-out) both;
 }
-@media (prefers-color-scheme: dark) {
-  body {
-    background-image:
-      radial-gradient(1100px 560px at 88% -6%, rgba(14, 165, 233, 0.12), transparent 62%),
-      radial-gradient(900px 500px at -8% 10%, rgba(99, 102, 241, 0.10), transparent 58%),
-      radial-gradient(700px 420px at 50% 118%, rgba(16, 185, 129, 0.05), transparent 60%);
-  }
-}
-
-/* Icon chips on the gate + dropzone get a soft tinted disc. */
-.gate-icon, .drop-icon {
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  margin: 0 auto 12px;
-  border-radius: 30px;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(99, 102, 241, 0.14));
-  border: 1px dashed rgba(14, 165, 233, 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  line-height: 1;
-}
-@media (prefers-color-scheme: dark) {
-  .gate-icon, .drop-icon {
-    border-color: rgba(125, 211, 252, 0.35);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-}
-.gate-card { margin-top: 26px; }
-
-/* Gallery / admin headers stick to the top while scrolling. */
-.sub-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: var(--bg);
-  padding-top: calc(14px + env(safe-area-inset-top));
-  margin-bottom: 4px;
-}
-.sub-header::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 14px;
-  background: linear-gradient(var(--bg), transparent);
-  pointer-events: none;
-}
-.sub-header h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  letter-spacing: -0.01em;
-  font-weight: 700;
-  color: var(--text);
-}
-body.page-gallery .container, body.page-admin .container { padding-top: 14px; }
-
-/* Inputs: keep the caret brand-coloured; datetime controls read the theme. */
-.input { caret-color: var(--brand-1); }
-input[type='datetime-local'] { min-height: 50px; }
-.toggle-row .toggle { width: 54px; height: 32px; }
-.toggle-row .toggle::after { width: 26px; height: 26px; }
-.toggle-row input:checked + .toggle::after { transform: translateX(22px); }
-
-/* Small comfort targets for thumb taps. */
-.file-remove, .cat-remove {
-  min-width: 40px;
-  min-height: 40px;
-  display: inline-grid;
-  place-items: center;
-}
-.btn-xs { min-height: 34px; }
-
-/* Upload page: friendlier empty state rhythm. */
-#emptyState { padding: 10px 6px 18px; }
-.drop-icon { animation: bounceArrow 3.2s ease-in-out infinite; }
-.pick-row { margin-top: 16px; }
-.pick-row .btn { min-height: 50px; }
-#dock .input { border-radius: 999px; padding: 14px 18px; }
-.dock-inner { gap: 10px; }
-
-/* Desktop file rows breathe a little on hover. */
-@media (hover: hover) {
-  .file-row:hover {
-    border-color: rgba(14, 165, 233, 0.35);
-    background: color-mix(in srgb, var(--surface-2) 60%, rgba(14, 165, 233, 0.06));
-  }
-  .dropzone-card:not(.dragover):hover { border-color: rgba(14, 165, 233, 0.35); }
-}
-
-/* Gallery tiles: clearer focus ring for keyboard users. */
-.g-item:focus-visible {
-  outline: 3px solid var(--brand-1);
-  outline-offset: 2px;
-}
-.g-item:focus-visible img { transform: scale(1.05); }
-
-/* Lightbox chrome respects notches & keeps touch targets comfy. */
-.lb-close { top: calc(14px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right)); }
-.lb-nav { width: 50px; height: 50px; }
-.lb-stage img, .lb-stage video { max-height: 72vh; }
-.lb-caption {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  padding: 8px 16px;
-  border-radius: 999px;
-  max-width: 92%;
-}
-.lb-bar { padding-bottom: env(safe-area-inset-bottom); margin-top: 16px; }
-
-/* Admin stat cards get a soft brand glow in the corner. */
-.stat-card { position: relative; overflow: hidden; }
-.stat-card::after {
-  content: '';
-  position: absolute;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  right: -58px;
-  top: -58px;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.15), transparent 70%);
-  pointer-events: none;
-}
-.stat-card:nth-child(2)::after { background: radial-gradient(circle, rgba(16, 185, 129, 0.14), transparent 70%); }
-.stat-card:nth-child(3)::after { background: radial-gradient(circle, rgba(99, 102, 241, 0.14), transparent 70%); }
-.stat-card:nth-child(4)::after { background: radial-gradient(circle, rgba(245, 158, 11, 0.13), transparent 70%); }
-
-/* Admin section titles get a small brand dash. */
-.admin-section h2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.admin-section h2::before {
-  content: '';
-  flex: 0 0 auto;
-  width: 5px;
-  height: 1.05em;
-  border-radius: 99px;
-  background: var(--brand-grad);
-}
-.admin-table tbody tr:nth-child(even) { background: rgba(14, 165, 233, 0.03); }
-.qr-wrap img { box-shadow: var(--shadow); }
-.folder-links .btn { font-size: 0.9rem; }
-.drive-pill::before { content: '●'; font-size: 0.6em; opacity: 0.9; }
-
-/* Slightly crisper buttons & chips. */
-.btn { letter-spacing: 0.01em; }
-.btn-primary:focus-visible, .chip:focus-visible {
-  outline-offset: 3px;
-}
-.chip { gap: 5px; display: inline-flex; align-items: center; }
-.chip-n { font-variant-numeric: tabular-nums; }
-
-/* Footer link row: same pill language as the buttons above it. */
-.gallery-link-row .btn { box-shadow: var(--shadow); }
-
-/* ═══════════════════════════════════════════════════════════════
-   Home layout v2 — scenery stays a clean banner on top; the tour
-   title / meta / countdown live BELOW it on the page background,
-   so no text ever sits on (or falls behind) the artwork.
-   ═══════════════════════════════════════════════════════════════ */
-
-/* The hero is now a pure scenery banner (no overlaid text panel). */
-body.page-home .hero {
-  display: block;
-  min-height: 0;
-  height: clamp(150px, 32vw, 430px);
-  padding: 0;
-}
-/* When the organiser sets a cover photo it replaces the scenery entirely. */
-body.page-home.has-cover .hero { display: none; }
-
-/* Text block under the scenery, on the normal page background. */
-.hero-content {
-  position: relative;
-  z-index: 1;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 10px 0 2px;
-  text-align: center;
-  animation: riseIn 0.6s var(--ease-out) both;
-}
-.hero-content h1 {
-  margin: 0;
-  font-size: clamp(2rem, 7vw, 2.9rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  background: linear-gradient(100deg, #ea580c 0%, #db2777 45%, #0284c7 100%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmer 9s linear infinite;
-}
-@media (prefers-color-scheme: dark) {
-  .hero-content h1 {
-    background-image: linear-gradient(100deg, #ffd79a 0%, #ff9bb0 42%, #7dd3fc 100%);
-    filter: drop-shadow(0 2px 12px rgba(3, 12, 24, 0.45));
-  }
-}
-.hero-content .hero-sub {
-  margin: 8px auto 0;
-  font-size: clamp(1.05rem, 3.4vw, 1.3rem);
-  font-weight: 500;
-  color: var(--muted);
-  max-width: 40ch;
-}
-body.page-home .hero-content .hero-sub {
-  color: var(--muted);
-  text-shadow: none;
-}
-body.page-home .hero-content .hero-eyebrow {
-  color: #0369a1;
-  background: var(--surface);
-  border-color: rgba(14, 165, 233, 0.35);
-  box-shadow: var(--shadow);
-}
-@media (prefers-color-scheme: dark) {
-  body.page-home .hero-content .hero-eyebrow {
-    color: #7cd2ff;
-    background: var(--surface);
-    border-color: rgba(125, 210, 255, 0.3);
-    box-shadow: var(--shadow);
-  }
-}
-/* Cover photo (when set) sits at the top of the text block. */
-.hero-content .hero-cover {
-  display: block;
-  width: min(560px, 100%);
-  margin: 0 auto 18px;
-}
-
-/* Countdown on the page background: numbers pop, text never overlaps. */
-.hero-content .countdown { margin: 18px auto 4px; }
-.hero-content .cd-label {
-  display: inline-block;
-  margin-bottom: 12px;
-  font-weight: 600;
-  color: var(--text);
-}
-.hero-content .cd-when { margin-top: 12px; }
-body.page-home .hero-content .cd-when { color: var(--muted); }
-@media (prefers-color-scheme: dark) {
-  body.page-home .hero-content .cd-when { color: var(--muted); }
-}
-
-/* ── Countdown hardening: the four tiles must ALWAYS stay in one
-   row on every phone width/zoom — never wrap “ঘণ্টা / মিনিট /
-   সেকেন্ড” onto a second line — and the unit words must never be
-   clipped by the tile bottom (Bengali fonts have deep descenders,
-   so the tile grows to fit instead of hiding overflow). ── */
-
-.cd-cells {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: stretch;
-}
-.cd-cell {
-  min-width: 0;
-  height: auto;
-  overflow: visible;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  /* Generous padding + no clipping: unit labels always stay fully
-     visible inside the tile on real phone fonts. The row height is
-     set by the content, never fixed. */
-  padding: 16px 6px 14px;
-}
-.cd-n {
-  font-size: clamp(1.5rem, 6.2vw, 2rem);
-  line-height: 1.2;
-  white-space: nowrap;
-  max-width: 100%;
-}
-.cd-u {
-  font-size: clamp(0.6rem, 2.4vw, 0.8rem);
-  line-height: 1.5;
-  white-space: nowrap;
-  max-width: 100%;
-}
-/* A number change must never push the row taller. */
-.cd-n.tick { animation: cdTick 0.4s var(--ease-spring); }
+.person-row .who { font-weight: 600; }
+.person-row .samples { color: var(--muted); font-size: 0.84rem; }
+.person-row .spacer { flex: 1 1 auto; }
+.person-row .warn { color: var(--warn); font-size: 0.84rem; font-weight: 600; }

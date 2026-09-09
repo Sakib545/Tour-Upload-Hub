@@ -280,9 +280,10 @@ function ensureSubFolder(name) {
   return p;
 }
 
-async function findChildFolder(name) {
+async function findChildFolder(name, parentId) {
+  const parent = parentId || cfg.google.folderId;
   const q =
-    `'${escapeDriveQuery(cfg.google.folderId)}' in parents and ` +
+    `'${escapeDriveQuery(parent)}' in parents and ` +
     `name = '${escapeDriveQuery(name)}' and ` +
     `mimeType = '${FOLDER_MIME}' and trashed = false`;
   const data = await apiJson('GET', '/drive/v3/files', {
@@ -292,10 +293,10 @@ async function findChildFolder(name) {
   return (hit && hit.id) || null;
 }
 
-async function createChildFolder(name) {
+async function createChildFolder(name, parentId) {
   const data = await apiJson('POST', '/drive/v3/files', {
     query: '?fields=id&supportsAllDrives=true',
-    body: { name, mimeType: FOLDER_MIME, parents: [cfg.google.folderId] },
+    body: { name, mimeType: FOLDER_MIME, parents: [parentId || cfg.google.folderId] },
   });
   if (!data || !data.id) {
     throw new DriveError('DRIVE_ERROR', 'could not create sub-folder', { status: 500 });
@@ -303,10 +304,42 @@ async function createChildFolder(name) {
   return data.id;
 }
 
-async function resolveChildFolder(name) {
-  const found = await findChildFolder(name);
+async function resolveChildFolder(name, parentId) {
+  const found = await findChildFolder(name, parentId);
   if (found) return found;
-  return createChildFolder(name);
+  return createChildFolder(name, parentId);
+}
+
+/**
+ * Folder for one person: <root>/<People>/<person>. Cached per name so a batch
+ * of photos does not re-query Drive for every single file.
+ */
+async function personFolderId(personKey, personFolderName) {
+  const key = `person:${personKey}`;
+  const cached = folderIdCache.get(key);
+  if (cached) return cached;
+  const peopleRoot = await resolveChildFolder(cfg.faces.peopleFolderName);
+  const id = await resolveChildFolder(personFolderName, peopleRoot);
+  // Sharing folderIdCache keeps person folders inside allowedParents(), so the
+  // gallery keeps listing a photo after it moves into someone's folder.
+  folderIdCache.set(key, id);
+  return id;
+}
+
+/** Download a file's bytes, refusing anything larger than the cap. */
+async function downloadFile(fileId, maxBytes = 24 * 1024 * 1024) {
+  const open = await openContentStream(fileId, null);
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of open.stream) {
+    total += chunk.length;
+    if (total > maxBytes) {
+      try { open.req.destroy(); } catch (e) { /* ignore */ }
+      throw new DriveError('TOO_LARGE', 'file is larger than the recognition cap', { status: 413 });
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 /**
@@ -392,10 +425,10 @@ async function folderIdForCategory(category, mimeType) {
 /** Every folder a gallery/admin file is allowed to live in. */
 function allowedParents() {
   const ids = new Set([cfg.google.folderId]);
-  if (cfg.google.separateMediaFolders) {
-    for (const id of folderIdCache.values()) {
-      if (id) ids.add(id);
-    }
+  // Every folder we have resolved: the category folders and, once face sorting
+  // has run, the per-person folders too.
+  for (const id of folderIdCache.values()) {
+    if (id) ids.add(id);
   }
   return Array.from(ids).filter(Boolean);
 }
@@ -905,6 +938,8 @@ module.exports = {
   listFolderFiles,
   listFilesInFolder,
   moveFile,
+  personFolderId,
+  downloadFile,
   readSettingsFile,
   writeSettingsFile,
   SETTINGS_FILE,
