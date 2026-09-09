@@ -58,6 +58,17 @@ function verifyGalleryProof(token) {
  *    header (obtained from POST /api/verify-pin).
  */
 function requireUploadAuth(req, res, next) {
+  // The organiser uploads from the admin dashboard with an admin token: it
+  // stands in for the PIN and works even while visitor uploads are paused.
+  const adminToken =
+    (req.get('authorization') || '').startsWith('Bearer ')
+      ? req.get('authorization').slice(7)
+      : req.get('x-upload-token') || '';
+  if (adminToken && verifyAdminToken(adminToken).ok) {
+    req.isAdminUpload = true;
+    return next();
+  }
+
   const s = state.settings;
   if (!s.uploadsEnabled) {
     return res.status(403).json({ error: 'UPLOADS_DISABLED' });
