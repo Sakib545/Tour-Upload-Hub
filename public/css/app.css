@@ -1376,6 +1376,38 @@ body.page-home .hero-eyebrow {
 .bx-p2 { animation-duration: 6.2s; animation-delay: -3.6s; }
 .bx-p3 { animation-duration: 5.4s; animation-delay: -1.4s; }
 
+/* Eight generic friends in the beach hero. Every SVG group has a stable
+   data-friend-id, ready for a portrait/face replacement later. */
+.tf-group-shadow { fill: rgba(74, 48, 24, 0.14); }
+.tf-shadow { fill: rgba(74, 48, 24, 0.2); }
+.tf-shirt { fill: var(--shirt); }
+.tf-skin { fill: var(--skin); }
+.tf-hair { fill: var(--hair); }
+.tf-limbs {
+  fill: none;
+  stroke: var(--skin);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tf-face {
+  fill: none;
+  stroke: #3b2418;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.tour-friend {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tfChat 3.8s ease-in-out var(--delay, 0s) infinite alternate;
+}
+.tour-friend:nth-of-type(3n) { animation-duration: 3.1s; }
+.tour-friend:nth-of-type(4n) { animation-duration: 4.6s; }
+@keyframes tfChat {
+  from { translate: 0 1px; rotate: -1deg; }
+  to   { translate: 0 -3px; rotate: 1deg; }
+}
+
 /* ── Countdown to the tour ──────────────────────────────────── */
 .countdown {
   margin: 18px auto 0;
