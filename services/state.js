@@ -22,6 +22,9 @@ let persisted = process.env.NODE_ENV !== 'test';
 let state = {
   uploadsEnabled: cfg.defaultUploadsEnabled,
   galleryVisible: cfg.defaultGalleryVisible,
+  // Lets everyone view and download the gallery while uploading still
+  // requires the PIN.
+  galleryPublic: cfg.defaultGalleryPublic,
 };
 
 // Result of the startup Google Drive folder check: { ok, code, name, msg }.
@@ -42,8 +45,9 @@ function load() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-      if (typeof raw.uploadsEnabled === 'boolean') state.uploadsEnabled = raw.uploadsEnabled;
-      if (typeof raw.galleryVisible === 'boolean') state.galleryVisible = raw.galleryVisible;
+      for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
+        if (typeof raw[key] === 'boolean') state[key] = raw[key];
+      }
     }
   } catch (e) {
     logger.warn('state: could not read state file, using defaults', { err: e.message });
@@ -60,8 +64,9 @@ function save() {
 }
 
 function update(patch) {
-  if (typeof patch.uploadsEnabled === 'boolean') state.uploadsEnabled = patch.uploadsEnabled;
-  if (typeof patch.galleryVisible === 'boolean') state.galleryVisible = patch.galleryVisible;
+  for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
+    if (typeof patch[key] === 'boolean') state[key] = patch[key];
+  }
   save();
   return { ...state };
 }
