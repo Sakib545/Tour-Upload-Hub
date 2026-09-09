@@ -433,6 +433,27 @@ function allowedParents() {
   return Array.from(ids).filter(Boolean);
 }
 
+/**
+ * Re-resolve every folder the gallery may hold files in — the media/category
+ * sub-folders plus, when a people list is given, each person's folder under
+ * People/. Safe to call on a cold cache (boot, cache reset): resolutions are
+ * cached and in-flight calls are shared, so only the first caller pays, and it
+ * keeps those folders inside allowedParents() so direct media URLs and
+ * listings never 404 a stored file after a restart.
+ */
+async function warmKnownFolders(people = []) {
+  await ensureMediaFolders().catch(() => null);
+  await ensureAllCategoryFolders().catch(() => null);
+  for (const p of people) {
+    if (!p || !p.id || !p.folder) continue;
+    try {
+      await personFolderId(p.id, p.folder);
+    } catch (e) {
+      /* keep the rest of the warm-up going */
+    }
+  }
+}
+
 /** Test/dev hook: forget the resolved sub-folder ids. */
 function resetFolderCache() {
   folderIdCache.clear();
@@ -638,9 +659,15 @@ async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) 
     mimeFilter = " and (mimeType contains 'image/' or mimeType contains 'video/')";
   }
   // Files uploaded before sub-folders existed still live in the root folder,
-  // so every listing spans the root AND all media/category sub-folders.
-  await ensureMediaFolders().catch(() => null);
-  await ensureAllCategoryFolders().catch(() => null);
+  // so every listing spans the root AND all media/category sub-folders (and
+  // per-person folders once face sorting has filed anything there).
+  let people = [];
+  try {
+    people = require('./site').people;
+  } catch (e) {
+    /* ignore — face-sorted folders simply stay unresolved */
+  }
+  await warmKnownFolders(people);
   const parentsClause = allowedParents()
     .map((id) => `'${escapeDriveQuery(id)}' in parents`)
     .join(' or ');
@@ -928,6 +955,7 @@ module.exports = {
   folderIdForCategory,
   folderIdForMime,
   allowedParents,
+  warmKnownFolders,
   resetFolderCache,
   nameExistsInFolder,
   fetchThumbnail,

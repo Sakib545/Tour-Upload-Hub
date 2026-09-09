@@ -27,9 +27,10 @@
   const HEAD_R = 10.5;
 
   /** Slots, in the order people are placed into them. */
-  const SLOTS = ['kite', 'selfie-a', 'horse', 'boat', 'swim-a', 'selfie-b', 'swim-b'];
+  const SLOTS = ['atv', 'lounge', 'selfie-a', 'horse', 'boat', 'swim-a', 'selfie-b', 'swim-b'];
   const POSE_FOR = {
-    kite: 'kite',
+    atv: 'drive',
+    lounge: 'lounge',
     'selfie-a': 'selfie',
     'selfie-b': 'stand',
     horse: 'ride',
@@ -141,14 +142,28 @@
       head(g, person, colours, mode, 0, HEAD_Y, HEAD_R);
     },
 
-    kite(g, person, colours, mode) {
-      legsStanding(g, colours);
-      upperBody(g, colours, SHOULDER, HIP);
-      // Both arms up on the line the scene draws down to this point.
-      // Hands go wide of the head, not across the face.
-      g.appendChild(limb(`M-14 ${SHOULDER + 3} L-23 ${SHOULDER - 24}`, colours.limb));
-      g.appendChild(limb(`M14 ${SHOULDER + 3} L21 ${SHOULDER - 28}`, colours.limb));
-      head(g, person, colours, mode, 0, HEAD_Y, HEAD_R);
+    /**
+     * Lounging in the beach chair under the umbrella: back against the
+     * backrest, legs stretched out front to the sand, one arm on the armrest.
+     * Drawn to sit in the second chair of the scene's parasol group.
+     */
+    lounge(g, person, colours, mode) {
+      // Far arm resting back on the armrest, then the far leg (both behind).
+      g.appendChild(limb('M-4 -40 L-18 -26', shade(colours.limb, 0.72), 8));
+      g.appendChild(limb('M-4 -2 L24 -12', shade(colours.limb, 0.7), 9.5));
+      g.appendChild(limb('M24 -12 L28 15', shade(colours.limb, 0.7), 8.5));
+      // Torso leaning back against the backrest.
+      const trunk = el('g', { transform: 'rotate(-15 0 -5)' });
+      upperBody(trunk, colours, -48, -6);
+      g.appendChild(trunk);
+      // Near leg stretched forward, foot on the sand.
+      g.appendChild(limb('M4 -4 L32 -14', colours.limb, 10));
+      g.appendChild(limb('M32 -14 L38 18', colours.limb, 9));
+      // Shorts sit at the hips on the seat.
+      g.appendChild(el('path', { d: 'M-12 -8 h24 l4 7 h-30z', fill: colours.shorts }));
+      // Near arm relaxed on the lap / armrest.
+      g.appendChild(limb('M8 -40 L24 -24', colours.limb, 8.5));
+      head(g, person, colours, mode, -10, -56, 10);
     },
 
     selfie(g, person, colours, mode) {
@@ -204,6 +219,26 @@
       g.appendChild(limb(`M-13 ${shoulder + 4} L-18 -16`, colours.limb));
       g.appendChild(limb(`M13 ${shoulder + 4} L28 -8`, colours.limb));
       head(g, person, colours, mode, 0, shoulder - 12, HEAD_R);
+    },
+
+    /**
+     * Riding the ATV: seated on the quad, shins forward onto the pegs, hands
+     * out on the handlebar (far arm behind the torso, near arm on top).
+     */
+    drive(g, person, colours, mode) {
+      // Far leg, then the near one — both reach forward to the front pegs.
+      g.appendChild(limb('M-2 -4 L4 14', shade(colours.limb, 0.7), 8.5));
+      g.appendChild(limb('M4 -6 L22 16', colours.limb, 10));
+      g.appendChild(el('path', {
+        d: 'M-13 -9 h26 l4 8 h-34z', fill: colours.shorts,
+      }));
+      // Far arm to the front bar — drawn first so the torso overlaps its root.
+      g.appendChild(limb('M-6 -36 L24 -24', shade(colours.limb, 0.72), 7.5));
+      upperBody(g, colours, -40, -6);
+      // Near arm on top, hand on the front grip (the ATV art draws the bar
+      // across x ≈ 14–40 at the same height once the slot scale is applied).
+      g.appendChild(limb('M8 -37 L42 -24', colours.limb, 9));
+      head(g, person, colours, mode, 0, -52, 10.5);
     },
 
     /** Waist-deep in the sea, arms thrown up. */

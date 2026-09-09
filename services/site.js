@@ -43,6 +43,11 @@ function clean(value, max) {
 // Drive folder names: no control chars or path-breaking symbols.
 const FOLDER_RE = /^[^/\\<>:"|?*\u0000-\u001f]{1,80}$/;
 
+// Folder names reserved for the app itself — a category/person folder must
+// never shadow the durable settings file kept in the same Drive folder (see
+// services/drive.js SETTINGS_FILE).
+const RESERVED_FOLDERS = new Set(['.tour-hub-settings.json']);
+
 // The three built-in categories can be renamed but never deleted: they are the
 // fallback routing for uploads that arrive without a category.
 const CATEGORY_IDS = ['single', 'group', 'video'];
@@ -161,7 +166,10 @@ function sanitizeContent(src) {
 function sanitizeCategory(raw, base) {
   const label = clean((raw && raw.label) || '', 80) || base.label;
   const folderRaw = clean((raw && raw.folder) || '', 80);
-  const folder = folderRaw && FOLDER_RE.test(folderRaw) ? folderRaw : base.folder;
+  const folder =
+    folderRaw && FOLDER_RE.test(folderRaw) && !RESERVED_FOLDERS.has(folderRaw)
+      ? folderRaw
+      : base.folder;
   let media = base.media;
   if (!base.builtin) {
     const wanted = String((raw && raw.media) || '').trim();
@@ -211,7 +219,7 @@ function rebuildCategories(incoming, current) {
     // A brand-new custom category.
     const label = clean(raw.label || '', 80);
     const folder = clean(raw.folder || '', 80);
-    if (!label || !folder || !FOLDER_RE.test(folder)) continue;
+    if (!label || !folder || !FOLDER_RE.test(folder) || RESERVED_FOLDERS.has(folder)) continue;
     const newId = newCategoryId(takenIds);
     if (!newId) continue;
     takenIds.add(newId);
@@ -223,6 +231,21 @@ function rebuildCategories(incoming, current) {
   for (const [, leftover] of byId) {
     if (!leftover.builtin) continue;
     if (!push(leftover)) push({ ...leftover, folder: `${leftover.folder} (${leftover.id})` });
+  }
+  // Guarantee pass: a built-in that WAS in the payload can still have been
+  // pushed out above (its folder renamed into another category's name and the
+  // base-folder fallback collided too). Built-ins are the routing fallback, so
+  // they must always survive — re-add any that are missing under a unique name.
+  for (const id of CATEGORY_IDS) {
+    if (out.some((c) => c.id === id)) continue;
+    const base = current.find((c) => c.id === id);
+    if (!base) continue;
+    const cat = { ...base };
+    if (push(cat)) continue;
+    if (push({ ...cat, folder: `${base.folder} (${base.id})` })) continue;
+    for (let i = 2; i <= 50; i++) {
+      if (push({ ...cat, folder: `${base.folder} (${i})` })) break;
+    }
   }
   return out.length ? out : current;
 }
@@ -365,7 +388,7 @@ function addPerson(rawName) {
   if (!name || state.people.length >= MAX_PEOPLE) return null;
   // The folder is the name, cleaned to something Drive is happy with.
   const folder = name.replace(/[\\/'"]/g, '').trim() || null;
-  if (!folder || !FOLDER_RE.test(folder)) return null;
+  if (!folder || !FOLDER_RE.test(folder) || RESERVED_FOLDERS.has(folder)) return null;
   const taken = new Set(state.people.map((p) => p.id));
   if (state.people.some((p) => p.folder.toLowerCase() === folder.toLowerCase())) return null;
   const id = newPersonId(taken);

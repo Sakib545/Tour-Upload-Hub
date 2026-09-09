@@ -17,6 +17,9 @@ const BRAND_MP4 = new Set([
   'mp41', 'mp42', 'avc1', 'mp4v', 'dash', 'cmfc', 'mp4 ', 'M4V ', 'm4v ',
   'dby1', 'msnv', 'ndas', 'ndsc', 'ndsh', 'ndsm', 'ndsp', 'ndss',
   'ndxc', 'ndxh', 'ndxm', 'ndxr', 'ndxs',
+  // HEVC (H.265) is the default recording codec on many modern phones; its
+  // exports use hvc1/hev1 as the major brand and would otherwise be rejected.
+  'hvc1', 'hev1',
 ]);
 const BRAND_3GP = new Set(['3gp4', '3gp5', '3gp6', '3gp7']);
 const BRAND_HEIC = new Set([

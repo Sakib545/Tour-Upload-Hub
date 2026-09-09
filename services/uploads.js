@@ -117,9 +117,15 @@ function complete(id, { fileId, name, total } = {}) {
     try { s.release(); } catch (e) { /* ignore */ }
   }
   sessions.delete(id);
-  if (fileId) {
-    tombstones.set(id, { fileId, name: finalName, total: finalTotal, at: Date.now() });
-  }
+  // Drive has confirmed the file is complete, so a tombstone is always left —
+  // even when the 201 body carried no file id. A re-sent final chunk (lost
+  // final response) is then answered instead of forcing a full-file restart.
+  tombstones.set(id, {
+    fileId: fileId || null,
+    name: finalName,
+    total: finalTotal,
+    at: Date.now(),
+  });
 }
 
 /** Look up a recently completed upload (lost-final-response recovery). */

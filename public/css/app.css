@@ -1633,6 +1633,31 @@ body.page-home .hero-eyebrow {
 @keyframes cb-tail { from { transform: rotate(-9deg); }
 .cb-rider { transform-origin: 50% 100%; animation: cb-rider 0.62s ease-in-out infinite alternate; }
 @keyframes cb-rider { from { transform: translateY(2px) rotate(-1.5deg); }
+/* ── ATV ride across the wet sand ──────────────────────────── */
+.cb-atv-run { animation: cb-atv-run 17s linear infinite; }
+@keyframes cb-atv-run {
+  from { transform: translateX(-520px); }
+  to   { transform: translateX(1560px); }
+}
+.cb-atv-bob { transform-origin: 50% 100%; animation: cb-atv-bob 0.5s ease-in-out infinite alternate; }
+@keyframes cb-atv-bob {
+  from { transform: translateY(-1px) rotate(-0.9deg); }
+  to   { transform: translateY(1.5px) rotate(0.9deg); }
+}
+.cb-wheel-spin { transform-origin: center; animation: cb-wheel-spin 0.4s linear infinite; }
+@keyframes cb-wheel-spin { to { transform: rotate(360deg); } }
+.cb-atv-driver { transform-origin: 50% 100%; animation: cb-atv-driver 0.5s ease-in-out infinite alternate; }
+@keyframes cb-atv-driver {
+  from { transform: translateY(1px) rotate(-1.2deg); }
+  to   { transform: translateY(-1.5px) rotate(1.2deg); }
+}
+.cb-lounger { transform-origin: 50% 100%; animation: cb-sit 5.2s ease-in-out -1.8s infinite alternate; }
+.cb-dust { animation: cb-dust 0.9s ease-out infinite; }
+@keyframes cb-dust {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  30%  { opacity: 0.55; }
+  100% { opacity: 0; transform: translate(-30px, -12px) scale(1.7); }
+}
 /* ── The sitting crew ─────────────────────────────────────── */
 .cb-sit { transform-origin: 50% 100%; }
 .cb-sit-1 { animation: cb-sit 4.3s ease-in-out -0.5s infinite alternate; }

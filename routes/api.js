@@ -690,8 +690,19 @@ async function verifiedMeta(id) {
     return null;
   }
   const parents = Array.isArray(meta.parents) ? meta.parents : [];
-  const allowed = drive.allowedParents();
-  if (!parents.some((pid) => allowed.includes(pid))) return null;
+  let allowed = drive.allowedParents();
+  if (!parents.some((pid) => allowed.includes(pid))) {
+    // The sub-folder cache may be cold (boot restore / admin folder rename):
+    // re-resolve every known folder once before refusing the file, so direct
+    // media URLs to files in a sub-folder never 404 after a restart.
+    try {
+      await drive.warmKnownFolders(site.people);
+    } catch (e) {
+      /* keep the refusal below */
+    }
+    allowed = drive.allowedParents();
+    if (!parents.some((pid) => allowed.includes(pid))) return null;
+  }
   const entry = {
     at: Date.now(),
     name: meta.name || 'file',

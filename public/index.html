@@ -68,15 +68,6 @@
     <path d="M1004 88 q9 -7 18 0 q9 -7 18 0" class="cb-gull cb-g3"/>
   </g>
 
-  <!-- Kite, tethered to the flyer down on the sand -->
-  <g class="cb-kite">
-    <g class="cb-kite-body">
-      <path d="M706 120 L676 162 L706 208 L736 162 Z" fill="#ff5d5d"/>
-      <path d="M706 120 L706 208 M676 162 L736 162" stroke="#ffe6bc" stroke-width="2"/>
-      <path d="M706 208 q-11 15 3 26 q-14 11 -3 26" stroke="#ffe6bc" stroke-width="2" fill="none"/>
-    </g>
-  </g>
-
   <rect x="0" y="214" width="1440" height="30" fill="#ef7a22"/>
   <rect x="0" y="210" width="1440" height="8" fill="#df512b"/>
 
@@ -222,16 +213,8 @@
     <g stroke="#a8794f" stroke-width="4" stroke-linecap="round">
       <path d="M846 574 v6 M884 576 v6 M906 574 v6 M944 576 v6"/>
     </g>
-  </g>
-
-  <!-- Kite string, drawn over the beach so it reaches the flyer's hand -->
-  <path class="cb-kite-line" d="M706 234 C716 330 690 448 648 516"
-        stroke="#ffe6bc" stroke-width="1.3" fill="none" opacity="0.42"/>
-
-  <!-- Kite flyer -->
-  <g class="cb-flyer">
-    <ellipse cx="640" cy="596" rx="26" ry="6" fill="#7a5a2c" opacity="0.18"/>
-    <g class="cb-actor cb-sway cb-sway-1" data-slot="kite" transform="translate(640,596) scale(1.06)"></g>
+    <!-- A guest lounging in the chair under the umbrella (2nd enrolled person) -->
+    <g class="cb-actor cb-lounger" data-slot="lounge" transform="translate(926,568) scale(0.98)"></g>
   </g>
 
   <!-- Selfie pair -->
@@ -239,6 +222,66 @@
     <ellipse cx="1160" cy="600" rx="66" ry="9" fill="#7a5a2c" opacity="0.18"/>
     <g class="cb-actor cb-sway cb-sway-2" data-slot="selfie-a" transform="translate(1192,600) scale(1.1)"></g>
     <g class="cb-actor cb-sway cb-sway-3" data-slot="selfie-b" transform="translate(1136,600) scale(1.08)"></g>
+  </g>
+
+  <!-- ATV ride across the wet sand (first enrolled person drives it) -->
+  <g class="cb-atv-run">
+    <ellipse cx="-4" cy="500" rx="92" ry="8" fill="#7a5a2c" opacity="0.18"/>
+    <ellipse cx="-60" cy="499" rx="17" ry="3" fill="#7a5a2c" opacity="0.3"/>
+    <ellipse cx="56" cy="499" rx="17" ry="3" fill="#7a5a2c" opacity="0.3"/>
+    <g class="cb-atv-bob">
+      <g transform="translate(0,26)">
+      <g class="cb-dust" style="animation-delay:-0.6s">
+        <circle cx="-88" cy="468" r="5.5" fill="#e9d3a2" opacity="0.6"/>
+      </g>
+      <g class="cb-dust" style="animation-delay:-0.3s">
+        <circle cx="-99" cy="459" r="4.4" fill="#e9d3a2" opacity="0.5"/>
+      </g>
+      <g class="cb-dust" style="animation-delay:-0.9s">
+        <circle cx="-78" cy="455" r="3.6" fill="#e9d3a2" opacity="0.45"/>
+      </g>
+      <!-- Frame rail + big chunky wheels (red hubs, spokes spin while riding) -->
+      <path d="M-60 458 L52 458 L47 452 L-55 452 Z" fill="#5e3520"/>
+      <g transform="translate(-60,455)">
+        <g class="cb-wheel-spin">
+          <circle r="17" fill="#1c1c1c"/>
+          <circle r="17" fill="none" stroke="#454545" stroke-width="2.5"/>
+          <circle r="11.5" fill="none" stroke="#c9362a" stroke-width="3.5"/>
+          <path d="M0 -11.5 L0 11.5 M-10 -5.7 L10 5.7 M-10 5.7 L10 -5.7" stroke="#c9362a" stroke-width="3.5"/>
+          <circle r="4.2" fill="#8a241c"/>
+        </g>
+      </g>
+      <g transform="translate(56,455)">
+        <g class="cb-wheel-spin">
+          <circle r="17" fill="#1c1c1c"/>
+          <circle r="17" fill="none" stroke="#454545" stroke-width="2.5"/>
+          <circle r="11.5" fill="none" stroke="#c9362a" stroke-width="3.5"/>
+          <path d="M0 -11.5 L0 11.5 M-10 -5.7 L10 5.7 M-10 5.7 L10 -5.7" stroke="#c9362a" stroke-width="3.5"/>
+          <circle r="4.2" fill="#8a241c"/>
+        </g>
+      </g>
+      <!-- Chassis belly + bright red body -->
+      <path d="M-62 455 L-62 446 Q-62 428 -44 424 L-26 419 Q-4 415 12 423 L30 432 L46 442 Q60 445 60 455 Z" fill="#d9362b"/>
+      <path d="M-62 455 L60 455 L56 461 L-66 461 Z" fill="#a92820"/>
+      <path d="M-36 424 L-22 419 Q-4 415 8 421 L-14 436 Z" fill="#f04a3a" opacity="0.55"/>
+      <!-- Seat -->
+      <rect x="-20" y="407" width="39" height="16" rx="8" fill="#26221e"/>
+      <!-- Footpegs -->
+      <rect x="14" y="415" width="13" height="4.5" rx="2.2" fill="#26221e"/>
+      <!-- Exhaust at the rear -->
+      <rect x="-74" y="438" width="10" height="7" rx="2" fill="#55514c"/>
+      <!-- Handlebars: stem up from the nose to the bar at chest height -->
+      <path d="M6 427 C9 413 12 402 20 390" stroke="#232323" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+      <path d="M13 391 Q27 385 40 387" stroke="#2c2c2c" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <circle cx="14" cy="390.5" r="3.4" fill="#141414"/>
+      <circle cx="39.5" cy="386.8" r="3.4" fill="#141414"/>
+      <!-- Headlight + front reflector -->
+      <circle cx="57" cy="438" r="4.4" fill="#fdf3cd" stroke="#333" stroke-width="1"/>
+      <path d="M62 452 L67 459 L59 459 Z" fill="#f6b53f"/>
+      <!-- Rider (first enrolled person) -->
+      <g class="cb-actor cb-atv-driver" data-slot="atv" transform="translate(0,434) scale(0.82)"></g>
+      </g>
+    </g>
   </g>
 
   <!-- Palms framing the edges -->

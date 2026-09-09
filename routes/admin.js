@@ -44,9 +44,12 @@ function categoryLabelFor(taggedCategory, mimeType) {
   const tagged = taggedCategory
     ? site.categoryById(String(taggedCategory).slice(0, 24))
     : null;
+  // 'any' (custom) categories accept both media kinds — mirror the gallery's
+  // categoryForFile() so the admin list and the gallery always agree.
   if (
     tagged &&
-    ((m.startsWith('image/') && tagged.media === 'photo') ||
+    (tagged.media === 'any' ||
+      (m.startsWith('image/') && tagged.media === 'photo') ||
       (m.startsWith('video/') && tagged.media === 'video'))
   ) {
     return tagged.label;
