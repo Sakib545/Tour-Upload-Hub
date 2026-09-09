@@ -53,6 +53,9 @@
       renderRecent(data.recent || []);
       setToggles(data.settings || {});
       fillSiteForm(siteData);
+      // The dashboard's own uploader needs the same category list; without
+      // this the dropdown stayed empty until a page save happened.
+      fillUploadCategories(siteData.categories || []);
       return true;
     } catch (err) {
       if (!silent && err.code === 'ADMIN_UNAUTHORIZED') {
