@@ -21,6 +21,12 @@
     heroSub: $('#heroSub'),
     heroMeta: $('#heroMeta'),
     heroCover: $('#heroCover'),
+    tourCountdown: $('#tourCountdown'),
+    countdownTitle: $('#countdownTitle'),
+    countDays: $('#countDays'),
+    countHours: $('#countHours'),
+    countMinutes: $('#countMinutes'),
+    countSeconds: $('#countSeconds'),
     privacyNote: $('#privacyNote'),
     pinGate: $('#pinGate'),
     pinForm: $('#pinForm'),
@@ -56,6 +62,37 @@
     uploaderName: $('#uploaderName'),
     confettiRoot: $('#confettiRoot'),
   };
+
+  let countdownTimer = null;
+
+  function startCountdown(rawDate) {
+    if (!el.tourCountdown || !rawDate) return;
+    const target = new Date(rawDate);
+    if (!Number.isFinite(target.getTime())) return;
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const paint = () => {
+      const diff = target.getTime() - Date.now();
+      if (diff <= 0) {
+        el.countdownTitle.textContent = 'আমাদের Tour শুরু হয়ে গেছে! 🎉';
+        el.countDays.textContent = '0';
+        el.countHours.textContent = '00';
+        el.countMinutes.textContent = '00';
+        el.countSeconds.textContent = '00';
+        el.tourCountdown.classList.add('is-live');
+        if (countdownTimer) clearInterval(countdownTimer);
+        return;
+      }
+      const totalSeconds = Math.floor(diff / 1000);
+      el.countDays.textContent = String(Math.floor(totalSeconds / 86400));
+      el.countHours.textContent = pad(Math.floor((totalSeconds % 86400) / 3600));
+      el.countMinutes.textContent = pad(Math.floor((totalSeconds % 3600) / 60));
+      el.countSeconds.textContent = pad(totalSeconds % 60);
+    };
+    el.tourCountdown.hidden = false;
+    paint();
+    countdownTimer = setInterval(paint, 1000);
+  }
 
   const reducedMotion =
     window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -626,6 +663,7 @@
     if (cfg.tourDate) metaParts.push(`📅 ${cfg.tourDate}`);
     if (cfg.tourLocation) metaParts.push(`📍 ${cfg.tourLocation}`);
     if (metaParts.length) el.heroMeta.textContent = metaParts.join('  •  ');
+    startCountdown(cfg.tourDate);
     if (cfg.coverUrl) {
       const img = new Image();
       img.onload = () => { el.heroCover.src = cfg.coverUrl; el.heroCover.hidden = false; };
