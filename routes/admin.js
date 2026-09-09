@@ -7,6 +7,7 @@ const { cfg } = require('../services/config');
 const state = require('../services/state');
 const site = require('../services/site');
 const drive = require('../services/drive');
+const persist = require('../services/persist');
 const sanitize = require('../utils/sanitize');
 const { safeEqual } = require('../utils/tokens');
 const { requireAdmin, adminToken } = require('../middleware/auth');
@@ -139,19 +140,26 @@ router.get('/admin/overview', rl.adminApi, requireAdmin, asyncH(async (req, res)
 
 /* ── Live settings toggles ────────────────────────────────────── */
 
-router.put('/admin/settings', rl.adminApi, requireAdmin, (req, res) => {
+router.put('/admin/settings', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
   const body = req.body || {};
   const patch = {};
-  if (typeof body.uploadsEnabled === 'boolean') patch.uploadsEnabled = body.uploadsEnabled;
-  if (typeof body.galleryVisible === 'boolean') patch.galleryVisible = body.galleryVisible;
+  for (const key of ['uploadsEnabled', 'galleryVisible', 'galleryPublic']) {
+    if (typeof body[key] === 'boolean') patch[key] = body[key];
+  }
   const next = state.update(patch);
-  logger.info('admin: settings updated', { uploadsEnabled: next.uploadsEnabled, galleryVisible: next.galleryVisible });
-  res.json({ settings: next });
-});
+  logger.info('admin: settings updated', {
+    uploadsEnabled: next.uploadsEnabled,
+    galleryVisible: next.galleryVisible,
+    galleryPublic: next.galleryPublic,
+  });
+  // The durable copy lives in Drive; report honestly if it did not get there.
+  const persisted = await persist.saveAll();
+  res.json({ settings: next, persisted });
+}));
 
 /* ── Site content & upload categories (title, subtitle, folders…) ─ */
 
-router.put('/admin/site', rl.adminApi, requireAdmin, (req, res) => {
+router.put('/admin/site', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
   const body = (req.body && typeof req.body === 'object') ? req.body : {};
   const before = site.categories.map((c) => c.folder).join('\u0001');
   const next = site.update({
@@ -165,8 +173,9 @@ router.put('/admin/site', rl.adminApi, requireAdmin, (req, res) => {
     title: next.content.title,
     categories: next.categories.map((c) => `${c.id}:${c.folder}`).join(', '),
   });
-  res.json({ site: next });
-});
+  const persisted = await persist.saveAll();
+  res.json({ site: next, persisted });
+}));
 
 /* ── Drive diagnostics ────────────────────────────────────────── */
 
@@ -176,6 +185,43 @@ router.post('/admin/drive-test', rl.adminApi, requireAdmin, asyncH(async (req, r
   if (!access.ok) return res.json({ stage: 'read', ...access });
   const write = await drive.testWrite();
   return res.json({ stage: write.ok ? 'ok' : 'write', ...write, folderName: access.name });
+}));
+
+/* ── Tidy up files uploaded before the category folders existed ── */
+
+router.post('/admin/organise', rl.adminApi, requireAdmin, asyncH(async (req, res) => {
+  const folders = await drive.ensureAllCategoryFolders();
+  if (!folders || !folders.length) {
+    return res.status(400).json({ error: 'FOLDERS_DISABLED' });
+  }
+  // Group photos cannot be told apart automatically, so every loose image goes
+  // to the first photo category; the admin can re-sort those in Drive.
+  const photoTarget = folders.find((f) => f.category.media === 'photo');
+  const videoTarget = folders.find((f) => f.category.media === 'video');
+
+  const loose = await drive.listFilesInFolder(cfg.google.folderId);
+  const result = { photos: 0, videos: 0, skipped: 0, failed: 0, total: loose.length };
+
+  for (const file of loose) {
+    const mime = String(file.mimeType || '');
+    const target = mime.startsWith('video/') ? videoTarget
+      : mime.startsWith('image/') ? photoTarget
+        : null;
+    if (!target) {
+      result.skipped += 1;
+      continue;
+    }
+    try {
+      await drive.moveFile(file.id, { from: cfg.google.folderId, to: target.id });
+      if (target === videoTarget) result.videos += 1;
+      else result.photos += 1;
+    } catch (e) {
+      result.failed += 1;
+      logger.warn('admin: could not move file into its folder', { id: file.id, code: e.code });
+    }
+  }
+  logger.info('admin: organised existing files', result);
+  res.json(result);
 }));
 
 /* ── QR code for sharing ──────────────────────────────────────── */
