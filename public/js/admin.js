@@ -53,6 +53,9 @@
       renderRecent(data.recent || []);
       setToggles(data.settings || {});
       fillSiteForm(siteData);
+      // The dashboard's own uploader needs the same category list; without
+      // this the dropdown stayed empty until a page save happened.
+      fillUploadCategories(siteData.categories || []);
       return true;
     } catch (err) {
       if (!silent && err.code === 'ADMIN_UNAUTHORIZED') {
@@ -455,21 +458,27 @@
       li.append(name, state);
       list.appendChild(li);
     }
-    const busy = entries.some((e) => e.status === 'pending' || e.status === 'uploading');
+    // Only a running upload disables the start button. Files sitting in
+    // "অপেক্ষা…" (pending) are exactly when the admin must be able to press it.
+    const uploading = entries.some((e) => e.status === 'uploading');
+    const waiting = entries.some((e) => e.status === 'pending' || e.status === 'error');
     const btn = $('#btnAdminUpload');
     if (btn) {
-      btn.hidden = !entries.some((e) => e.status === 'pending' || e.status === 'error');
-      btn.disabled = busy;
+      btn.hidden = !waiting;
+      btn.disabled = uploading;
     }
     const hint = $('#adminUploadHint');
     if (hint && entries.length) {
       const done = entries.filter((e) => e.status === 'done').length;
       const failed = entries.filter((e) => e.status === 'error').length;
-      hint.textContent = busy
+      const pending = entries.filter((e) => e.status === 'pending').length;
+      hint.textContent = uploading
         ? `${done}/${entries.length} শেষ…`
-        : failed
+        : failed && !pending
           ? `${done} সফল, ${failed} ব্যর্থ।`
-          : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
+          : pending
+            ? `${entries.length}টি ফাইল বাছাই হয়েছে — “Upload শুরু করুন” চাপুন।`
+            : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
     }
   }
 
@@ -484,8 +493,10 @@
       },
       getToken: () => token,
       getUploader: () => 'Admin',
-      onChange: (entries) => renderAdminUploads(entries),
-      onProgress: (entries) => renderAdminUploads(entries),
+      // The engine notifies with its whole state object, not the entries
+      // array — unwrap it before rendering.
+      onChange: (s) => renderAdminUploads((s && s.entries) || []),
+      onProgress: (s) => renderAdminUploads((s && s.entries) || []),
     });
     return adminEngine;
   }
@@ -496,9 +507,13 @@
   }
 
   async function addAdminFiles(fileList) {
+    // Snapshot the FileList NOW: the <input> value is cleared right after the
+    // change event, which empties a live FileList before the await below.
+    const files = Array.from(fileList || []);
     const engine = await ensureAdminEngine();
     const chosen = $('#adminUploadCat').value;
-    const res = engine.addFiles(fileList, { category: chosen });
+    if (!files.length) return;
+    const res = engine.addFiles(files, { category: chosen });
     if (res.rejected && res.rejected.length) {
       toast(`${res.rejected.length}টি ফাইল নেওয়া যায়নি (ধরন বা আকার)।`, { bad: true });
     }

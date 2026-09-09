@@ -764,8 +764,14 @@
     if (cfg.tourLocation) metaParts.push(`📍 ${cfg.tourLocation}`);
     if (metaParts.length) el.heroMeta.textContent = metaParts.join('  •  ');
     if (cfg.coverUrl) {
+      // A real cover replaces the beach scenery banner completely, so the two
+      // images never stack; without a cover the default scene stays.
       const img = new Image();
-      img.onload = () => { el.heroCover.src = cfg.coverUrl; el.heroCover.hidden = false; };
+      img.onload = () => {
+        el.heroCover.src = cfg.coverUrl;
+        el.heroCover.hidden = false;
+        document.body.classList.add('has-cover');
+      };
       img.src = cfg.coverUrl;
     }
     if (cfg.galleryEnabled) el.galleryLinkWrap.hidden = false;
