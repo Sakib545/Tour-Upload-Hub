@@ -23,6 +23,9 @@
     btnDriveTest: $('#btnDriveTest'),
     tglUploads: $('#tglUploads'),
     tglGallery: $('#tglGallery'),
+    tglPublic: $('#tglPublic'),
+    btnOrganise: $('#btnOrganise'),
+    organiseHint: $('#organiseHint'),
     recentBody: $('#recentBody'),
     recentNote: $('#recentNote'),
     qrImg: $('#qrImg'),
@@ -289,6 +292,7 @@
   function setToggles(settings) {
     el.tglUploads.checked = !!settings.uploadsEnabled;
     el.tglGallery.checked = !!settings.galleryVisible;
+    el.tglPublic.checked = !!settings.galleryPublic;
   }
 
   async function updateSetting() {
@@ -298,21 +302,42 @@
         body: {
           uploadsEnabled: el.tglUploads.checked,
           galleryVisible: el.tglGallery.checked,
+          galleryPublic: el.tglPublic.checked,
         },
       });
       setToggles(data.settings);
+      // The durable copy lives in the Drive folder — say so when it did not land.
+      const where = data.persisted ? '' : ' (saved for now, but NOT written to Drive)';
       toast(
-        data.settings.uploadsEnabled
-          ? 'Uploads are ENABLED.'
-          : 'Uploads are DISABLED — visitors will see a notice.',
-        { bad: !data.settings.uploadsEnabled }
+        !data.settings.uploadsEnabled
+          ? 'Uploads are DISABLED — visitors will see a notice.' + where
+          : data.settings.galleryPublic
+            ? 'Gallery is open to everyone. Uploading still asks for the PIN.' + where
+            : 'Settings saved.' + where,
+        { bad: !data.settings.uploadsEnabled || !data.persisted }
       );
-      if (!data.settings.galleryVisible && el.tglGallery.checked === false) {
-        // nothing extra needed; gallery link disappears automatically
-      }
     } catch (err) {
       toast('Could not save setting: ' + (err.code || 'error'), { bad: true });
       loadOverview(true);
+    }
+  }
+
+  async function organise() {
+    el.btnOrganise.disabled = true;
+    el.organiseHint.textContent = 'Moving files…';
+    try {
+      const r = await apiAdmin('/api/admin/organise', { method: 'POST', body: {} });
+      const moved = r.photos + r.videos;
+      el.organiseHint.textContent = moved
+        ? `Moved ${r.photos} photo(s) and ${r.videos} video(s).` + (r.failed ? ` ${r.failed} failed.` : '')
+        : 'Nothing to move — everything is already in a folder.';
+      toast(moved ? `Sorted ${moved} file(s) into folders.` : 'Already tidy.', { bad: !!r.failed });
+      loadOverview(true);
+    } catch (err) {
+      el.organiseHint.textContent = '';
+      toast('Could not sort files: ' + (err.code || 'error'), { bad: true });
+    } finally {
+      el.btnOrganise.disabled = false;
     }
   }
 
@@ -465,6 +490,8 @@
     el.loginForm.addEventListener('submit', submitLogin);
     el.tglUploads.addEventListener('change', updateSetting);
     el.tglGallery.addEventListener('change', updateSetting);
+    el.tglPublic.addEventListener('change', updateSetting);
+    el.btnOrganise.addEventListener('click', organise);
     el.btnDriveTest.addEventListener('click', testDrive);
     const saveBtn = $('#btnSaveSite');
     if (saveBtn) saveBtn.addEventListener('click', saveSite);
