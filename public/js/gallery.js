@@ -8,6 +8,7 @@
   const grid = $('#galleryGrid');
   const skeleton = $('#gallerySkeleton');
   const bar = $('#galleryBar');
+  const chipsDyn = $('#chipsDyn');
   const status = $('#galleryStatus');
   const lightbox = $('#lightbox');
   const stage = $('#lbStage');
@@ -23,6 +24,8 @@
 
   let items = [];        // everything the server returned
   let shown = [];        // what the current filter shows (lightbox order)
+  let pageCfg = null;    // /api/config payload (category chips etc.)
+  let filters = [];      // [{ id, label, count }] — category or photo/video chips
   let filter = 'all';
   let current = -1;
   let selecting = false;
@@ -160,19 +163,26 @@
     return tile;
   }
 
-  function categoryOf(item) {
-    return item.category || (item.isVideo ? 'video' : 'single');
+  function itemMatches(item, f) {
+    if (f === 'all') return true;
+    if (f === 'photo') return !item.isVideo;
+    if (f === 'video') return item.isVideo;
+    return item.category === f;
   }
 
   function render() {
-    shown = items.filter((it) => (filter === 'all' ? true : categoryOf(it) === filter));
+    shown = items.filter((it) => itemMatches(it, filter));
     grid.textContent = '';
     if (!shown.length) {
       status.hidden = false;
-      status.textContent =
-        filter === 'video' ? 'এখনো কোনো ভিডিও নেই।'
-          : filter === 'group' ? 'এখনো কোনো গ্রুপ ছবি নেই।'
-            : 'এখনো কোনো ছবি নেই।';
+      if (filter === 'all') {
+        status.textContent = 'এখনো কোনো ছবি নেই।';
+      } else {
+        const chip = filters.find((x) => x.id === filter);
+        status.textContent = chip
+          ? `"${chip.label}"-তে এখনো কিছু নেই।`
+          : 'এই ধরনের এখনো কিছু নেই।';
+      }
       return;
     }
     status.hidden = true;
@@ -183,6 +193,43 @@
 
   /* ── Filters ──────────────────────────────────────────────── */
 
+  /** Build category chips (single / group / video) — or photo/video when the
+   *  server did not enable category folders (flat mode). */
+  function rebuildFilters() {
+    filters = [];
+    const cfgCats = (pageCfg && pageCfg.categories) || [];
+    if (cfgCats.length) {
+      filters = cfgCats.map((c) => ({
+        id: c.id,
+        label: c.label,
+        count: items.filter((i) => i.category === c.id).length,
+      }));
+    } else {
+      filters = [
+        { id: 'photo', label: 'ছবি', count: items.filter((i) => !i.isVideo).length },
+        { id: 'video', label: 'ভিডিও', count: items.filter((i) => i.isVideo).length },
+      ];
+    }
+
+    $('#nAll').textContent = items.length;
+    chipsDyn.textContent = '';
+    for (const f of filters) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (filter === f.id ? ' is-on' : '');
+      b.dataset.filter = f.id;
+      const span = document.createElement('span');
+      span.className = 'chip-n';
+      span.textContent = f.count;
+      b.appendChild(document.createTextNode(`${f.label} `));
+      b.appendChild(span);
+      chipsDyn.appendChild(b);
+    }
+    for (const chip of $$('.chip[data-filter]')) {
+      chip.classList.toggle('is-on', chip.dataset.filter === filter);
+    }
+  }
+
   function setFilter(next) {
     filter = next;
     for (const chip of $$('.chip[data-filter]')) {
@@ -192,9 +239,12 @@
     render();
   }
 
-  for (const chip of $$('.chip[data-filter]')) {
-    chip.addEventListener('click', () => setFilter(chip.dataset.filter));
-  }
+  // Chip clicks are delegated so dynamically-built category chips work too.
+  document.getElementById('galleryBar').addEventListener('click', (ev) => {
+    const chip = ev.target.closest('.chip[data-filter]');
+    if (!chip) return;
+    setFilter(chip.dataset.filter);
+  });
 
   /* ── Selecting & downloading ──────────────────────────────── */
 
@@ -292,6 +342,7 @@
     lbDownload.setAttribute('download', item.name);
 
     const parts = [item.name];
+    if (item.categoryLabel) parts.push(`· ${item.categoryLabel}`);
     if (item.uploader) parts.push(`— ${item.uploader}`);
     if (item.size) parts.push(`(${fmtBytes(item.size)})`);
     captionEl.textContent = parts.join(' ');
@@ -360,13 +411,8 @@
       status.textContent = 'এখনো কোনো ছবি নেই — প্রথম ছবিটি Upload করুন!';
       return;
     }
-    const count = (cat) => items.filter((i) => categoryOf(i) === cat).length;
-    $('#nAll').textContent = items.length;
-    $('#nSingle').textContent = count('single');
-    $('#nGroup').textContent = count('group');
-    $('#nVideos').textContent = count('video');
+    rebuildFilters();
     bar.hidden = false;
-    $('#uploadInvite').hidden = false;
     refreshDownloadBtn();
     render();
   }
@@ -377,9 +423,8 @@
     try {
       cfg = await api('/api/config');
     } catch (e) { /* treat as no pin requirement; load() will surface errors */ }
-    // `galleryPinRequired` is false when the admin opened the gallery to
-    // everyone, even though uploading still needs the PIN.
-    if (cfg && cfg.galleryPinRequired && cfg.galleryEnabled) {
+    pageCfg = cfg;
+    if (cfg && cfg.pinRequired && cfg.galleryEnabled) {
       const token = sessionStorage.getItem(PIN_KEY) || '';
       if (!token) {
         showPinGate('Gallery দেখতে PIN দিন।');
