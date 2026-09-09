@@ -184,7 +184,24 @@
 
   /* ── Tour page content & categories ──────────────────────── */
 
-  const MEDIA_LABEL = { photo: 'PHOTO', video: 'VIDEO' };
+  const MEDIA_LABEL = { photo: 'PHOTO', video: 'VIDEO', any: 'ANY' };
+
+  /** ISO instant → the "YYYY-MM-DDTHH:mm" a datetime-local input expects. */
+  function toLocalInput(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  /** …and back, so the server stores an unambiguous instant. */
+  function fromLocalInput(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    return isNaN(d) ? '' : d.toISOString();
+  }
 
   function fillSiteForm(site) {
     if (!site) return;
@@ -199,40 +216,83 @@
     set('#siteLocation', c.location);
     set('#sitePrivacy', c.privacyNote);
     set('#siteCover', c.coverUrl);
+    // <input type="datetime-local"> wants the viewer's own local time.
+    set('#siteStartAt', toLocalInput(c.startAt));
+    set('#siteEndAt', toLocalInput(c.endAt));
     buildCategoryRows(site.categories || []);
+  }
+
+  function categoryRow(cat) {
+    const tr = document.createElement('tr');
+    tr.dataset.catId = cat.id || '';
+    tr.dataset.builtin = cat.builtin ? '1' : '';
+
+    const tdType = document.createElement('td');
+    if (cat.builtin) {
+      // The three built-ins are the fallback routing, so their kind is fixed.
+      const tag = document.createElement('span');
+      tag.className = 'cat-tag';
+      tag.textContent = MEDIA_LABEL[cat.media] || cat.media;
+      tdType.appendChild(tag);
+    } else {
+      const sel = document.createElement('select');
+      sel.className = 'input';
+      sel.dataset.field = 'media';
+      for (const [value, text] of [['photo', 'PHOTO'], ['video', 'VIDEO'], ['any', 'ANY']]) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        sel.appendChild(opt);
+      }
+      sel.value = cat.media || 'any';
+      tdType.appendChild(sel);
+    }
+
+    const field = (name, value) => {
+      const td = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.className = 'input';
+      inp.dataset.field = name;
+      inp.maxLength = 80;
+      inp.value = value || '';
+      td.appendChild(inp);
+      return td;
+    };
+
+    const tdActions = document.createElement('td');
+    if (!cat.builtin) {
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'cat-remove';
+      rm.title = 'Remove this category';
+      rm.setAttribute('aria-label', 'Remove this category');
+      rm.textContent = '✕';
+      rm.addEventListener('click', () => tr.remove());
+      tdActions.appendChild(rm);
+    }
+
+    tr.append(tdType, field('label', cat.label), field('folder', cat.folder), tdActions);
+    return tr;
   }
 
   function buildCategoryRows(cats) {
     const body = $('#catTableBody');
     if (!body) return;
     body.textContent = '';
-    for (const cat of cats) {
-      const tr = document.createElement('tr');
+    for (const cat of cats) body.appendChild(categoryRow(cat));
+  }
 
-      const tdType = document.createElement('td');
-      tdType.textContent = `${cat.id} · ${MEDIA_LABEL[cat.media] || cat.media}`;
-
-      const tdLabel = document.createElement('td');
-      const inpLabel = document.createElement('input');
-      inpLabel.className = 'input';
-      inpLabel.dataset.cat = cat.id;
-      inpLabel.dataset.field = 'label';
-      inpLabel.maxLength = 80;
-      inpLabel.value = cat.label || '';
-      tdLabel.appendChild(inpLabel);
-
-      const tdFolder = document.createElement('td');
-      const inpFolder = document.createElement('input');
-      inpFolder.className = 'input';
-      inpFolder.dataset.cat = cat.id;
-      inpFolder.dataset.field = 'folder';
-      inpFolder.maxLength = 80;
-      inpFolder.value = cat.folder || '';
-      tdFolder.appendChild(inpFolder);
-
-      tr.append(tdType, tdLabel, tdFolder);
-      body.appendChild(tr);
+  function addCategoryRow() {
+    const body = $('#catTableBody');
+    if (!body) return;
+    if (body.children.length >= 12) {
+      toast('12টির বেশি category রাখা যাবে না।', { bad: true });
+      return;
     }
+    // Removing a category never deletes its Drive folder or its files.
+    body.appendChild(categoryRow({ id: '', label: '', folder: '', media: 'any', builtin: false }));
+    const last = body.lastElementChild.querySelector('[data-field="label"]');
+    if (last) last.focus();
   }
 
   function collectSiteForm() {
@@ -247,21 +307,24 @@
       location: val('#siteLocation'),
       privacyNote: val('#sitePrivacy'),
       coverUrl: val('#siteCover'),
+      startAt: fromLocalInput(val('#siteStartAt')),
+      endAt: fromLocalInput(val('#siteEndAt')),
     };
     const categories = [];
-    const baseCats = (siteData && siteData.categories) || [];
     for (const tr of $$('#catTableBody tr')) {
       const label = tr.querySelector('[data-field="label"]');
       const folder = tr.querySelector('[data-field="folder"]');
       if (!label || !folder) continue;
-      const base = baseCats.find((c) => c.id === label.dataset.cat);
-      if (!base) continue;
-      categories.push({
-        id: base.id,
-        media: base.media,
+      const media = tr.querySelector('[data-field="media"]');
+      const row = {
+        // No id = a new category; the server mints one.
+        id: tr.dataset.catId || '',
         label: label.value.trim(),
         folder: folder.value.trim(),
-      });
+      };
+      if (media) row.media = media.value;
+      if (!row.id && !row.label && !row.folder) continue;
+      categories.push(row);
     }
     return { content, categories };
   }
@@ -275,6 +338,7 @@
       const data = await apiAdmin('/api/admin/site', { method: 'PUT', body: collectSiteForm() });
       siteData = data.site;
       fillSiteForm(data.site);
+      fillUploadCategories(data.site.categories || []);
       loadOverview(true); // refresh folder links / stats with the new folders
       if (note) note.textContent = '✔ Saved — changes are live now.';
       toast('Tour page & folders saved.');
@@ -339,6 +403,116 @@
     } finally {
       el.btnOrganise.disabled = false;
     }
+  }
+
+  /* ── Upload straight from the dashboard ───────────────────── */
+
+  // Same chunked engine the visitor page uses; the admin token stands in for
+  // the PIN, so this keeps working while visitor uploads are paused.
+  let adminEngine = null;
+  let adminCfg = null;
+
+  function fillUploadCategories(cats) {
+    const sel = $('#adminUploadCat');
+    if (!sel) return;
+    const previous = sel.value;
+    sel.textContent = '';
+    const auto = document.createElement('option');
+    auto.value = '';
+    auto.textContent = 'Auto (by file type)';
+    sel.appendChild(auto);
+    for (const c of cats) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = `${c.label} → ${c.folder}`;
+      sel.appendChild(opt);
+    }
+    if (previous && cats.some((c) => c.id === previous)) sel.value = previous;
+  }
+
+  function renderAdminUploads(entries) {
+    const list = $('#adminUploadList');
+    if (!list) return;
+    list.textContent = '';
+    for (const e of entries) {
+      const li = document.createElement('li');
+      li.className = 'admin-upload-row'
+        + (e.status === 'done' ? ' is-done' : e.status === 'error' ? ' is-error' : '');
+
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = e.name;
+
+      const state = document.createElement('span');
+      state.className = 'state';
+      state.textContent =
+        e.status === 'done' ? '✓ সম্পন্ন'
+          : e.status === 'error' ? 'ব্যর্থ'
+            : e.status === 'uploading' ? `${e.pct || 0}%`
+              : 'অপেক্ষা…';
+
+      li.append(name, state);
+      list.appendChild(li);
+    }
+    const busy = entries.some((e) => e.status === 'pending' || e.status === 'uploading');
+    const btn = $('#btnAdminUpload');
+    if (btn) {
+      btn.hidden = !entries.some((e) => e.status === 'pending' || e.status === 'error');
+      btn.disabled = busy;
+    }
+    const hint = $('#adminUploadHint');
+    if (hint && entries.length) {
+      const done = entries.filter((e) => e.status === 'done').length;
+      const failed = entries.filter((e) => e.status === 'error').length;
+      hint.textContent = busy
+        ? `${done}/${entries.length} শেষ…`
+        : failed
+          ? `${done} সফল, ${failed} ব্যর্থ।`
+          : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
+    }
+  }
+
+  async function ensureAdminEngine() {
+    if (adminEngine) return adminEngine;
+    if (!adminCfg) adminCfg = await api('/api/config');
+    adminEngine = createUploadEngine({
+      cfg: {
+        maxFileBytes: adminCfg.maxFileBytes,
+        maxFilesPerUpload: adminCfg.maxFilesPerUpload,
+        chunkBytes: adminCfg.chunkMB * 1024 * 1024,
+      },
+      getToken: () => token,
+      getUploader: () => 'Admin',
+      onChange: (entries) => renderAdminUploads(entries),
+      onProgress: (entries) => renderAdminUploads(entries),
+    });
+    return adminEngine;
+  }
+
+  async function pickAdminFiles() {
+    await ensureAdminEngine();
+    $('#adminFileInput').click();
+  }
+
+  async function addAdminFiles(fileList) {
+    const engine = await ensureAdminEngine();
+    const chosen = $('#adminUploadCat').value;
+    const res = engine.addFiles(fileList, { category: chosen });
+    if (res.rejected && res.rejected.length) {
+      toast(`${res.rejected.length}টি ফাইল নেওয়া যায়নি (ধরন বা আকার)।`, { bad: true });
+    }
+    // Every file follows the category picked above, videos included.
+    if (chosen) for (const e of res.added) engine.setCategory(e.id, chosen);
+    renderAdminUploads(engine.entries);
+  }
+
+  async function startAdminUpload() {
+    const engine = await ensureAdminEngine();
+    // Re-queue anything that failed on an earlier attempt, then run the batch.
+    for (const e of engine.entries) {
+      if (e.status === 'error') engine.retry(e.id);
+    }
+    engine.start();
   }
 
   /* ── Drive connection ─────────────────────────────────────── */
@@ -495,6 +669,14 @@
     el.btnDriveTest.addEventListener('click', testDrive);
     const saveBtn = $('#btnSaveSite');
     if (saveBtn) saveBtn.addEventListener('click', saveSite);
+    const addCat = $('#btnAddCat');
+    if (addCat) addCat.addEventListener('click', addCategoryRow);
+    $('#btnAdminPick').addEventListener('click', pickAdminFiles);
+    $('#btnAdminUpload').addEventListener('click', startAdminUpload);
+    $('#adminFileInput').addEventListener('change', (ev) => {
+      addAdminFiles(ev.target.files);
+      ev.target.value = '';
+    });
 
     token = sessionStorage.getItem(TOKEN_KEY) || '';
     if (token) {
