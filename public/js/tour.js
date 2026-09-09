@@ -8,11 +8,13 @@
 
   let cfg = null;
   let engine = null;
-  const rowEls = new Map(); // entry id -> { pct, bar, status, row }
+  const rowEls = new Map(); // entry id -> { pct, bar, status, row, catline }
   let rafPending = false;
   let wasRunning = false;
-  // Which folder newly picked photos go to; each row can still be changed.
-  let groupMode = false;
+
+  // Photo categories (single / group) the server exposes for folder routing.
+  let photoCats = [];      // [{ id, label }]
+  let activePhotoCat = ''; // which photo category new picks are tagged with
 
   const el = {
     heroTitle: $('#heroTitle'),
@@ -39,15 +41,13 @@
     pickRow: $('#pickRow'),
     btnAddMore: $('#btnAddMore'),
     selSummary: $('#selSummary'),
+    catPick: $('#catPick'),
+    catChips: $('#catChips'),
     fileList: $('#fileList'),
     batchProgress: $('#batchProgress'),
     batchBar: $('#batchBar'),
     batchLabel: $('#batchLabel'),
     batchPct: $('#batchPct'),
-    kindPicker: $('#kindPicker'),
-    kindLabel: $('#kindLabel'),
-    chipSingle: $('#chipSingle'),
-    chipGroup: $('#chipGroup'),
     dock: $('#dock'),
     btnStart: $('#btnStart'),
     btnStartLabel: $('#btnStartLabel'),
@@ -174,7 +174,7 @@
     // Which Drive folder this file is heading for.
     const kind = document.createElement('span');
     kind.className = 'file-kind';
-    kind.textContent = entry.type === 'video' ? 'VID' : entry.group ? '👥' : '👤';
+    kind.textContent = entry.type === 'video' ? 'VID' : 'PIC';
     if (entry.type === 'video' || !entry.url) {
       const icon = document.createElement('span');
       icon.textContent = entry.type === 'video' ? '🎬' : '🖼️';
@@ -221,27 +221,12 @@
     mini.appendChild(fill);
     info.appendChild(name);
     info.appendChild(meta);
-
-    // Photos can be moved between the single- and group-photo folders until
-    // they start uploading.
-    let kindSelect = null;
-    if (entry.type !== 'video') {
-      kindSelect = document.createElement('select');
-      kindSelect.className = 'file-kind-select';
-      for (const [value, text] of [['0', '👤 একক ছবি'], ['1', '👥 গ্রুপ ছবি']]) {
-        const opt = document.createElement('option');
-        opt.value = value;
-        opt.textContent = text;
-        kindSelect.appendChild(opt);
-      }
-      kindSelect.value = entry.group ? '1' : '0';
-      kindSelect.addEventListener('change', () => {
-        engine.setGroup(entry.id, kindSelect.value === '1');
-      });
-      info.appendChild(kindSelect);
-    }
-
     info.appendChild(mini);
+
+    // Per-file category row: lets the uploader fix the folder for this photo.
+    const catline = document.createElement('div');
+    catline.className = 'file-catline';
+    info.appendChild(catline);
 
     const status = document.createElement('div');
     status.className = 'file-status st-wait';
@@ -254,20 +239,64 @@
     remove.addEventListener('click', () => removeEntry(entry.id));
 
     row.append(thumb, info, status, remove);
-    return { row, fill, status, kindSelect };
+    return { row, fill, status, catline };
+  }
+
+  /* ── Photo category (single / group) ─────────────────────── */
+
+  function categoryLabel(id) {
+    const c = photoCats.find((x) => x.id === id);
+    return c ? c.label : '';
+  }
+
+  function renderCatChips() {
+    if (!el.catChips) return;
+    el.catChips.textContent = '';
+    for (const c of photoCats) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip cat-chip' + (c.id === activePhotoCat ? ' is-on' : '');
+      b.textContent = c.label;
+      b.addEventListener('click', () => {
+        activePhotoCat = c.id;
+        renderCatChips();
+      });
+      el.catChips.appendChild(b);
+    }
+  }
+
+  /** Per-row category control — lets the uploader fix a photo's folder. */
+  function updateCatLine(entry, cached) {
+    const line = cached && cached.catline;
+    if (!line) return;
+    line.textContent = '';
+    // Videos always go to the video folder automatically — no control needed.
+    if (entry.type !== 'image') return;
+    if (entry.status === 'pending' || entry.status === 'error') {
+      for (const c of photoCats) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'mini-seg' + (entry.category === c.id ? ' is-on' : '');
+        b.textContent = c.label;
+        b.addEventListener('click', () => {
+          if (engine) engine.setCategory(entry.id, c.id);
+        });
+        line.appendChild(b);
+      }
+    } else if (entry.category) {
+      const tag = document.createElement('span');
+      tag.className = 'file-cat-static';
+      tag.textContent = `→ ${categoryLabel(entry.category) || entry.category}`;
+      line.appendChild(tag);
+    }
   }
 
   function refreshRow(entry) {
     const cached = rowEls.get(entry.id);
     if (!cached) return;
-    const { row, fill, status, kindSelect } = cached;
+    const { row, fill, status } = cached;
 
-    if (kindSelect) {
-      kindSelect.value = entry.group ? '1' : '0';
-      kindSelect.disabled = entry.status === 'uploading' || entry.status === 'done';
-      const badge = row.querySelector('.file-kind');
-      if (badge) badge.textContent = entry.group ? '👥' : '👤';
-    }
+    updateCatLine(entry, cached);
 
     row.classList.toggle('is-done', entry.status === 'done');
     row.classList.toggle('is-error', entry.status === 'error');
@@ -332,7 +361,10 @@
         const built = buildRow(entry);
         el.fileList.appendChild(built.row);
         rowEls.set(entry.id, {
-          row: built.row, fill: built.fill, status: built.status, kindSelect: built.kindSelect,
+          row: built.row,
+          fill: built.fill,
+          status: built.status,
+          catline: built.catline,
         });
       }
       refreshRow(entry);
@@ -420,16 +452,11 @@
 
     if (bad === 0) {
       const n = entries.length;
-      const single = entries.filter((e) => e.type !== 'video' && !e.group).length;
-      const group = entries.filter((e) => e.type !== 'video' && e.group).length;
-      const videos = entries.filter((e) => e.type === 'video').length;
-      const bits = [];
-      if (single) bits.push(`${single}টি একক ছবি`);
-      if (group) bits.push(`${group}টি গ্রুপ ছবি`);
-      if (videos) bits.push(`${videos}টি ভিডিও`);
-      const where = bits.length > 1
-        ? `${bits.join(', ')} আলাদা ফোল্ডারে জমা হয়েছে`
-        : `${n}টি ফাইল Drive-এ জমা হয়েছে`;
+      const photos = entries.filter((e) => e.type !== 'video').length;
+      const videos = n - photos;
+      const where = videos
+        ? `${photos}টি ছবি ও ${videos}টি ভিডিও আলাদা ফোল্ডারে জমা হয়েছে`
+        : `${n}টি ছবি Drive-এ জমা হয়েছে`;
       celebrate();
       showBanner(
         'ok big',
@@ -563,7 +590,7 @@
 
   function addPicked(fileList) {
     if (!fileList || !fileList.length) return;
-    const res = engine.addFiles(fileList, { group: groupMode });
+    const res = engine.addFiles(fileList, { photoCategory: activePhotoCat });
     for (const r of res.rejected) {
       const why =
         r.code === 'FILE_TOO_LARGE'
@@ -576,9 +603,7 @@
     if (res.added.length) {
       for (const a of res.added) makeThumbUrl(a);
       hideBanner();
-      const photos = res.added.filter((a) => a.type !== 'video').length;
-      const where = photos && groupMode ? ' — গ্রুপ ছবি ফোল্ডারে যাবে' : '';
-      toast(`${res.added.length}টি ফাইল বাছাই হয়েছে${where}`);
+      toast(`${res.added.length}টি ফাইল বাছাই হয়েছে`);
     }
   }
 
@@ -607,7 +632,14 @@
       img.src = cfg.coverUrl;
     }
     if (cfg.galleryEnabled) el.galleryLinkWrap.hidden = false;
-    el.kindPicker.hidden = !cfg.separateMediaFolders;
+
+    // Photo categories (single / group) decide the Drive folder photos go to.
+    photoCats = (cfg.categories || []).filter((c) => c.media === 'photo');
+    activePhotoCat = (photoCats[0] && photoCats[0].id) || '';
+    if (cfg.separateMediaFolders && photoCats.length >= 2 && el.catPick) {
+      el.catPick.hidden = false;
+      renderCatChips();
+    }
 
     // Restore uploader name
     try {
@@ -635,14 +667,6 @@
     el.pinForm.addEventListener('submit', submitPin);
     el.btnPick.addEventListener('click', () => el.fileInput.click());
     el.btnAddMore.addEventListener('click', () => el.fileInput.click());
-    for (const chip of [el.chipSingle, el.chipGroup]) {
-      chip.addEventListener('click', () => {
-        groupMode = chip.dataset.group === '1';
-        el.chipSingle.classList.toggle('is-on', !groupMode);
-        el.chipGroup.classList.toggle('is-on', groupMode);
-      });
-    }
-
     el.btnCamera.addEventListener('click', () => el.cameraInput.click());
     el.btnVideo.addEventListener('click', () => el.videoInput.click());
 
