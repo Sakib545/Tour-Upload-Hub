@@ -5,6 +5,7 @@ const { PassThrough } = require('stream');
 const logger = require('../utils/logger');
 const { cfg, publicConfig } = require('../services/config');
 const state = require('../services/state');
+const site = require('../services/site');
 const uploads = require('../services/uploads');
 const reservations = require('../services/reservations');
 const drive = require('../services/drive');
@@ -102,7 +103,7 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/config', noStore, (req, res) => {
-  res.json(publicConfig(state));
+  res.json(publicConfig(state.settings, site));
 });
 
 /* ── Public: PIN gate ─────────────────────────────────────────── */
@@ -416,8 +417,6 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
   const rawName = safeDecode(req.get('x-file-name') || '');
   const mime = String(req.get('x-mime') || '').slice(0, 200);
   const uploader = safeDecode(req.get('x-uploader') || '').slice(0, 60);
-  // The uploader tells us whether a photo belongs in the group-photo folder.
-  const isGroup = String(req.get('x-group') || '') === '1';
 
   // A normal first chunk is exactly min(chunkBytes, total). Anything smaller for
   // a multi-chunk file is "unusually tiny" and never warrants a Drive session.
@@ -456,10 +455,28 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     return fail(res, 415, sniffRes.code);
   }
 
-  // Photos and videos are filed into their own Drive sub-folders.
+  // The visitor picks a category (single / group / video) in the UI; it decides
+  // which Drive sub-folder the file lands in. A category is only honoured when
+  // it matches the file type (photo categories for images, video for videos).
+  const rawCategory = String(req.get('x-category') || '').trim().slice(0, 24);
+  let category = null;
+  if (/^[A-Za-z0-9_-]{1,24}$/.test(rawCategory)) {
+    const candidate = site.categoryById(rawCategory);
+    const m = String(v.mimeType || '').toLowerCase();
+    if (
+      candidate &&
+      ((candidate.media === 'photo' && m.startsWith('image/')) ||
+        (candidate.media === 'video' && m.startsWith('video/')))
+    ) {
+      category = candidate;
+    }
+  }
+
+  // Category folders (or the legacy Photos / Videos split when no valid
+  // category was sent) — never block an upload over folder housekeeping.
   let parentId;
   try {
-    parentId = await drive.folderIdFor({ mimeType: v.mimeType, group: isGroup });
+    parentId = await drive.folderIdForCategory(category, v.mimeType);
   } catch (e) {
     parentId = null; // fall back to the root folder — never block an upload
   }
@@ -477,7 +494,11 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     return driveFail(res, e);
   }
 
-  const description = sanitize.encodeDescription({ uploader, originalName: v.fileName });
+  const description = sanitize.encodeDescription({
+    uploader,
+    originalName: v.fileName,
+    category: category ? category.id : '',
+  });
 
   let sessionUri;
   try {
@@ -665,6 +686,27 @@ function attachmentHeader(name) {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(safe)}`;
 }
 
+/**
+ * Resolve the category a gallery item belongs to. Uploads carry their category
+ * id in the Drive description; legacy files (or mismatched tags) fall back by
+ * MIME type — videos → the video category, images → the first photo category.
+ */
+function categoryForFile(taggedCategory, mimeType) {
+  const cats = site.categories;
+  if (!cats.length) return null;
+  const m = String(mimeType || '').toLowerCase();
+  const tagged = taggedCategory
+    ? site.categoryById(String(taggedCategory).slice(0, 24))
+    : null;
+  if (tagged) {
+    if (m.startsWith('image/') && tagged.media === 'photo') return tagged;
+    if (m.startsWith('video/') && tagged.media === 'video') return tagged;
+  }
+  if (m.startsWith('video/')) return cats.find((c) => c.media === 'video') || null;
+  if (m.startsWith('image/')) return cats.find((c) => c.media === 'photo') || null;
+  return null;
+}
+
 router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req, res) => {
   const { files, truncated } = await drive.listFolderFiles({
     cap: cfg.galleryLimit,
@@ -672,24 +714,24 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
   });
   // Mint one short-lived signed token per listing when the gallery is PIN-gated;
   // <img>/<video> cannot send headers, so media URLs carry it as ?gt=…
-  const gated = cfg.pinEnabled && !state.settings.galleryPublic;
-  const gt = gated ? galleryToken() : null;
+  const gt = cfg.pinEnabled ? galleryToken() : null;
   const q = gt ? `?gt=${encodeURIComponent(gt)}` : '';
   const items = files.map((f) => {
     const meta = sanitize.parseDescription(f.description);
     const isImage = String(f.mimeType || '').startsWith('image/');
     const isVideo = String(f.mimeType || '').startsWith('video/');
+    const cat = categoryForFile(meta.category, f.mimeType);
     const base = `/api/gallery/file/${f.id}`;
     return {
       id: f.id,
       name: f.name,
       isImage,
       isVideo,
-      // 'single' | 'group' | 'video' — which Drive folder it lives in.
-      category: drive.categoryOf(f),
       mimeType: f.mimeType || '',
       size: Number(f.size) || 0,
       createdTime: f.createdTime || null,
+      category: cat ? cat.id : null,
+      categoryLabel: cat ? cat.label : null,
       uploader: meta.uploader,
       // Thumbnails are proxied: Drive's own thumbnailLink is not readable by a
       // visitor's browser for files in a private folder.
