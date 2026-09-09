@@ -7,7 +7,7 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "get-token": "node scripts/get-refresh-token.js",
-    "check": "node --check server/server.js && node --check server/app.js && for f in routes/*.js services/*.js middleware/*.js utils/*.js public/js/*.js scripts/*.js test/helpers/*.js test/*.test.js; do node --check \"$f\" || exit 1; done",
+    "check": "node --check server/server.js && node --check server/app.js && for f in routes/*.js services/*.js middleware/*.js utils/*.js public/js/*.js scripts/*.js test/helpers/*.js test/*.test.js; do node --check \"$f\" || exit 1; done && node scripts/check-scene.js",
     "test": "node --test test/*.test.js",
     "faces:install": "npm install @vladmandic/face-api @tensorflow/tfjs @tensorflow/tfjs-backend-wasm sharp"
   },
