@@ -43,7 +43,12 @@ function clean(value, max) {
 // Drive folder names: no control chars or path-breaking symbols.
 const FOLDER_RE = /^[^/\\<>:"|?*\u0000-\u001f]{1,80}$/;
 
+// The three built-in categories can be renamed but never deleted: they are the
+// fallback routing for uploads that arrive without a category.
 const CATEGORY_IDS = ['single', 'group', 'video'];
+const MEDIA_KINDS = ['photo', 'video', 'any'];
+const MAX_CATEGORIES = 12;
+const CUSTOM_ID_RE = /^c_[a-z0-9]{6}$/;
 
 function defaultCategories() {
   return [
@@ -52,20 +57,46 @@ function defaultCategories() {
       label: 'একক ছবি',
       folder: cfg.google.photosFolderName || 'Photos',
       media: 'photo',
+      builtin: true,
     },
     {
       id: 'group',
       label: 'গ্রুপ ছবি',
       folder: 'Group Photos',
       media: 'photo',
+      builtin: true,
     },
     {
       id: 'video',
       label: 'ভিডিও',
       folder: cfg.google.videosFolderName || 'Videos',
       media: 'video',
+      builtin: true,
     },
   ];
+}
+
+function newCategoryId(taken) {
+  for (let i = 0; i < 50; i++) {
+    const id = 'c_' + Math.random().toString(36).slice(2, 8).replace(/[^a-z0-9]/g, '0');
+    if (CUSTOM_ID_RE.test(id) && !taken.has(id)) return id;
+  }
+  return null;
+}
+
+/**
+ * A tour moment as an ISO instant, or '' when the organiser has not set one.
+ * The admin's browser converts its local datetime-local value with
+ * toISOString(), so the countdown is correct for every visitor's clock.
+ */
+function cleanInstant(value) {
+  const raw = clean(value, 40);
+  if (!raw) return '';
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return '';
+  const year = new Date(t).getUTCFullYear();
+  if (year < 2000 || year > 2100) return '';
+  return new Date(t).toISOString();
 }
 
 let state = {
@@ -76,6 +107,9 @@ let state = {
     location: cfg.tour.location,
     privacyNote: cfg.tour.privacyNote,
     coverUrl: cfg.tour.coverUrl,
+    // Drives the public countdown. Both optional.
+    startAt: '',
+    endAt: '',
   },
   categories: defaultCategories(),
 };
@@ -106,6 +140,10 @@ function sanitizeContent(src) {
   const privacyNote = clean(src.privacyNote, 300);
   if (privacyNote) out.privacyNote = privacyNote;
 
+  for (const key of ['startAt', 'endAt']) {
+    if (key in src) out[key] = cleanInstant(src[key]);
+  }
+
   if ('coverUrl' in src) {
     const coverUrl = clean(src.coverUrl, 500);
     // Only http(s) images (or empty) are accepted as a page cover.
@@ -114,13 +152,77 @@ function sanitizeContent(src) {
   return out;
 }
 
+/**
+ * Clean one incoming category against the version we already hold (`base`).
+ * A built-in keeps its id and media kind; only its label and folder change.
+ */
 function sanitizeCategory(raw, base) {
-  const id = String((raw && raw.id) || '').trim();
-  if (!CATEGORY_IDS.includes(id)) return null;
   const label = clean((raw && raw.label) || '', 80) || base.label;
   const folderRaw = clean((raw && raw.folder) || '', 80);
   const folder = folderRaw && FOLDER_RE.test(folderRaw) ? folderRaw : base.folder;
-  return { id, label, folder, media: base.media };
+  let media = base.media;
+  if (!base.builtin) {
+    const wanted = String((raw && raw.media) || '').trim();
+    if (MEDIA_KINDS.includes(wanted)) media = wanted;
+  }
+  return { id: base.id, label, folder, media, builtin: !!base.builtin };
+}
+
+/**
+ * Rebuild the category list from an admin payload.
+ *
+ * Built-ins always survive (they are the fallback routing). Custom categories
+ * are kept when the payload still lists their id, created when it carries a new
+ * entry, and dropped otherwise — files already in a dropped folder stay in
+ * Drive and keep showing in the gallery via allowedParents().
+ *
+ * Two categories must never share a Drive folder, or a file's category becomes
+ * ambiguous, so a colliding folder name falls back to the previous value (or
+ * the whole new category is refused).
+ */
+function rebuildCategories(incoming, current) {
+  const byId = new Map(current.map((c) => [c.id, c]));
+  const usedFolders = new Set();
+  const out = [];
+  const takenIds = new Set(current.map((c) => c.id));
+
+  const push = (cat) => {
+    const key = cat.folder.toLowerCase();
+    if (usedFolders.has(key)) return false;
+    usedFolders.add(key);
+    out.push(cat);
+    return true;
+  };
+
+  for (const raw of incoming) {
+    if (!raw || typeof raw !== 'object') continue;
+    if (out.length >= MAX_CATEGORIES) break;
+    const id = String(raw.id || '').trim();
+    const base = byId.get(id);
+    if (base) {
+      const next = sanitizeCategory(raw, base);
+      // Folder taken by another category — keep what this one had.
+      if (!push(next)) push({ ...next, folder: base.folder });
+      byId.delete(id);
+      continue;
+    }
+    // A brand-new custom category.
+    const label = clean(raw.label || '', 80);
+    const folder = clean(raw.folder || '', 80);
+    if (!label || !folder || !FOLDER_RE.test(folder)) continue;
+    const newId = newCategoryId(takenIds);
+    if (!newId) continue;
+    takenIds.add(newId);
+    const media = MEDIA_KINDS.includes(String(raw.media || '')) ? String(raw.media) : 'any';
+    push({ id: newId, label, folder, media, builtin: false });
+  }
+
+  // Any built-in the payload left out is restored, so routing never breaks.
+  for (const [, leftover] of byId) {
+    if (!leftover.builtin) continue;
+    if (!push(leftover)) push({ ...leftover, folder: `${leftover.folder} (${leftover.id})` });
+  }
+  return out.length ? out : current;
 }
 
 function merge(raw) {
@@ -132,13 +234,23 @@ function merge(raw) {
   }
 
   if (Array.isArray(raw.categories) && raw.categories.length) {
+    // Saved payloads may carry custom categories, so start from the defaults
+    // and let anything stored (built-in or custom) come through.
     const defaults = defaultCategories();
-    const next = defaults
-      .map((d) => {
-        const found = raw.categories.find((c) => c && String(c.id) === d.id);
-        return found ? sanitizeCategory(found, d) : d;
-      })
-      .filter(Boolean);
+    const known = defaults.slice();
+    for (const c of raw.categories) {
+      const id = String((c && c.id) || '');
+      if (CUSTOM_ID_RE.test(id) && !known.some((k) => k.id === id)) {
+        known.push({
+          id,
+          label: clean(c.label || '', 80) || id,
+          folder: clean(c.folder || '', 80) || id,
+          media: MEDIA_KINDS.includes(String(c.media || '')) ? String(c.media) : 'any',
+          builtin: false,
+        });
+      }
+    }
+    const next = rebuildCategories(raw.categories, known);
     if (next.length) state.categories = next;
   }
 }
@@ -178,14 +290,7 @@ function update({ content, categories } = {}) {
     if (next) state.content = { ...state.content, ...next };
   }
   if (Array.isArray(categories)) {
-    const defaults = defaultCategories();
-    const next = defaults
-      .map((d) => {
-        const found = categories.find((c) => c && String(c.id) === d.id);
-        return found ? sanitizeCategory(found, d) : d;
-      })
-      .filter(Boolean);
-    if (next.length) state.categories = next;
+    state.categories = rebuildCategories(categories, state.categories);
   }
   save();
   return snapshot();
