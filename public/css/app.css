@@ -1408,6 +1408,71 @@ body.page-home .hero-eyebrow {
   to   { translate: 0 -3px; rotate: 1deg; }
 }
 
+/* Speedboat: crosses the water, bobs over waves and throws spray. */
+.tf-speedboat-run { animation: tfBoatRun 15s linear infinite; }
+@keyframes tfBoatRun {
+  from { translate: 0 0; }
+  to   { translate: 1900px 0; }
+}
+.tf-boat-bob {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tfBoatBob .85s ease-in-out infinite alternate;
+}
+@keyframes tfBoatBob {
+  from { translate: 0 -3px; rotate: -1.2deg; }
+  to   { translate: 0 3px; rotate: 1.2deg; }
+}
+.tf-boat-wake {
+  fill: none;
+  stroke: rgba(255,255,255,.82);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.tf-boat-spray { animation: tfBoatSpray .42s ease-in-out infinite alternate; }
+@keyframes tfBoatSpray {
+  from { opacity: .35; translate: 5px 2px; }
+  to   { opacity: 1; translate: -7px -4px; }
+}
+
+/* Horse: a slower pass across the foreground with a light gallop. */
+.tf-horse-run { animation: tfHorseRun 31s linear infinite; }
+@keyframes tfHorseRun {
+  from { translate: 0 0; }
+  to   { translate: -1840px 0; }
+}
+.tf-horse-bob {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tfHorseBob .58s ease-in-out infinite alternate;
+}
+@keyframes tfHorseBob {
+  from { translate: 0 1px; }
+  to   { translate: 0 -5px; }
+}
+.tf-horse-leg {
+  fill: none;
+  stroke: #6b371e;
+  stroke-width: 10;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: tfHorseStep .58s ease-in-out infinite alternate;
+}
+@keyframes tfHorseStep {
+  from { skew: -5deg 0deg; }
+  to   { skew: 5deg 0deg; }
+}
+.tf-horse-tail {
+  transform-box: fill-box;
+  transform-origin: 100% 50%;
+  animation: tfHorseTail 1.2s ease-in-out infinite alternate;
+}
+@keyframes tfHorseTail {
+  from { rotate: -7deg; }
+  to   { rotate: 9deg; }
+}
+
 /* Activity-specific motion: the group feels alive without every person
    repeating the same movement. */
 .tf-kite-line {
@@ -1471,7 +1536,9 @@ body.page-home .hero-eyebrow {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tour-friend, .tf-kite, .tf-water-friend, .tf-drops, .tf-phone, .tf-flash {
+  .tour-friend, .tf-kite, .tf-water-friend, .tf-drops, .tf-phone, .tf-flash,
+  .tf-speedboat-run, .tf-boat-bob, .tf-boat-spray, .tf-horse-run,
+  .tf-horse-bob, .tf-horse-leg, .tf-horse-tail {
     animation: none !important;
   }
 }
