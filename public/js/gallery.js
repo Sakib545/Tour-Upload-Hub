@@ -424,7 +424,9 @@
       cfg = await api('/api/config');
     } catch (e) { /* treat as no pin requirement; load() will surface errors */ }
     pageCfg = cfg;
-    if (cfg && cfg.pinRequired && cfg.galleryEnabled) {
+    // `galleryPinRequired` is false when the admin opened the gallery to
+    // everyone, even though uploading still needs the PIN.
+    if (cfg && cfg.galleryPinRequired && cfg.galleryEnabled) {
       const token = sessionStorage.getItem(PIN_KEY) || '';
       if (!token) {
         showPinGate('Gallery দেখতে PIN দিন।');
