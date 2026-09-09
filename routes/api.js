@@ -714,7 +714,8 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
   });
   // Mint one short-lived signed token per listing when the gallery is PIN-gated;
   // <img>/<video> cannot send headers, so media URLs carry it as ?gt=…
-  const gt = cfg.pinEnabled ? galleryToken() : null;
+  const gated = cfg.pinEnabled && !state.settings.galleryPublic;
+  const gt = gated ? galleryToken() : null;
   const q = gt ? `?gt=${encodeURIComponent(gt)}` : '';
   const items = files.map((f) => {
     const meta = sanitize.parseDescription(f.description);
