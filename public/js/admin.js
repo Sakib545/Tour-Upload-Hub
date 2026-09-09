@@ -5,6 +5,7 @@
 (function () {
   const TOKEN_KEY = 'tourAdminToken';
   let token = '';
+  let siteData = null; // last /api/admin/overview site payload (content+categories)
 
   const el = {
     loginCard: $('#loginCard'),
@@ -22,19 +23,6 @@
     btnDriveTest: $('#btnDriveTest'),
     tglUploads: $('#tglUploads'),
     tglGallery: $('#tglGallery'),
-    tglPublic: $('#tglPublic'),
-    fTitle: $('#fTitle'),
-    fSubtitle: $('#fSubtitle'),
-    fDate: $('#fDate'),
-    fLocation: $('#fLocation'),
-    fPrivacy: $('#fPrivacy'),
-    fCover: $('#fCover'),
-    fFolderPhotos: $('#fFolderPhotos'),
-    fFolderGroup: $('#fFolderGroup'),
-    fFolderVideos: $('#fFolderVideos'),
-    btnSaveContent: $('#btnSaveContent'),
-    btnResetContent: $('#btnResetContent'),
-    saveHint: $('#saveHint'),
     recentBody: $('#recentBody'),
     recentNote: $('#recentNote'),
     qrImg: $('#qrImg'),
@@ -57,9 +45,11 @@
   async function loadOverview(silent) {
     try {
       const data = await apiAdmin('/api/admin/overview');
+      siteData = data.site || siteData;
       renderStats(data);
       renderRecent(data.recent || []);
-      applySettings(data.settings);
+      setToggles(data.settings || {});
+      fillSiteForm(siteData);
       return true;
     } catch (err) {
       if (!silent && err.code === 'ADMIN_UNAUTHORIZED') {
@@ -97,8 +87,7 @@
   function renderStats(data) {
     countTo(el.statFiles, data.stats.totalFiles);
     el.statSize.textContent = fmtBytes(data.stats.totalSize);
-    const cats = data.stats.byCategory || {};
-    el.statSplit.textContent = `${cats.single || 0} / ${cats.group || 0} / ${cats.video || 0}`;
+    el.statSplit.textContent = `${(data.stats.photoCount || 0).toLocaleString()} / ${(data.stats.videoCount || 0).toLocaleString()}`;
     el.statFolder.textContent = data.stats.folderName || '—';
     renderFolderLinks(data);
     if (data.drive) renderDrive(data.drive);
@@ -117,12 +106,13 @@
   function renderFolderLinks(data) {
     if (!el.folderLinks) return;
     el.folderLinks.textContent = '';
-    if (data.folderLinks) {
-      el.folderLinks.appendChild(folderLink('📷 Photos folder', data.folderLinks.photos));
-      el.folderLinks.appendChild(folderLink('🎬 Videos folder', data.folderLinks.videos));
+    if (data.folderLinks && data.folderLinks.length) {
+      for (const link of data.folderLinks) {
+        el.folderLinks.appendChild(folderLink(`📁 ${link.label} — ${link.folder}`, link.url));
+      }
     }
     if (data.rootFolderUrl) {
-      el.folderLinks.appendChild(folderLink('📁 Tour folder', data.rootFolderUrl));
+      el.folderLinks.appendChild(folderLink('📂 Destination folder', data.rootFolderUrl));
     }
   }
 
@@ -160,7 +150,7 @@
       const info = typeInfo(r.mimeType);
       const badge = document.createElement('span');
       badge.className = 'type-badge' + (info.cls ? ' ' + info.cls : '');
-      badge.textContent = info.label;
+      badge.textContent = r.categoryLabel || info.label;
       tdType.appendChild(badge);
 
       const tdSize = document.createElement('td');
@@ -189,96 +179,140 @@
     el.recentNote.textContent = `Showing ${rows.length} most recent uploads.`;
   }
 
-  // The settings the server last confirmed — used to fill the form and to undo.
-  let saved = null;
+  /* ── Tour page content & categories ──────────────────────── */
 
-  function applySettings(settings) {
-    if (!settings) return;
-    saved = settings;
-    const flags = settings.flags || {};
-    el.tglUploads.checked = !!flags.uploadsEnabled;
-    el.tglGallery.checked = !!flags.galleryVisible;
-    el.tglPublic.checked = !!flags.galleryPublic;
-    fillForm(settings);
-  }
+  const MEDIA_LABEL = { photo: 'PHOTO', video: 'VIDEO' };
 
-  function fillForm(settings) {
-    const site = settings.site || {};
-    const folders = settings.folders || {};
-    el.fTitle.value = site.title || '';
-    el.fSubtitle.value = site.subtitle || '';
-    el.fDate.value = site.date || '';
-    el.fLocation.value = site.location || '';
-    el.fPrivacy.value = site.privacyNote || '';
-    el.fCover.value = site.coverUrl || '';
-    el.fFolderPhotos.value = folders.photos || '';
-    el.fFolderGroup.value = folders.group || '';
-    el.fFolderVideos.value = folders.videos || '';
-    el.saveHint.textContent = '';
-  }
-
-  function formBody() {
-    return {
-      site: {
-        title: el.fTitle.value,
-        subtitle: el.fSubtitle.value,
-        date: el.fDate.value,
-        location: el.fLocation.value,
-        privacyNote: el.fPrivacy.value,
-        coverUrl: el.fCover.value,
-      },
-      folders: {
-        photos: el.fFolderPhotos.value,
-        group: el.fFolderGroup.value,
-        videos: el.fFolderVideos.value,
-      },
+  function fillSiteForm(site) {
+    if (!site) return;
+    const c = site.content || {};
+    const set = (id, v) => {
+      const n = $(id);
+      if (n) n.value = v || '';
     };
+    set('#siteTitle', c.title);
+    set('#siteSubtitle', c.subtitle);
+    set('#siteDate', c.date);
+    set('#siteLocation', c.location);
+    set('#sitePrivacy', c.privacyNote);
+    set('#siteCover', c.coverUrl);
+    buildCategoryRows(site.categories || []);
   }
 
-  async function saveSettings(body, { successToast }) {
-    const data = await apiAdmin('/api/admin/settings', { method: 'PUT', body });
-    applySettings(data.settings);
-    // The durable copy lives in the Drive folder — say so when it did not land.
-    el.saveHint.textContent = data.persisted
-      ? 'Saved to your Drive folder.'
-      : 'Saved for now, but NOT written to Drive — it will reset on redeploy.';
-    if (successToast) toast(successToast, { bad: !data.persisted });
-    return data;
+  function buildCategoryRows(cats) {
+    const body = $('#catTableBody');
+    if (!body) return;
+    body.textContent = '';
+    for (const cat of cats) {
+      const tr = document.createElement('tr');
+
+      const tdType = document.createElement('td');
+      tdType.textContent = `${cat.id} · ${MEDIA_LABEL[cat.media] || cat.media}`;
+
+      const tdLabel = document.createElement('td');
+      const inpLabel = document.createElement('input');
+      inpLabel.className = 'input';
+      inpLabel.dataset.cat = cat.id;
+      inpLabel.dataset.field = 'label';
+      inpLabel.maxLength = 80;
+      inpLabel.value = cat.label || '';
+      tdLabel.appendChild(inpLabel);
+
+      const tdFolder = document.createElement('td');
+      const inpFolder = document.createElement('input');
+      inpFolder.className = 'input';
+      inpFolder.dataset.cat = cat.id;
+      inpFolder.dataset.field = 'folder';
+      inpFolder.maxLength = 80;
+      inpFolder.value = cat.folder || '';
+      tdFolder.appendChild(inpFolder);
+
+      tr.append(tdType, tdLabel, tdFolder);
+      body.appendChild(tr);
+    }
+  }
+
+  function collectSiteForm() {
+    const val = (id) => {
+      const n = $(id);
+      return n ? n.value.trim() : '';
+    };
+    const content = {
+      title: val('#siteTitle'),
+      subtitle: val('#siteSubtitle'),
+      date: val('#siteDate'),
+      location: val('#siteLocation'),
+      privacyNote: val('#sitePrivacy'),
+      coverUrl: val('#siteCover'),
+    };
+    const categories = [];
+    const baseCats = (siteData && siteData.categories) || [];
+    for (const tr of $$('#catTableBody tr')) {
+      const label = tr.querySelector('[data-field="label"]');
+      const folder = tr.querySelector('[data-field="folder"]');
+      if (!label || !folder) continue;
+      const base = baseCats.find((c) => c.id === label.dataset.cat);
+      if (!base) continue;
+      categories.push({
+        id: base.id,
+        media: base.media,
+        label: label.value.trim(),
+        folder: folder.value.trim(),
+      });
+    }
+    return { content, categories };
+  }
+
+  async function saveSite() {
+    const btn = $('#btnSaveSite');
+    const note = $('#siteSavedNote');
+    if (btn) btn.disabled = true;
+    if (note) note.textContent = '';
+    try {
+      const data = await apiAdmin('/api/admin/site', { method: 'PUT', body: collectSiteForm() });
+      siteData = data.site;
+      fillSiteForm(data.site);
+      loadOverview(true); // refresh folder links / stats with the new folders
+      if (note) note.textContent = '✔ Saved — changes are live now.';
+      toast('Tour page & folders saved.');
+    } catch (err) {
+      if (note) note.textContent = 'Save failed: ' + (err.code || 'error');
+      toast('Could not save: ' + (err.code || 'error'), { bad: true });
+    } finally {
+      if (btn) btn.disabled = false;
+      setTimeout(() => {
+        if (note) note.textContent = '';
+      }, 6000);
+    }
+  }
+
+  function setToggles(settings) {
+    el.tglUploads.checked = !!settings.uploadsEnabled;
+    el.tglGallery.checked = !!settings.galleryVisible;
   }
 
   async function updateSetting() {
     try {
-      const data = await saveSettings(
-        {
+      const data = await apiAdmin('/api/admin/settings', {
+        method: 'PUT',
+        body: {
           uploadsEnabled: el.tglUploads.checked,
           galleryVisible: el.tglGallery.checked,
-          galleryPublic: el.tglPublic.checked,
         },
-        { successToast: null }
-      );
-      const flags = data.settings.flags;
+      });
+      setToggles(data.settings);
       toast(
-        !flags.uploadsEnabled
-          ? 'Uploads are DISABLED — visitors will see a notice.'
-          : flags.galleryPublic
-            ? 'Gallery is open to everyone. Uploading still asks for the PIN.'
-            : 'Settings saved.',
-        { bad: !flags.uploadsEnabled }
+        data.settings.uploadsEnabled
+          ? 'Uploads are ENABLED.'
+          : 'Uploads are DISABLED — visitors will see a notice.',
+        { bad: !data.settings.uploadsEnabled }
       );
+      if (!data.settings.galleryVisible && el.tglGallery.checked === false) {
+        // nothing extra needed; gallery link disappears automatically
+      }
     } catch (err) {
       toast('Could not save setting: ' + (err.code || 'error'), { bad: true });
       loadOverview(true);
-    }
-  }
-
-  async function saveContent() {
-    el.btnSaveContent.disabled = true;
-    try {
-      await saveSettings(formBody(), { successToast: 'Page content updated.' });
-    } catch (err) {
-      toast('Could not save: ' + (err.code || 'error'), { bad: true });
-    } finally {
-      el.btnSaveContent.disabled = false;
     }
   }
 
@@ -431,12 +465,9 @@
     el.loginForm.addEventListener('submit', submitLogin);
     el.tglUploads.addEventListener('change', updateSetting);
     el.tglGallery.addEventListener('change', updateSetting);
-    el.tglPublic.addEventListener('change', updateSetting);
     el.btnDriveTest.addEventListener('click', testDrive);
-    el.btnSaveContent.addEventListener('click', saveContent);
-    el.btnResetContent.addEventListener('click', () => {
-      if (saved) fillForm(saved);
-    });
+    const saveBtn = $('#btnSaveSite');
+    if (saveBtn) saveBtn.addEventListener('click', saveSite);
 
     token = sessionStorage.getItem(TOKEN_KEY) || '';
     if (token) {
