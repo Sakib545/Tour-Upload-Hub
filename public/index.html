@@ -20,174 +20,150 @@
 
   <header class="hero">
     <!-- Animated scenery: river (front), city skyline (mid), mountains & dusk sky (back) -->
-    <svg class="scenery" viewBox="0 0 1440 460" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+    <svg class="scenery cx-scene" viewBox="0 0 1440 460" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="scSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="st-s1" />
-          <stop offset="0.55" class="st-s2" />
-          <stop offset="1" class="st-s3" />
+        <linearGradient id="bxSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" class="bxst-s1" />
+          <stop offset="0.62" class="bxst-s2" />
+          <stop offset="1" class="bxst-s3" />
         </linearGradient>
-        <radialGradient id="scSunGlow" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" class="st-sun" stop-opacity="0.9" />
-          <stop offset="1" class="st-sun" stop-opacity="0" />
+        <radialGradient id="bxGlow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" class="bxst-g" stop-opacity="0.9" />
+          <stop offset="1" class="bxst-g" stop-opacity="0" />
         </radialGradient>
-        <linearGradient id="scWater" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="st-w1" />
-          <stop offset="0.55" class="st-w2" />
-          <stop offset="1" class="st-w3" />
+        <linearGradient id="bxSea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" class="bxst-w1" />
+          <stop offset="0.55" class="bxst-w2" />
+          <stop offset="1" class="bxst-w3" />
         </linearGradient>
-        <linearGradient id="reflCool" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="st-rc" stop-opacity="0.85" />
-          <stop offset="0.45" class="st-rc" stop-opacity="0.3" />
-          <stop offset="1" class="st-rc" stop-opacity="0" />
+        <linearGradient id="bxWet" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" class="bxst-d1" />
+          <stop offset="1" class="bxst-d2" />
         </linearGradient>
-        <linearGradient id="reflWarm" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" class="st-rw" stop-opacity="0.9" />
-          <stop offset="0.5" class="st-rw" stop-opacity="0.25" />
-          <stop offset="1" class="st-rw" stop-opacity="0" />
+        <linearGradient id="bxSunRefl" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" class="bxst-r" stop-opacity="0.8" />
+          <stop offset="0.45" class="bxst-r" stop-opacity="0.22" />
+          <stop offset="1" class="bxst-r" stop-opacity="0" />
         </linearGradient>
-        <pattern id="winBase" width="17" height="22" patternUnits="userSpaceOnUse">
-          <rect x="3" y="4" width="4" height="6" rx="0.6" class="p-base" opacity="0.55" />
-          <rect x="10" y="13" width="4" height="6" rx="0.6" class="p-base" opacity="0.3" />
-        </pattern>
-        <pattern id="winAcc" width="73" height="63" patternUnits="userSpaceOnUse">
-          <rect x="6" y="7" width="3.5" height="5" class="p-acc" />
-          <rect x="38" y="29" width="3.5" height="5" class="p-acc" />
-          <rect x="60" y="14" width="3.5" height="5" class="p-acc" />
-        </pattern>
-        <!-- The city silhouette doubles as the clip that keeps windows on towers -->
-        <g id="scTowers">
-          <rect x="80" y="294" width="1340" height="6" />
-          <rect x="96" y="262" width="44" height="38" />
-          <rect x="146" y="246" width="40" height="54" />
-          <rect x="192" y="252" width="54" height="48" />
-          <rect x="252" y="232" width="46" height="68" />
-          <rect x="304" y="252" width="52" height="48" />
-          <rect x="362" y="268" width="40" height="32" />
-          <rect x="410" y="240" width="52" height="60" />
-          <rect x="470" y="224" width="44" height="76" />
-          <rect x="522" y="196" width="48" height="104" />
-          <rect x="578" y="206" width="60" height="94" />
-          <rect x="646" y="188" width="50" height="112" />
-          <rect x="704" y="220" width="42" height="80" />
-          <rect x="754" y="214" width="56" height="86" />
-          <rect x="818" y="240" width="44" height="60" />
-          <rect x="870" y="216" width="58" height="84" />
-          <rect x="936" y="238" width="42" height="62" />
-          <rect x="986" y="224" width="52" height="76" />
-          <rect x="1046" y="206" width="48" height="94" />
-          <rect x="1102" y="238" width="46" height="62" />
-          <rect x="1156" y="224" width="52" height="76" />
-          <rect x="1216" y="246" width="42" height="54" />
-          <rect x="1266" y="234" width="46" height="66" />
-          <rect x="1318" y="252" width="40" height="48" />
-          <rect x="1366" y="238" width="40" height="62" />
-        </g>
-        <clipPath id="scSkyClip"><use href="#scTowers" /></clipPath>
       </defs>
 
-      <!-- Dusk sky -->
-      <rect x="0" y="0" width="1440" height="300" fill="url(#scSky)" />
+      <!-- Sky -->
+      <rect x="0" y="0" width="1440" height="142" fill="url(#bxSky)" />
+      <rect x="0" y="134" width="1440" height="16" class="bx-haze" />
 
-      <!-- Sun + halo -->
-      <circle cx="1158" cy="172" r="96" fill="url(#scSunGlow)" class="sc-sun-glow" />
-      <g class="sc-sun">
-        <circle cx="1158" cy="172" r="38" class="sc-sun-core" />
+      <!-- Sun -->
+      <circle cx="1180" cy="96" r="108" fill="url(#bxGlow)" class="bx-glow" />
+      <g class="cx-sun"><circle cx="1180" cy="96" r="40" class="bx-sun-core" /></g>
+
+      <!-- Drifting cartoon clouds -->
+      <g class="bx-cloud bx-cl1" style="--cx0:-560px; --cx1:1640px"><g transform="translate(230,64)">
+        <ellipse cx="0" cy="0" rx="92" ry="15" /><ellipse cx="76" cy="-9" rx="58" ry="11" /><ellipse cx="-68" cy="6" rx="46" ry="9" />
+      </g></g>
+      <g class="bx-cloud bx-cl2" style="--cx0:-700px; --cx1:1720px"><g transform="translate(760,112)">
+        <ellipse cx="0" cy="0" rx="84" ry="13" /><ellipse cx="66" cy="-8" rx="50" ry="10" /><ellipse cx="-60" cy="5" rx="40" ry="8" />
+      </g></g>
+      <g class="bx-cloud bx-cl3" style="--cx0:-420px; --cx1:1460px"><g transform="translate(1090,44)">
+        <ellipse cx="0" cy="0" rx="64" ry="10" /><ellipse cx="48" cy="-6" rx="40" ry="8" /><ellipse cx="-46" cy="4" rx="32" ry="7" />
+      </g></g>
+
+      <!-- Gulls -->
+      <g class="bx-bird bx-bd1"><g transform="translate(640,150)">
+        <path d="M0 0 q4.5 -6 9 0 q4.5 6 9 0" /><path d="M36 3 q4.5 -6 9 0 q4.5 6 9 0" />
+      </g></g>
+      <g class="bx-bird bx-bd2"><g transform="translate(1010,112)">
+        <path d="M0 0 q4 -5.5 8 0 q4 5.5 8 0" /><path d="M32 3 q4 -5.5 8 0 q4 5.5 8 0" />
+      </g></g>
+
+      <!-- Sea -->
+      <rect x="0" y="150" width="1440" height="96" fill="url(#bxSea)" />
+      <rect x="0" y="232" width="1440" height="14" class="bx-shallow" />
+
+      <!-- Sun glitter path across the water -->
+      <rect x="1150" y="150" width="64" height="82" fill="url(#bxSunRefl)" class="cx-glim" />
+
+      <!-- Water glints & swells (cartoon sparkle lines) -->
+      <path class="bx-l1 bx-w1" d="M0 172 C240 178 480 166 720 172 C960 178 1200 166 1440 172" />
+      <path class="bx-l2 bx-w2" d="M0 196 C240 190 480 202 720 196 C960 190 1200 202 1440 196" />
+      <path class="bx-l3 bx-w3" d="M0 220 C240 226 480 214 720 220 C960 226 1200 214 1440 220" />
+      <path class="bx-l1 bx-w4" d="M0 240 C240 234 480 246 720 240 C960 234 1200 246 1440 240" />
+      <path class="bx-swell" d="M0 208 C200 200 320 216 560 208 C760 200 920 216 1160 208 C1280 203 1360 212 1440 208" />
+      <path class="bx-swell2" d="M0 228 C220 234 380 220 620 228 C820 236 980 222 1220 228 C1340 232 1400 224 1440 228" />
+
+      <!-- Wet sand (shoreline) -->
+      <rect x="0" y="246" width="1440" height="44" fill="url(#bxWet)" />
+
+      <!-- Rolling foam scallops along the waterline -->
+      <path class="bx-foam" d="M0 247 q30 -13 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0" />
+      <path class="bx-foam2" d="M0 257 H1440" />
+
+      <!-- Drift line of tiny foam bits -->
+      <path class="bx-drift" d="M0 241 H1440" />
+
+      <!-- Dry sand -->
+      <rect x="0" y="290" width="1440" height="170" class="bx-sand" />
+      <ellipse class="bx-mark" cx="430" cy="372" rx="5" ry="3" />
+      <ellipse class="bx-mark" cx="512" cy="416" rx="8" ry="4" />
+      <ellipse class="bx-mark" cx="760" cy="344" rx="4" ry="2.5" />
+      <ellipse class="bx-mark" cx="986" cy="430" rx="7" ry="3.5" />
+      <ellipse class="bx-mark" cx="642" cy="452" rx="5" ry="3" />
+      <path class="bx-star" d="M200 342 L205 347 L212 345 L208 352 L213 357 L206 356 L202 362 L200 356 L194 358 L197 352 L192 349 L199 350 Z" />
+      <g class="bx-shell">
+        <path d="M1206 398 Q1218 382 1230 398 Z" />
+        <path d="M1212 396 L1218 388 L1224 396 Z" opacity="0.85" />
       </g>
+      <ellipse class="bx-shell2" cx="1272" cy="376" rx="7" ry="4" />
 
-      <!-- Drifting clouds (slow, continuous pass across the sky) -->
-      <g class="sc-cloud sc-c1" style="--c0:-520px; --c1:1600px"><g transform="translate(240,84)">
-        <ellipse cx="0" cy="0" rx="86" ry="15" /><ellipse cx="68" cy="-9" rx="56" ry="11" /><ellipse cx="-62" cy="7" rx="46" ry="9" />
+      <!-- Fishing boats bobbing on the sea -->
+      <g class="cx-boat cx-b1"><g transform="translate(330,214)">
+        <path class="bx-wake" d="M-58 12 Q-76 10 -92 13" />
+        <path class="bx-wake" d="M-50 20 Q-68 19 -82 22" />
+        <path class="bx-hull1" d="M-52 2 C-30 18 30 18 52 2 C30 9 -30 9 -52 2 Z" />
+        <path class="bx-rim1" d="M-52 2 C-30 6.5 30 6.5 52 2" />
+        <path class="bx-mast" d="M0 2 L0 -24" />
+        <path class="bx-flag" d="M0 -24 L16 -19 L0 -14 Z" />
       </g></g>
-      <g class="sc-cloud sc-c2" style="--c0:-640px; --c1:1700px"><g transform="translate(760,126)">
-        <ellipse cx="0" cy="0" rx="92" ry="13" /><ellipse cx="78" cy="-7" rx="48" ry="9" /><ellipse cx="-70" cy="6" rx="40" ry="8" />
-      </g></g>
-      <g class="sc-cloud sc-c3" style="--c0:-380px; --c1:1400px"><g transform="translate(1100,64)">
-        <ellipse cx="0" cy="0" rx="70" ry="10" /><ellipse cx="54" cy="-6" rx="42" ry="8" /><ellipse cx="-52" cy="5" rx="36" ry="7" />
-      </g></g>
-      <g class="sc-cloud sc-c4" style="--c0:-760px; --c1:1800px"><g transform="translate(380,44)">
-        <ellipse cx="0" cy="0" rx="120" ry="7" />
-      </g></g>
-
-      <!-- Birds crossing the sky -->
-      <g class="sc-bird sc-bd1"><g transform="translate(700,170)">
-        <path d="M0 0 q4 -5 8 0 q4 5 8 0" /><path d="M34 2 q4 -5 8 0 q4 5 8 0" />
-      </g></g>
-      <g class="sc-bird sc-bd2"><g transform="translate(980,120)">
-        <path d="M0 0 q3.5 -4.5 7 0 q3.5 4.5 7 0" /><path d="M30 2 q3.5 -4.5 7 0 q3.5 4.5 7 0" />
+      <g class="cx-boat cx-b2"><g transform="translate(1092,196)">
+        <path class="bx-wake" d="M-66 13 Q-86 11 -104 14" />
+        <path class="bx-wake" d="M-58 21 Q-78 20 -94 23" />
+        <path class="bx-hull2" d="M-60 2 C-34 21 34 21 60 2 C34 10 -34 10 -60 2 Z" />
+        <path class="bx-rim2" d="M-60 2 C-34 7 34 7 60 2" />
+        <path class="bx-mast" d="M4 2 L4 -30" />
+        <path class="bx-flag" d="M4 -30 L22 -24 L4 -18 Z" />
       </g></g>
 
-      <!-- Far mountain ridge -->
-      <path class="sc-mtn-far" d="M0 300 L0 206 L90 214 L150 150 L235 190 L300 128 L390 172 L470 146 L560 196 L660 208 L720 150 L800 204 L880 190 L950 120 L1030 168 L1120 178 L1200 132 L1290 190 L1360 206 L1440 170 L1440 300 Z" />
-      <polygon class="sc-cap" points="300,128 283,158 317,158" />
-      <polygon class="sc-cap" points="950,120 933,149 967,149" />
-      <polygon class="sc-cap" points="1200,132 1185,158 1215,158" />
-
-      <!-- Nearer hill ridge -->
-      <path class="sc-mtn-near" d="M0 300 L0 244 L70 254 L140 208 L225 246 L310 222 L400 256 L500 232 L615 258 L730 236 L840 262 L950 246 L1065 262 L1175 244 L1290 262 L1360 246 L1440 258 L1440 300 Z" />
-
-      <!-- Trees on the near bank, framing the scene -->
-      <g class="sc-tree">
-        <circle cx="60" cy="282" r="16" /><circle cx="92" cy="274" r="21" /><circle cx="128" cy="284" r="13" /><circle cx="38" cy="288" r="10" />
-        <circle cx="1308" cy="280" r="15" /><circle cx="1342" cy="274" r="21" /><circle cx="1378" cy="283" r="12" /><circle cx="1276" cy="289" r="9" />
-      </g>
-
-      <!-- City skyline -->
-      <use href="#scTowers" class="sc-city" />
-      <g class="sc-ant"><path d="M671 150 L671 188" /><path d="M546 158 L546 196" /><path d="M1070 168 L1070 206" /></g>
-
-      <!-- Windows: static grid + warm twinkle layer + a few individual blinkers -->
-      <g clip-path="url(#scSkyClip)">
-        <rect x="80" y="192" width="1340" height="110" fill="url(#winBase)" opacity="0.5" />
-        <rect x="80" y="192" width="1340" height="110" fill="url(#winAcc)" class="sc-tw" opacity="0.9" />
-        <rect x="112" y="270" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="170" y="256" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="206" y="264" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="268" y="244" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="318" y="264" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="432" y="254" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="486" y="238" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="540" y="210" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="600" y="224" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="660" y="204" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="716" y="232" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="774" y="230" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="836" y="254" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="888" y="232" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="950" y="250" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="1002" y="240" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="1060" y="222" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="1120" y="252" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="1170" y="238" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="1230" y="258" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-        <rect x="1280" y="248" width="3.2" height="4.6" class="sc-blink sc-blk3" />
-        <rect x="1330" y="264" width="3.2" height="4.6" class="sc-blink sc-blk1" />
-        <rect x="1378" y="252" width="3.2" height="4.6" class="sc-blink sc-blk2" />
-      </g>
-
-      <!-- Light reflections of the city in the water -->
-      <rect x="470" y="300" width="560" height="64" fill="url(#reflCool)" class="sc-refl-a" opacity="0.8" />
-      <rect x="110" y="300" width="300" height="40" fill="url(#reflWarm)" class="sc-refl-b" opacity="0.85" />
-      <rect x="1020" y="300" width="360" height="48" fill="url(#reflWarm)" class="sc-refl-a" opacity="0.85" />
-
-      <!-- The river -->
-      <rect x="0" y="300" width="1440" height="160" fill="url(#scWater)" />
-      <path class="sc-line sc-f1" d="M0 340 C240 348 480 332 720 340 C960 348 1200 332 1440 340" />
-      <path class="sc-line2 sc-f2" d="M0 368 C240 362 480 374 720 368 C960 362 1200 374 1440 368" />
-      <path class="sc-line sc-f3" d="M0 404 C240 410 480 398 720 404 C960 410 1200 398 1440 404" />
-      <path class="sc-line2 sc-f4" d="M0 440 C240 434 480 446 720 440 C960 434 1200 446 1440 440" />
-
-      <!-- A little sailboat drifting on the water -->
-      <g class="sc-boat">
-        <g transform="translate(660,398)">
-          <path class="sc-wake" d="M-44 6 Q-60 4 -74 6" />
-          <path class="sc-wake" d="M-36 13 Q-52 12 -64 14" />
-          <path class="sc-hull" d="M-30 0 C-30 6 -16 10 0 10 C16 10 30 6 30 0 C16 3 -16 3 -30 0 Z" />
-          <path class="sc-mast" d="M0 -46 L0 2" />
-          <path class="sc-sail" d="M1 -42 L1 -3 L26 -9 Q19 -26 1 -42 Z" />
-          <path class="sc-sail" d="M-1 -28 L-1 -5 L-22 -11 Z" opacity="0.92" />
-        </g>
-      </g>
+      <!-- Coconut palms swaying on the beach -->
+      <g class="bx-palm bx-p1"><g transform="translate(150,336)">
+        <ellipse class="bx-shade" cx="10" cy="8" rx="54" ry="9" />
+        <path class="bx-trunk" d="M0 6 C34 -64 16 -128 0 -188" />
+        <circle class="bx-coco" cx="-6" cy="-8" r="5" /><circle class="bx-coco" cx="9" cy="-12" r="5" />
+        <path class="bx-frond-a" d="M0 0 Q40 -34 92 -30 Q46 8 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q-40 -34 -92 -30 Q-46 8 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q26 -60 40 -98 Q2 -62 0 0 Z" />
+        <path class="bx-frond-a" d="M0 0 Q-26 -60 -40 -98 Q-2 -62 0 0 Z" />
+        <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
+      </g></g>
+      <g class="bx-palm bx-p2"><g transform="translate(1290,322)">
+        <ellipse class="bx-shade" cx="-6" cy="8" rx="52" ry="9" />
+        <path class="bx-trunk" d="M0 6 C-32 -62 -14 -126 2 -196" />
+        <circle class="bx-coco" cx="-8" cy="-8" r="5" /><circle class="bx-coco" cx="10" cy="-11" r="5" />
+        <path class="bx-frond-a" d="M0 0 Q40 -34 92 -30 Q46 8 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q-40 -34 -92 -30 Q-46 8 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q26 -60 40 -98 Q2 -62 0 0 Z" />
+        <path class="bx-frond-a" d="M0 0 Q-26 -60 -40 -98 Q-2 -62 0 0 Z" />
+        <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
+      </g></g>
+      <g class="bx-palm bx-p3"><g transform="translate(1382,366) scale(0.62)">
+        <ellipse class="bx-shade" cx="6" cy="8" rx="46" ry="8" />
+        <path class="bx-trunk" d="M0 6 C22 -46 10 -92 0 -136" />
+        <path class="bx-frond-a" d="M0 0 Q40 -34 92 -30 Q46 8 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q-40 -34 -92 -30 Q-46 8 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q26 -60 40 -98 Q2 -62 0 0 Z" />
+        <path class="bx-frond-a" d="M0 0 Q-26 -60 -40 -98 Q-2 -62 0 0 Z" />
+        <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
+        <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
+      </g></g>
     </svg>
 
     <div class="hero-halo" aria-hidden="true"></div>
