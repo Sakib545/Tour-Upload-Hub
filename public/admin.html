@@ -49,11 +49,16 @@
             <span class="toggle" aria-hidden="true"></span>
           </label>
           <label class="toggle-row">
-            <span>Show gallery <small>public gallery visible on the site</small></span>
+            <span>Show gallery <small>the gallery page is reachable at all</small></span>
             <input type="checkbox" id="tglGallery" />
             <span class="toggle" aria-hidden="true"></span>
           </label>
-          <p class="muted-text note">Changes apply instantly. They reset to the ENABLE_UPLOADS / GALLERY_VISIBLE env defaults after a Railway redeploy.</p>
+          <label class="toggle-row">
+            <span>Anyone can view the gallery <small>view and download without the PIN — uploading still asks for it</small></span>
+            <input type="checkbox" id="tglPublic" />
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+          <p class="muted-text note">Changes apply instantly and are saved into your Drive folder, so they survive a redeploy.</p>
         </section>
 
         <section class="card admin-section">
@@ -95,6 +100,15 @@
           <p class="muted-text">Single photos, group photos and videos each live in their own Drive folder.
             Open one and use Drive's “Download” to grab everything as a zip.</p>
           <div class="folder-links" id="folderLinks"></div>
+
+          <h2 class="sub-h2">Tidy up</h2>
+          <p class="muted-text">Files uploaded before the category folders existed are still loose in the main
+            folder. This moves photos and videos into their folders. Group photos can't be detected
+            automatically — they go to the single-photo folder and can be moved in Drive.</p>
+          <div class="save-row">
+            <button type="button" class="btn btn-ghost" id="btnOrganise">Sort existing files into folders</button>
+            <span class="muted-text" id="organiseHint"></span>
+          </div>
         </section>
 
         <section class="card admin-section">
