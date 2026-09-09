@@ -1,0 +1,25 @@
+এই zip-এ শুধু বদলানো ফাইলগুলো আছে। রিপোর কাঠামো ঠিক রেখে উপরে কপি করে দিন
+(একই নামের ফাইল replace হবে), তারপর commit করে push করুন।
+
+নতুন ফাইল (৫টি)
+  public/game.html            — মিনি গেমের পেজ
+  public/js/game.js           — গেমের ইঞ্জিন ও রেন্ডারার
+  public/js/game-ui.js        — HUD, টাচ প্যাড, কীবোর্ড, ক্রু
+  scripts/check-scene.js      — hero দৃশ্যের transform সংঘর্ষ ধরার পরীক্ষা
+  test/21-game-page.test.js   — গেম পেজের টেস্ট
+
+বদলানো ফাইল (৭টি)
+  public/css/app.css   — animation keyframe ফিক্স (translate/rotate/scale),
+                          গেমের স্টাইল
+  public/index.html    — home পেজে গেমের লিংক
+  public/admin.html    — countdown-এর অবস্থা দেখানোর লাইন
+  public/js/admin.js   — ওই লাইনটা পূরণ করার কোড
+  server/app.js        — /game রুট
+  package.json         — npm run check-এ scene পরীক্ষা যোগ
+  README.md            — নতুন ফিচারের বর্ণনা
+
+কোনো ফাইল মুছতে হবে না।
+
+লাগানোর পর:
+  npm test        → ৪১টি পাস হওয়ার কথা
+  npm run check

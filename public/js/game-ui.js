@@ -45,6 +45,7 @@
       crew,
       // The player's boat takes the first enrolled person's colouring.
       skin: crew[0] && crew[0].avatar ? crew[0].avatar.skin : '#efbd93',
+      shirt: crew[0] && crew[0].avatar ? crew[0].avatar.shirt : '#17948f',
       onState: renderHud,
     });
 

@@ -245,6 +245,47 @@
     let H = 0;
     let horizon = 0;
 
+    // Two layers never change between frames: the sky (with its sun and glow)
+    // and the vignette. Painting those gradients every frame was costing more
+    // than the entire rest of the scene, so they are baked once per resize.
+    const bg = document.createElement('canvas');
+    const bgCtx = bg.getContext('2d');
+    const vig = document.createElement('canvas');
+    const vigCtx = vig.getContext('2d');
+
+    function bakeLayers() {
+      bg.width = W; bg.height = Math.ceil(horizon) + 4;
+      vig.width = W; vig.height = H;
+
+      const g = bgCtx.createLinearGradient(0, 0, 0, horizon);
+      g.addColorStop(0, SKY_TOP);
+      g.addColorStop(0.5, SKY_MID);
+      g.addColorStop(0.86, SKY_LOW);
+      g.addColorStop(1, '#ffb266');
+      bgCtx.fillStyle = g;
+      bgCtx.fillRect(0, 0, W, horizon + 4);
+
+      const cx = W / 2;
+      const cy = horizon - 30;
+      const glow = bgCtx.createRadialGradient(cx, cy, 8, cx, cy, 140);
+      glow.addColorStop(0, 'rgba(255, 226, 170, 0.85)');
+      glow.addColorStop(1, 'rgba(255, 170, 90, 0)');
+      bgCtx.fillStyle = glow;
+      bgCtx.fillRect(cx - 150, cy - 150, 300, 300);
+      bgCtx.fillStyle = SUN;
+      bgCtx.beginPath();
+      bgCtx.arc(cx, cy, 38, 0, TAU);
+      bgCtx.fill();
+
+      const v = vigCtx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35,
+        W / 2, H * 0.55, Math.max(W, H) * 0.75);
+      v.addColorStop(0, 'rgba(0,0,0,0)');
+      v.addColorStop(1, 'rgba(3, 10, 22, 0.55)');
+      vigCtx.clearRect(0, 0, W, H);
+      vigCtx.fillStyle = v;
+      vigCtx.fillRect(0, 0, W, H);
+    }
+
     function resize() {
       const dpr = Math.min(2, global.devicePixelRatio || 1);
       const rect = canvas.getBoundingClientRect();
@@ -254,6 +295,7 @@
       canvas.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       horizon = H * 0.36;
+      bakeLayers();
     }
 
     /** World point → screen. Returns null when it is behind the camera. */
@@ -268,67 +310,138 @@
       };
     }
 
-    function sky() {
-      const g = ctx.createLinearGradient(0, 0, 0, horizon);
-      g.addColorStop(0, '#241a4d');
-      g.addColorStop(0.55, '#6b3f6e');
-      g.addColorStop(1, '#e2743c');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, horizon + 2);
+    /* ── Palette ──────────────────────────────────────────────
+       Borrowed from the hero scene so the game feels like the same beach at
+       the same hour, rather than a different app bolted on. */
+    const SKY_TOP = '#2a1a4e';
+    const SKY_MID = '#8a3f63';
+    const SKY_LOW = '#ef7a35';
+    const SUN = '#ffd79a';
+    const SEA_FAR = '#2a6f96';
+    const SEA_NEAR = '#0a2c4a';
 
-      const sunX = W * 0.72;
-      const sunY = horizon - 26;
-      ctx.fillStyle = '#ffd9a0';
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 34, 0, TAU);
-      ctx.fill();
-      ctx.globalAlpha = 0.18;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 62, 0, TAU);
-      ctx.fill();
-      ctx.globalAlpha = 1;
+    let sunX = 0;
+    let sunY = 0;
+
+    function sky() {
+      // The camera pans a little with the boat, so the sun drifts across.
+      sunX = W / 2 - state.x * 0.12;
+      sunY = horizon - 30;
+      ctx.drawImage(bg, sunX - W / 2, 0);
+      if (sunX > W / 2) ctx.drawImage(bg, sunX - W / 2 - W, 0);
+      else ctx.drawImage(bg, sunX - W / 2 + W, 0);
+
+      ctx.fillStyle = 'rgba(255, 214, 190, 0.22)';
+      for (let i = 0; i < 5; i++) {
+        const cx = ((i * 317 + state.t * 9) % (W + 260)) - 130;
+        const cy = horizon * (0.18 + i * 0.11);
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 70 + i * 22, 7 + i, 0, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    /** Height of the water surface at a distance, in screen pixels. */
+    function surfaceY(z, scale) {
+      return horizon + (CAM_HEIGHT - waveAt(z, state.t)) * scale;
     }
 
     function sea() {
-      const g = ctx.createLinearGradient(0, horizon, 0, H);
-      g.addColorStop(0, '#1d5f86');
-      g.addColorStop(0.45, '#12456b');
-      g.addColorStop(1, '#0b2c4c');
+      const g = ctx.createLinearGradient(0, horizon - 4, 0, H);
+      g.addColorStop(0, SEA_FAR);
+      g.addColorStop(0.4, '#14507a');
+      g.addColorStop(1, SEA_NEAR);
       ctx.fillStyle = g;
-      ctx.fillRect(0, horizon, W, H - horizon);
+      ctx.fillRect(0, horizon - 4, W, H - horizon + 4);
 
-      // Foam lines at fixed world intervals: the only real cue for speed.
-      const step = 240;
+      // Rolling swell. Each band is filled only down to the next one, so the
+      // whole sea costs about one screen of paint rather than twenty-six.
+      const step = 130;
       const first = Math.floor(state.travelled / step) * step;
-      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-      for (let i = 0; i < 26; i++) {
-        const z = first + i * step;
-        const lift = waveAt(z, state.t);
-        const a = project(-LANE_HALF - 260, z, lift);
-        const b = project(LANE_HALF + 260, z, lift);
-        if (!a || !b) continue;
-        ctx.lineWidth = Math.max(0.6, 3 * a.scale);
-        ctx.globalAlpha = clamp(a.scale * 2.4, 0, 0.5);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-
-      // Channel edges
-      for (const side of [-1, 1]) {
-        ctx.strokeStyle = 'rgba(255, 210, 140, 0.35)';
-        ctx.beginPath();
-        let started = false;
-        for (let i = 0; i < 30; i++) {
-          const z = state.travelled + i * 60;
-          const p = project(side * (LANE_HALF + 40), z, waveAt(z, state.t));
-          if (!p) continue;
-          if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+      const BANDS = 24;
+      const line = (z, amp, y) => {
+        const pts = [];
+        for (let px = -20; px <= W + 20; px += 34) {
+          pts.push([px, y + Math.sin((px + z * 0.7) * 0.012 + state.t * 2.2) * amp]);
         }
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        return pts;
+      };
+
+      let prev = null;
+      for (let i = BANDS; i >= 1; i--) {
+        const z = first + i * step;
+        const d = z - state.travelled + CAM_BACK;
+        if (d < 12) continue;
+        const scale = FOCAL / d;
+        const y = surfaceY(z, scale);
+        if (y < horizon - 30) continue;
+        const near = clamp(scale * 2.2, 0, 1);
+        const pts = line(z, 3 + near * 15, y);
+        if (prev) {
+          ctx.beginPath();
+          ctx.moveTo(pts[0][0], pts[0][1]);
+          for (const pt of pts) ctx.lineTo(pt[0], pt[1]);
+          for (let k = prev.length - 1; k >= 0; k--) ctx.lineTo(prev[k][0], prev[k][1]);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(${18 + near * 12}, ${74 + near * 26}, ${118 + near * 30}, ${0.30 + near * 0.28})`;
+          ctx.fill();
+        }
+        if (near > 0.3) {
+          ctx.strokeStyle = `rgba(230, 246, 255, ${0.08 + near * 0.28})`;
+          ctx.lineWidth = 1 + near * 2.2;
+          ctx.beginPath();
+          ctx.moveTo(pts[0][0], pts[0][1]);
+          for (const pt of pts) ctx.lineTo(pt[0], pt[1]);
+          ctx.stroke();
+        }
+        prev = pts;
+      }
+      // Below the nearest swell, plain deep water.
+      if (prev) {
+        ctx.beginPath();
+        ctx.moveTo(prev[0][0], prev[0][1]);
+        for (const pt of prev) ctx.lineTo(pt[0], pt[1]);
+        ctx.lineTo(W + 20, H + 40);
+        ctx.lineTo(-20, H + 40);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(10, 44, 74, 0.55)';
+        ctx.fill();
+      }
+
+      // Sun path: additive so it reads as light on water rather than grey
+      // slabs laid over it, and broken into flecks that ride the swell.
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 2; i < 18; i++) {
+        const z = state.travelled + i * 150;
+        const scale = FOCAL / (z - state.travelled + CAM_BACK);
+        const y = surfaceY(z, scale) + Math.sin(state.t * 3 + i) * 2;
+        if (y > H) continue;
+        const spread = 6 + scale * 120;
+        const flecks = 2 + Math.round(scale * 5);
+        for (let k = 0; k < flecks; k++) {
+          const off = (k / (flecks - 1 || 1) - 0.5) * spread;
+          const w = (6 + scale * 40) * (1 - Math.abs(off) / (spread * 0.7));
+          if (w <= 0) continue;
+          ctx.fillStyle = `rgba(255, 190, 110, ${clamp(scale * 0.35, 0, 0.11)})`;
+          ctx.beginPath();
+          ctx.ellipse(sunX + off + Math.sin(state.t * 2 + k + i) * 4, y, Math.max(1, w / 2),
+            Math.max(0.8, 1.5 + scale * 4), 0, 0, TAU);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
+      // Channel markers: paired posts rather than a drawn-on rope.
+      for (let i = 1; i < 14; i++) {
+        const z = state.travelled + i * 240;
+        for (const side of [-1, 1]) {
+          const p = project(side * (LANE_HALF + 60), z, waveAt(z, state.t));
+          if (!p) continue;
+          const h = 34 * p.scale * 3;
+          ctx.fillStyle = i % 2 ? 'rgba(255, 210, 140, 0.8)' : 'rgba(226, 85, 74, 0.8)';
+          ctx.fillRect(p.x - 2 * p.scale * 3, p.y - h, 4 * p.scale * 3, h);
+        }
       }
     }
 
@@ -336,48 +449,85 @@
       const lift = waveAt(o.z, state.t);
       const p = project(o.x, o.z, lift);
       if (!p) return;
-      const s = p.scale;
+      // Perspective scale runs away as an object reaches the camera, which
+      // turned a passing buoy into a wall. Cap it and fade the last stretch.
+      const s = Math.min(p.scale, 0.55) * 3.4;
+      const fade = clamp((p.scale - 0.055) * 14, 0, 1);
       ctx.save();
       ctx.translate(p.x, p.y);
-      if (o.hit && o.kind !== 'ramp') ctx.globalAlpha = 0.25;
+      ctx.globalAlpha = (o.hit && o.kind !== 'ramp' ? 0.22 : 1) * fade;
+
+      // Everything sits in a small pool of shadow, which grounds it on the water.
+      ctx.fillStyle = 'rgba(4, 20, 36, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(0, 2 * s, 20 * s, 6 * s, 0, 0, TAU);
+      ctx.fill();
 
       if (o.kind === 'buoy') {
         ctx.fillStyle = '#e2554a';
-        ctx.fillRect(-9 * s * 3, -34 * s * 3, 18 * s * 3, 34 * s * 3);
-        ctx.fillStyle = '#f2ece1';
-        ctx.fillRect(-9 * s * 3, -22 * s * 3, 18 * s * 3, 8 * s * 3);
-      } else if (o.kind === 'jelly') {
-        ctx.fillStyle = 'rgba(196, 160, 255, 0.9)';
         ctx.beginPath();
-        ctx.arc(0, -16 * s * 3, 15 * s * 3, Math.PI, 0);
+        ctx.moveTo(-11 * s, 0);
+        ctx.quadraticCurveTo(-13 * s, -30 * s, 0, -34 * s);
+        ctx.quadraticCurveTo(13 * s, -30 * s, 11 * s, 0);
+        ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = 'rgba(196, 160, 255, 0.7)';
-        ctx.lineWidth = Math.max(1, 2 * s * 3);
-        for (let i = -1; i <= 1; i++) {
-          ctx.beginPath();
-          ctx.moveTo(i * 8 * s * 3, -16 * s * 3);
-          ctx.lineTo(i * 8 * s * 3 + Math.sin(state.t * 3 + i) * 4 * s * 3, 4 * s * 3);
-          ctx.stroke();
-        }
-      } else if (o.kind === 'fuel') {
-        ctx.fillStyle = '#f3b21c';
-        ctx.fillRect(-11 * s * 3, -26 * s * 3, 22 * s * 3, 26 * s * 3);
+        ctx.fillStyle = '#f7f2e8';
+        ctx.fillRect(-12 * s, -22 * s, 24 * s, 7 * s);
         ctx.fillStyle = '#23262b';
-        ctx.fillRect(-5 * s * 3, -32 * s * 3, 10 * s * 3, 7 * s * 3);
-      } else if (o.kind === 'coin') {
+        ctx.fillRect(-3 * s, -44 * s, 6 * s, 11 * s);
         ctx.fillStyle = '#ffd76b';
         ctx.beginPath();
-        ctx.ellipse(0, -22 * s * 3, 11 * s * 3 * Math.abs(Math.cos(state.t * 3 + o.spin)), 12 * s * 3, 0, 0, TAU);
+        ctx.arc(0, -46 * s, 4 * s, 0, TAU);
+        ctx.fill();
+      } else if (o.kind === 'jelly') {
+        const pulse = 1 + Math.sin(state.t * 3 + o.spin) * 0.12;
+        ctx.strokeStyle = 'rgba(196, 160, 255, 0.75)';
+        ctx.lineWidth = Math.max(1, 2.4 * s);
+        for (let i = -2; i <= 2; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * 5 * s, -14 * s);
+          ctx.quadraticCurveTo(i * 7 * s + Math.sin(state.t * 4 + i) * 5 * s, -4 * s, i * 5 * s, 6 * s);
+          ctx.stroke();
+        }
+        const grad = ctx.createRadialGradient(0, -20 * s, 2, 0, -20 * s, 20 * s * pulse);
+        grad.addColorStop(0, 'rgba(233, 214, 255, 0.95)');
+        grad.addColorStop(1, 'rgba(168, 122, 255, 0.55)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(0, -18 * s, 17 * s * pulse, 14 * s * pulse, 0, Math.PI, TAU);
+        ctx.fill();
+      } else if (o.kind === 'fuel') {
+        ctx.fillStyle = '#f3b21c';
+        ctx.beginPath();
+        ctx.roundRect(-12 * s, -28 * s, 24 * s, 28 * s, 4 * s);
+        ctx.fill();
+        ctx.fillStyle = '#23262b';
+        ctx.fillRect(-5 * s, -34 * s, 10 * s, 7 * s);
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fillRect(-8 * s, -24 * s, 5 * s, 18 * s);
+      } else if (o.kind === 'coin') {
+        const w = Math.abs(Math.cos(state.t * 3.4 + o.spin));
+        ctx.fillStyle = '#ffd76b';
+        ctx.beginPath();
+        ctx.ellipse(0, -24 * s, 12 * s * (0.25 + w * 0.75), 13 * s, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath();
+        ctx.ellipse(-3 * s * w, -27 * s, 3 * s * w, 4 * s, 0, 0, TAU);
         ctx.fill();
       } else if (o.kind === 'ramp') {
         ctx.fillStyle = '#2fb3a0';
         ctx.beginPath();
-        ctx.moveTo(-34 * s * 3, 0);
-        ctx.lineTo(34 * s * 3, 0);
-        ctx.lineTo(34 * s * 3, -8 * s * 3);
-        ctx.lineTo(-34 * s * 3, -26 * s * 3);
+        ctx.moveTo(-38 * s, 0);
+        ctx.lineTo(38 * s, 0);
+        ctx.lineTo(38 * s, -10 * s);
+        ctx.lineTo(-38 * s, -30 * s);
         ctx.closePath();
         ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        for (let i = -1; i <= 1; i++) {
+          ctx.fillRect(i * 18 * s - 3 * s, -24 * s + i * 0, 6 * s, 18 * s);
+        }
       }
       ctx.restore();
     }
@@ -385,94 +535,177 @@
     function drawRival(r) {
       const p = project(r.x, r.z, waveAt(r.z, state.t));
       if (!p) return;
-      const s = p.scale * 3;
+      const s = Math.min(p.scale, 0.4) * 3.2;
+      const fade = clamp((p.scale - 0.05) * 14, 0, 1);
       ctx.save();
       ctx.translate(p.x, p.y);
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.globalAlpha = fade;
+      // Wake first, so the boat sits in it.
+      ctx.fillStyle = 'rgba(236, 250, 255, 0.5)';
       ctx.beginPath();
-      ctx.ellipse(0, 0, 26 * s, 9 * s, 0, 0, TAU);
+      ctx.moveTo(-16 * s, 0);
+      ctx.lineTo(16 * s, 0);
+      ctx.lineTo(30 * s, 18 * s);
+      ctx.lineTo(-30 * s, 18 * s);
+      ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = '#0ea5e9';
-      ctx.fillRect(-10 * s, -22 * s, 20 * s, 18 * s);
-      ctx.fillStyle = '#efbd93';
+      ctx.fillStyle = '#eef3f8';
       ctx.beginPath();
-      ctx.arc(0, -28 * s, 7 * s, 0, TAU);
+      ctx.moveTo(-22 * s, -4 * s);
+      ctx.quadraticCurveTo(0, 8 * s, 22 * s, -4 * s);
+      ctx.lineTo(18 * s, -16 * s);
+      ctx.lineTo(-18 * s, -16 * s);
+      ctx.closePath();
       ctx.fill();
-      if (r.person && r.person.name && p.scale > 0.16) {
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.font = `${Math.round(11 * Math.min(2, s))}px "Hind Siliguri", system-ui, sans-serif`;
+      const shirt = (r.person && r.person.avatar && r.person.avatar.shirt) || '#0ea5e9';
+      const skin = (r.person && r.person.avatar && r.person.avatar.skin) || '#efbd93';
+      ctx.fillStyle = shirt;
+      ctx.fillRect(-8 * s, -34 * s, 16 * s, 18 * s);
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(0, -40 * s, 7 * s, 0, TAU);
+      ctx.fill();
+      if (r.person && r.person.name && p.scale > 0.13) {
+        ctx.fillStyle = 'rgba(10, 26, 44, 0.6)';
+        const label = r.person.name;
+        ctx.font = `600 ${Math.round(clamp(12 * s, 9, 18))}px "Hind Siliguri", system-ui, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(r.person.name, 0, -40 * s);
+        const w = ctx.measureText(label).width + 12;
+        ctx.beginPath();
+        ctx.roundRect(-w / 2, -62 * s, w, 20, 8);
+        ctx.fill();
+        ctx.fillStyle = '#eaf3fb';
+        ctx.fillText(label, 0, -62 * s + 14);
       }
       ctx.restore();
     }
 
     function drawBoat() {
-      const bob = waveAt(state.travelled, state.t) * 0.35;
+      const bob = waveAt(state.travelled, state.t) * 0.45;
       const cx = W / 2;
       const cy = H * 0.80 - state.air * 0.55 + bob;
-      const tilt = clamp(state.vx / 420, -0.5, 0.5);
-      const s = Math.min(W, 520) / 320;
+      const tilt = clamp(state.vx / 420, -0.55, 0.55);
+      const s = Math.min(W, 560) / 300;
+      const fast = clamp((state.speed - BASE_SPEED) / (BOOST_SPEED - BASE_SPEED), 0, 1);
 
-      // Wake
-      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      // Spray thrown out either side, wider the faster you go.
+      // The wake fades out towards the bottom instead of ending in a hard edge.
+      const wake = ctx.createLinearGradient(0, cy, 0, cy + 92 * s);
+      wake.addColorStop(0, 'rgba(236, 250, 255, 0.45)');
+      wake.addColorStop(1, 'rgba(236, 250, 255, 0)');
+      ctx.fillStyle = wake;
       ctx.beginPath();
-      ctx.moveTo(cx - 26 * s, cy + 8 * s);
-      ctx.lineTo(cx + 26 * s, cy + 8 * s);
-      ctx.lineTo(cx + 74 * s, cy + 74 * s);
-      ctx.lineTo(cx - 74 * s, cy + 74 * s);
+      ctx.moveTo(cx - 26 * s, cy + 6 * s);
+      ctx.quadraticCurveTo(cx - 78 * s * (0.7 + fast * 0.5), cy + 44 * s, cx - 96 * s, cy + 92 * s);
+      ctx.lineTo(cx + 96 * s, cy + 92 * s);
+      ctx.quadraticCurveTo(cx + 78 * s * (0.7 + fast * 0.5), cy + 44 * s, cx + 26 * s, cy + 6 * s);
       ctx.closePath();
       ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      for (let i = 0; i < 7; i++) {
+        const t = (state.t * 3 + i) % 1;
+        const rr = (3 + i) * s * (0.6 + fast);
+        ctx.beginPath();
+        ctx.arc(cx + Math.sin(i * 2.1) * 70 * s * t, cy + 18 * s + t * 70 * s, rr * (1 - t), 0, TAU);
+        ctx.fill();
+      }
 
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(tilt * 0.28);
-      if (state.hitFlash > 0 && Math.floor(state.hitFlash * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+      ctx.rotate(tilt * 0.3);
+      if (state.hitFlash > 0 && Math.floor(state.hitFlash * 20) % 2 === 0) ctx.globalAlpha = 0.4;
 
-      // Hull, seen from behind
-      ctx.fillStyle = '#e9edf2';
+      // Hull seen from behind: transom, then the sides falling away.
+      ctx.fillStyle = '#dfe7ef';
       ctx.beginPath();
-      ctx.moveTo(-46 * s, 6 * s);
-      ctx.quadraticCurveTo(0, 26 * s, 46 * s, 6 * s);
-      ctx.lineTo(38 * s, -18 * s);
-      ctx.lineTo(-38 * s, -18 * s);
+      ctx.moveTo(-52 * s, 4 * s);
+      ctx.quadraticCurveTo(0, 30 * s, 52 * s, 4 * s);
+      ctx.lineTo(42 * s, -22 * s);
+      ctx.quadraticCurveTo(0, -30 * s, -42 * s, -22 * s);
       ctx.closePath();
       ctx.fill();
       ctx.fillStyle = '#cf2436';
-      ctx.fillRect(-38 * s, -6 * s, 76 * s, 8 * s);
+      ctx.beginPath();
+      ctx.moveTo(-48 * s, -6 * s);
+      ctx.quadraticCurveTo(0, 4 * s, 48 * s, -6 * s);
+      ctx.lineTo(46 * s, -14 * s);
+      ctx.quadraticCurveTo(0, -6 * s, -46 * s, -14 * s);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillRect(-40 * s, -21 * s, 80 * s, 3 * s);
+
+      // Outboard
+      ctx.fillStyle = '#23262b';
+      ctx.fillRect(-7 * s, 2 * s, 14 * s, 18 * s);
 
       // Rider
-      ctx.fillStyle = '#17948f';
-      ctx.fillRect(-13 * s, -46 * s, 26 * s, 30 * s);
+      ctx.fillStyle = options.shirt || '#17948f';
+      ctx.beginPath();
+      ctx.roundRect(-15 * s, -52 * s, 30 * s, 34 * s, 6 * s);
+      ctx.fill();
       ctx.fillStyle = options.skin || '#efbd93';
       ctx.beginPath();
-      ctx.arc(0, -56 * s, 12 * s, 0, TAU);
+      ctx.arc(0, -62 * s, 13 * s, 0, TAU);
       ctx.fill();
       ctx.fillStyle = '#2b1d17';
       ctx.beginPath();
-      ctx.arc(0, -60 * s, 12 * s, Math.PI, 0);
+      ctx.arc(0, -66 * s, 13 * s, Math.PI, 0);
       ctx.fill();
+      // Arms out to the wheel
+      ctx.strokeStyle = options.skin || '#efbd93';
+      ctx.lineWidth = 7 * s;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-13 * s, -44 * s); ctx.lineTo(-24 * s, -30 * s);
+      ctx.moveTo(13 * s, -44 * s); ctx.lineTo(24 * s, -30 * s);
+      ctx.stroke();
       ctx.restore();
 
       if (state.boosting && state.fuel > 0) {
-        ctx.fillStyle = 'rgba(255, 196, 107, 0.75)';
-        for (let i = 0; i < 3; i++) {
-          const w = (10 - i * 2) * s;
+        for (let i = 0; i < 4; i++) {
+          const a = 0.5 - i * 0.1;
+          ctx.fillStyle = `rgba(255, ${170 - i * 20}, 80, ${a})`;
           ctx.beginPath();
-          ctx.ellipse(cx + (i - 1) * 22 * s, cy + 22 * s + i * 8 * s, w, w * 0.6, 0, 0, TAU);
+          ctx.ellipse(cx, cy + (26 + i * 13) * s, (16 - i * 3) * s, (9 - i * 1.6) * s, 0, 0, TAU);
           ctx.fill();
         }
+      }
+    }
+
+    /** Speed streaks and a vignette: cheap, and they sell the pace. */
+    function overlay() {
+      const fast = clamp((state.speed - MAX_SPEED * 0.8) / (BOOST_SPEED - MAX_SPEED * 0.8), 0, 1);
+      if (fast > 0.02) {
+        ctx.strokeStyle = `rgba(255,255,255,${0.05 + fast * 0.18})`;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * TAU + state.t * 2;
+          const r0 = 120 + (i % 3) * 40;
+          const x = W / 2 + Math.cos(a) * r0;
+          const y = H * 0.6 + Math.sin(a) * r0 * 0.7;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(W / 2 + Math.cos(a) * (r0 + 70 * fast), H * 0.6 + Math.sin(a) * (r0 + 70 * fast) * 0.7);
+          ctx.stroke();
+        }
+      }
+      ctx.drawImage(vig, 0, 0);
+
+      if (state.hitFlash > 0) {
+        ctx.fillStyle = `rgba(226, 85, 74, ${state.hitFlash * 0.35})`;
+        ctx.fillRect(0, 0, W, H);
       }
     }
 
     function draw() {
       sky();
       sea();
-      // Far things first so nearer ones overlap them.
       const sorted = state.things.slice().sort((a, b) => b.z - a.z);
       for (const r of state.rivals.slice().sort((a, b) => b.z - a.z)) drawRival(r);
       for (const o of sorted) drawThing(o);
       drawBoat();
+      overlay();
     }
 
     /* ── Loop ─────────────────────────────────────────────────── */
