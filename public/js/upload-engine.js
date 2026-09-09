@@ -95,11 +95,13 @@
       );
     }
 
-    function addFiles(fileList, { group = false } = {}) {
+    function addFiles(fileList, opts = {}) {
       const added = [];
       const rejected = [];
       const current = state.entries.length;
       const room = Math.max(0, cfg.maxFilesPerUpload - current);
+      // Which photo category the visitor chose for this batch (single / group).
+      const photoCategory = String((opts && opts.photoCategory) || '').slice(0, 24);
 
       for (const file of Array.from(fileList || [])) {
         if (room > 0 && added.length >= room) {
@@ -115,9 +117,7 @@
           name: file.name,
           size: file.size,
           type: isVideo ? 'video' : 'image',
-          // Photos can go to the single-photo or the group-photo folder;
-          // videos always have their own.
-          group: isVideo ? false : !!group,
+          category: isVideo ? 'video' : photoCategory, // '' = server auto-routes
           status: 'pending',   // pending | uploading | done | error
           pct: 0,
           sent: 0,
@@ -326,7 +326,8 @@
           'X-File-Name': encodeURIComponent(e.file.name),
           'X-Mime': e.file.type || '',
           'X-Uploader': encodeURIComponent(uploader),
-          'X-Group': e.group ? '1' : '0',
+          // single / group / video — which Drive sub-folder this file belongs in.
+          'X-Category': String(e.category || ''),
           'X-Upload-Token': getToken() || '',
         };
         const result = await sendChunkRetry(e, chunk, headers, offset);
@@ -453,15 +454,6 @@
       return true;
     }
 
-    /** Move a queued photo between the single- and group-photo folders. */
-    function setGroup(id, group) {
-      const e = entry(id);
-      if (!e || e.type === 'video') return;
-      if (e.status === 'uploading' || e.status === 'done') return;
-      e.group = !!group;
-      notify();
-    }
-
     function retry(id) {
       const e = entry(id);
       if (!e || e.status !== 'error') return;
@@ -475,11 +467,21 @@
       notify();
     }
 
+    /** Re-tag a queued photo (single / group). Videos are always 'video'. */
+    function setCategory(id, catId) {
+      const e = entry(id);
+      if (!e || e.type !== 'image') return;
+      if (typeof catId !== 'string' || !catId) return;
+      if (e.status !== 'pending' && e.status !== 'error') return;
+      e.category = catId.slice(0, 24);
+      notify();
+    }
+
     return {
       addFiles,
       remove,
       retry,
-      setGroup,
+      setCategory,
       clearFinished,
       clearAll,
       start,
