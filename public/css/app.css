@@ -52,6 +52,14 @@
 
 * { box-sizing: border-box; }
 
+/* The `hidden` attribute is how every panel in this app is shown and hidden.
+   A class like `.lightbox { display: flex }` is an author rule and therefore
+   beats the browser's own `[hidden] { display: none }`, so state it here — once,
+   for everything — instead of guarding each component separately. Without this
+   the lightbox, the gallery toolbar and the upload dock render on top of
+   whatever is on screen. */
+[hidden] { display: none !important; }
+
 html, body { margin: 0; padding: 0; }
 
 body {
@@ -168,33 +176,6 @@ body.page-home .container { padding-bottom: 180px; }
   animation: shimmer 9s linear infinite;
 }
 .hero-sub { margin: 8px auto 0; font-size: clamp(1.05rem, 3.4vw, 1.3rem); font-weight: 500; color: var(--muted); max-width: 34ch; }
-.tour-countdown {
-  width: min(520px, 100%);
-  margin: 22px auto 0;
-  padding: 14px;
-  border: 1px solid rgba(125, 211, 252, 0.26);
-  border-radius: 20px;
-  background: rgba(7, 22, 38, 0.64);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(14px);
-  animation: riseIn 0.55s var(--ease-out) 0.18s both;
-}
-.countdown-title { margin: 0 0 10px; color: #d8efff; font-size: 0.95rem; font-weight: 600; }
-.countdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.countdown-unit {
-  padding: 9px 5px 7px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.countdown-unit strong { display: block; color: #fff; font-size: clamp(1.35rem, 5vw, 2rem); line-height: 1; font-variant-numeric: tabular-nums; }
-.countdown-unit span { display: block; margin-top: 5px; color: #9ec9e7; font-size: 0.76rem; }
-.tour-countdown.is-live { border-color: rgba(52, 211, 153, 0.5); }
-@media (max-width: 380px) {
-  .tour-countdown { padding: 10px; }
-  .countdown-grid { gap: 5px; }
-  .countdown-unit { padding-inline: 2px; }
-}
 .hero-cover {
   display: block;
   width: min(480px, 100%);
@@ -519,7 +500,6 @@ body.page-home .container { padding-bottom: 180px; }
 }
 .dock .input { box-shadow: var(--shadow); }
 #btnStart { transition: transform 0.25s var(--ease-spring), opacity 0.25s ease, box-shadow 0.2s ease; }
-#btnStart[hidden] { display: none; }
 #btnStart.is-new { animation: pop 0.35s var(--ease-spring) both; }
 #btnStart .count { font-variant-numeric: tabular-nums; }
 .spinner {
@@ -1102,4 +1082,125 @@ body.page-home .hero-eyebrow {
   transform-box: fill-box;
   transform-origin: 50% 80%;
   animation: scBob 5.2s ease-in-out infinite alternate;
+}
+
+/* ── Admin: category rows & the built-in uploader ───────────── */
+.cat-table td { vertical-align: middle; }
+.cat-remove {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 1.05rem; padding: 6px; border-radius: 8px; line-height: 1;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+.cat-remove:hover { color: var(--danger); background: var(--danger-bg); transform: rotate(90deg); }
+.cat-tag {
+  display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px;
+  border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap;
+}
+
+.admin-upload-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.admin-upload-row {
+  display: flex; align-items: center; gap: 10px; font-size: 0.9rem;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 8px 12px;
+  animation: rowIn 0.3s var(--ease-out) both;
+}
+.admin-upload-row .name {
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.admin-upload-row .state { font-weight: 600; font-variant-numeric: tabular-nums; }
+.admin-upload-row.is-done { border-color: rgba(16, 185, 129, 0.45); background: var(--ok-bg); }
+.admin-upload-row.is-done .state { color: var(--ok); }
+.admin-upload-row.is-error { border-color: rgba(239, 68, 68, 0.45); }
+.admin-upload-row.is-error .state { color: var(--danger); }
+
+/* ── Gallery: one section per category ──────────────────────── */
+.g-section-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 18px 2px 2px;
+  animation: riseIn 0.4s var(--ease-out) both;
+}
+.g-section-head:first-child { margin-top: 4px; }
+.g-section-head h2 { margin: 0; font-size: 1.05rem; }
+.g-section-head .n { color: var(--muted); font-size: 0.88rem; }
+.g-section-head .line { flex: 1; height: 1px; background: var(--line); }
+
+/* ── Lightbox chrome ────────────────────────────────────────── */
+.lb-top {
+  position: fixed;
+  top: 18px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 4;
+}
+.lb-count, .lb-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.lb-badge { background: rgba(14, 165, 233, 0.35); }
+.lb-stage { position: relative; }
+/* The proxied preview shows instantly; the full-size file fades in over it. */
+.lb-stage img.is-preview { filter: blur(0.4px); }
+.lb-hint { color: #64748b; font-size: 0.78rem; margin-top: 6px; text-align: center; }
+@media (max-width: 640px) { .lb-hint { display: none; } }
+
+/* ── Countdown to the tour ──────────────────────────────────── */
+.countdown {
+  margin: 18px auto 0;
+  max-width: 460px;
+  animation: riseIn 0.6s var(--ease-out) 0.15s both;
+}
+.cd-label { margin: 0 0 10px; font-weight: 600; color: var(--muted); font-size: 0.98rem; }
+.cd-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.cd-cell {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 4px 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+}
+.cd-n {
+  font-size: clamp(1.5rem, 6vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  background: var(--brand-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+/* A small lift each time a number changes, so the clock feels alive. */
+.cd-n.tick { animation: cdTick 0.4s var(--ease-spring); }
+@keyframes cdTick {
+  0% { transform: translateY(-6px) scale(0.92); opacity: 0.4; }
+  100% { transform: none; opacity: 1; }
+}
+.cd-u { font-size: 0.74rem; color: var(--muted); font-weight: 600; }
+.cd-when { margin: 10px 0 0; font-size: 0.88rem; color: var(--muted); }
+
+/* While the tour is running (or once it is over) the clock gives way to a line. */
+.countdown.is-live .cd-cells, .countdown.is-past .cd-cells { display: none; }
+.countdown.is-live .cd-label {
+  color: var(--ok);
+  font-size: 1.1rem;
+  background: var(--ok-bg);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 999px;
+  padding: 8px 18px;
+  display: inline-block;
 }
