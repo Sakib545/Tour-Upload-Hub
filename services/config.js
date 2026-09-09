@@ -49,6 +49,9 @@ const cfg = {
   enableGallery: bool(env.ENABLE_GALLERY, true),
   defaultUploadsEnabled: bool(env.ENABLE_UPLOADS, true),
   defaultGalleryVisible: bool(env.GALLERY_VISIBLE, true),
+  // When true the gallery is readable without the PIN, while uploading still
+  // requires it. The admin can flip this live.
+  defaultGalleryPublic: bool(env.GALLERY_PUBLIC, false),
 
   maxFileBytes: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240) * 1024 * 1024,
   maxFileSizeMB: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240),
@@ -138,6 +141,8 @@ function publicConfig(state, site) {
     galleryEnabled: cfg.enableGallery && state.galleryVisible,
     uploadsEnabled: state.uploadsEnabled,
     pinRequired: cfg.pinEnabled,
+    // Uploading always keeps its PIN gate; viewing can be opened up.
+    galleryPinRequired: cfg.pinEnabled && !state.galleryPublic,
     maxFileSizeMB: cfg.maxFileSizeMB,
     maxFilesPerUpload: cfg.maxFilesPerUpload,
     separateMediaFolders: cfg.google.separateMediaFolders,
