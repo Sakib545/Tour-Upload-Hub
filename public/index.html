@@ -46,6 +46,18 @@
           <stop offset="0.45" class="bxst-r" stop-opacity="0.22" />
           <stop offset="1" class="bxst-r" stop-opacity="0" />
         </linearGradient>
+        <!-- Generic seated boy; each use below has a permanent friend number.
+             The face layer can be swapped for real portraits later. -->
+        <g id="tourBoy">
+          <ellipse cx="0" cy="88" rx="38" ry="7" class="tf-shadow" />
+          <path d="M-8 65 Q-29 74 -39 86 M8 65 Q29 74 39 86" class="tf-limbs" />
+          <path d="M-22 43 Q0 34 22 43 L18 71 H-18Z" class="tf-shirt" />
+          <path d="M-18 48 Q-32 55 -30 70 M18 48 Q32 55 30 70" class="tf-limbs" />
+          <rect x="-5" y="32" width="10" height="11" rx="4" class="tf-skin" />
+          <circle cx="0" cy="21" r="15" class="tf-skin" />
+          <path d="M-15 18 Q-12 3 -3 6 Q2 0 7 6 Q16 4 15 20 Q6 13 -5 14Z" class="tf-hair" />
+          <path d="M-6 22 h2 M5 22 h2 M-5 28 Q0 33 6 28" class="tf-face" />
+        </g>
       </defs>
 
       <!-- Sky -->
@@ -165,6 +177,19 @@
         <path class="bx-frond-a" d="M0 0 Q56 14 104 44 Q52 26 0 0 Z" />
         <path class="bx-frond-b" d="M0 0 Q-56 14 -104 44 Q-52 26 0 0 Z" />
       </g></g>
+
+      <!-- Exactly eight male friends hanging out together. -->
+      <g class="tour-friends" aria-label="Eight male friends chatting on the beach">
+        <ellipse cx="720" cy="443" rx="375" ry="15" class="tf-group-shadow" />
+        <g class="tour-friend" data-friend-id="1" transform="translate(405 350)" style="--skin:#dba074;--shirt:#0f9f98;--hair:#241710;--delay:-.4s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="2" transform="translate(495 347)" style="--skin:#efbd93;--shirt:#ef6b45;--hair:#5a311b;--delay:-2.1s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="3" transform="translate(585 351)" style="--skin:#9a6440;--shirt:#6d55d9;--hair:#17120f;--delay:-1.2s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="4" transform="translate(675 346)" style="--skin:#c8895b;--shirt:#f0b62f;--hair:#3d2115;--delay:-3s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="5" transform="translate(765 350)" style="--skin:#dda87f;--shirt:#2384d8;--hair:#151313;--delay:-1.8s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="6" transform="translate(855 347)" style="--skin:#84512f;--shirt:#26915f;--hair:#26170f;--delay:-.9s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="7" transform="translate(945 351)" style="--skin:#efbd93;--shirt:#e95d86;--hair:#6b351e;--delay:-2.6s"><use href="#tourBoy" /></g>
+        <g class="tour-friend" data-friend-id="8" transform="translate(1035 348)" style="--skin:#b8784d;--shirt:#ee8335;--hair:#17110f;--delay:-3.4s"><use href="#tourBoy" /></g>
+      </g>
     </svg>
   </header>
 
