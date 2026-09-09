@@ -77,6 +77,12 @@
     el.addEventListener('pointerleave', up);
   };
 
+  for (const id of ['padLeft', 'padRight', 'padJump', 'padBoost']) {
+    const el = document.getElementById(id);
+    // Stop a pad press from also reaching the canvas underneath it.
+    el.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  }
+
   hold('padLeft', () => game.setSteer(-1), () => game.setSteer(0));
   hold('padRight', () => game.setSteer(1), () => game.setSteer(0));
   hold('padBoost', () => game.setBoost(true), () => game.setBoost(false));
@@ -85,14 +91,32 @@
     game.jump();
   });
 
-  // Dragging anywhere on the canvas steers, which is how a phone wants to play.
-  let dragX = null;
-  canvas.addEventListener('pointerdown', (ev) => { dragX = ev.clientX; });
-  canvas.addEventListener('pointermove', (ev) => {
-    if (dragX === null || !game) return;
-    game.setSteer((ev.clientX - dragX) / 60);
+  /**
+   * Touch steering is absolute: the boat goes where your thumb is, rather than
+   * accelerating while you hold a direction. On a phone that is the difference
+   * between steering and wrestling. Pointer capture keeps it working when the
+   * finger slides off the canvas mid-turn.
+   */
+  function aim(ev) {
+    if (!game) return;
+    const r = canvas.getBoundingClientRect();
+    const rel = (ev.clientX - r.left) / r.width - 0.5;   // -0.5 .. 0.5
+    game.setTarget(rel * 2.2 * game.lanes);
+  }
+  canvas.addEventListener('pointerdown', (ev) => {
+    canvas.setPointerCapture(ev.pointerId);
+    aim(ev);
   });
-  const release = () => { dragX = null; if (game) game.setSteer(0); };
+  canvas.addEventListener('pointermove', (ev) => {
+    if (ev.pressure === 0 && ev.buttons === 0) return;
+    aim(ev);
+  });
+  const release = (ev) => {
+    if (ev && ev.pointerId !== undefined && canvas.hasPointerCapture(ev.pointerId)) {
+      canvas.releasePointerCapture(ev.pointerId);
+    }
+    if (game) game.setTarget(null);
+  };
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
 

@@ -48,6 +48,7 @@
     jelly: { r: 40, score: 0, damage: 1 },
     fuel:  { r: 46, score: 0, damage: 0 },
     ramp:  { r: 70, score: 0, damage: 0 },
+    nouka: { r: 62, score: 0, damage: 1 },
     coin:  { r: 40, score: 10, damage: 0 },
   };
 
@@ -65,7 +66,8 @@
       speed: BASE_SPEED,
       x: 0,             // lateral position
       vx: 0,
-      steer: 0,         // -1 .. 1 from input
+      steer: 0,         // -1 .. 1 from buttons or keys
+      target: null,     // lateral position the finger is asking for, if any
       air: 0,           // height above water while jumping
       vy: 0,
       fuel: 100,
@@ -85,10 +87,11 @@
       const z = state.travelled + DRAW_DISTANCE;
       const roll = Math.random();
       let kind = 'buoy';
-      if (roll > 0.86) kind = 'ramp';
-      else if (roll > 0.72) kind = 'fuel';
-      else if (roll > 0.52) kind = 'coin';
-      else if (roll > 0.26) kind = 'jelly';
+      if (roll > 0.88) kind = 'ramp';
+      else if (roll > 0.74) kind = 'fuel';
+      else if (roll > 0.56) kind = 'coin';
+      else if (roll > 0.38) kind = 'jelly';
+      else if (roll > 0.18) kind = 'nouka';
       state.things.push({ kind, z, x: rand(-LANE_HALF, LANE_HALF), spin: rand(0, TAU) });
       // Gaps shrink as the race goes on, so it gets harder without getting faster.
       const progress = state.travelled / TRACK_LENGTH;
@@ -171,9 +174,19 @@
       state.travelled += state.speed * dt;
       state.score += state.speed * dt * 0.01;
 
-      // Steering has weight: you lean into a turn and drift out of it.
-      state.vx += state.steer * 520 * dt;
-      state.vx *= Math.pow(0.0015, dt);
+      // Steering. The old numbers gave a terminal drift of ~83 units/s against
+      // a 260-unit channel, so full lock took six seconds to cross — it felt
+      // broken. Full lock now crosses half the channel in well under a second,
+      // with enough damping left to keep the boat from twitching.
+      let steer = state.steer;
+      if (state.target !== null) {
+        // Absolute steering: the boat chases wherever the finger is.
+        const err = (state.target - state.x) / 120;
+        steer = clamp(err, -1, 1);
+      }
+      state.vx += steer * 3600 * dt;
+      state.vx *= Math.pow(0.02, dt);
+      state.vx = clamp(state.vx, -620, 620);
       state.x = clamp(state.x + state.vx * dt, -LANE_HALF - 40, LANE_HALF + 40);
       if (Math.abs(state.x) > LANE_HALF) state.vx *= 0.86; // soft channel edge
 
@@ -416,7 +429,8 @@
         const z = state.travelled + i * 150;
         const scale = FOCAL / (z - state.travelled + CAM_BACK);
         const y = surfaceY(z, scale) + Math.sin(state.t * 3 + i) * 2;
-        if (y > H) continue;
+        // Only out towards the horizon: close up they read as floating bubbles.
+        if (y > H || scale > 0.22) continue;
         const spread = 6 + scale * 120;
         const flecks = 2 + Math.round(scale * 5);
         for (let k = 0; k < flecks; k++) {
@@ -442,6 +456,115 @@
           ctx.fillStyle = i % 2 ? 'rgba(255, 210, 140, 0.8)' : 'rgba(226, 85, 74, 0.8)';
           ctx.fillRect(p.x - 2 * p.scale * 3, p.y - h, 4 * p.scale * 3, h);
         }
+      }
+    }
+
+    /**
+     * Cox's Bazar rather than open water: the beach runs down the right-hand
+     * side with umbrellas and palms, the Himchari hills sit at the far end,
+     * and gulls work the shoreline.
+     */
+    // Close enough that the beach is beside you, not a distant strip.
+    const SHORE_X = LANE_HALF + 90;
+
+    function hills() {
+      // Two ridges with a little parallax, so turning changes what you see.
+      const shift = -state.x * 0.06;
+      for (const [depth, colour, height] of [[1, '#2c4a52', 42], [0.6, '#223b47', 26]]) {
+        ctx.fillStyle = colour;
+        ctx.beginPath();
+        ctx.moveTo(-40, horizon + 2);
+        for (let px = -40; px <= W + 40; px += 20) {
+          const n = Math.sin((px + shift * depth) * 0.006) + Math.sin((px + shift * depth) * 0.013 + 2);
+          ctx.lineTo(px, horizon + 2 - height * (0.45 + n * 0.32));
+        }
+        ctx.lineTo(W + 40, horizon + 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    function gulls() {
+      ctx.strokeStyle = 'rgba(255, 240, 225, 0.7)';
+      ctx.lineWidth = 1.6;
+      for (let i = 0; i < 3; i++) {
+        const gx = ((state.t * (16 + i * 7) + i * 220) % (W + 200)) - 100;
+        const gy = horizon - 40 - i * 26 + Math.sin(state.t * 2 + i) * 5;
+        const w = 7 + i;
+        ctx.beginPath();
+        ctx.moveTo(gx - w, gy);
+        ctx.quadraticCurveTo(gx - w / 2, gy - 4, gx, gy);
+        ctx.quadraticCurveTo(gx + w / 2, gy - 4, gx + w, gy);
+        ctx.stroke();
+      }
+    }
+
+    /** The beach itself: wet sand, dry sand, and what stands on it. */
+    function shore() {
+      const edge = [];
+      const back = [];
+      for (let i = 22; i >= 0; i--) {
+        const z = state.travelled + i * 130;
+        const p = project(SHORE_X, z, waveAt(z, state.t) * 0.5);
+        const q = project(SHORE_X + 900, z, 0);
+        if (!p || !q) continue;
+        edge.push(p);
+        back.push(q);
+      }
+      if (edge.length < 2) return;
+
+      ctx.beginPath();
+      ctx.moveTo(edge[0].x, edge[0].y);
+      for (const p of edge) ctx.lineTo(p.x, p.y);
+      for (let i = back.length - 1; i >= 0; i--) ctx.lineTo(back[i].x, back[i].y);
+      ctx.closePath();
+      const sand = ctx.createLinearGradient(0, horizon, 0, H);
+      sand.addColorStop(0, '#c9a878');
+      sand.addColorStop(1, '#e6cd9f');
+      ctx.fillStyle = sand;
+      ctx.fill();
+
+      // Wet sand where the water just pulled back.
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(edge[0].x, edge[0].y);
+      for (const p of edge) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+
+      // Umbrellas and palms at fixed world intervals down the beach.
+      const step = 420;
+      const first = Math.floor(state.travelled / step) * step;
+      for (let i = 8; i >= 0; i--) {
+        const z = first + i * step;
+        const isPalm = Math.floor(z / step) % 3 === 0;
+        const p = project(SHORE_X + (isPalm ? 210 : 90), z, 0);
+        if (!p) continue;
+        const s = Math.min(p.scale, 0.5) * 3.4;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        if (isPalm) {
+          ctx.fillStyle = '#7a4a2c';
+          ctx.fillRect(-2.5 * s, -46 * s, 5 * s, 46 * s);
+          ctx.fillStyle = '#2f8f5b';
+          for (let k = -2; k <= 2; k++) {
+            ctx.beginPath();
+            ctx.ellipse(k * 9 * s, -48 * s, 13 * s, 4.5 * s, k * 0.42, 0, TAU);
+            ctx.fill();
+          }
+        } else {
+          ctx.fillStyle = '#23262b';
+          ctx.fillRect(-1.5 * s, -26 * s, 3 * s, 26 * s);
+          ctx.fillStyle = i % 2 ? '#e2554a' : '#f3b21c';
+          ctx.beginPath();
+          ctx.moveTo(-20 * s, -26 * s);
+          ctx.quadraticCurveTo(0, -40 * s, 20 * s, -26 * s);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillRect(-3 * s, -34 * s, 6 * s, 8 * s);
+        }
+        ctx.restore();
       }
     }
 
@@ -514,6 +637,30 @@
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.beginPath();
         ctx.ellipse(-3 * s * w, -27 * s, 3 * s * w, 4 * s, 0, 0, TAU);
+        ctx.fill();
+      } else if (o.kind === 'nouka') {
+        // The painted fishing boats moored off the beach.
+        const roll = Math.sin(state.t * 1.4 + o.spin) * 0.08;
+        ctx.rotate(roll);
+        ctx.fillStyle = '#f2ece1';
+        ctx.beginPath();
+        ctx.moveTo(-30 * s, -6 * s);
+        ctx.quadraticCurveTo(0, 12 * s, 30 * s, -6 * s);
+        ctx.quadraticCurveTo(0, -2 * s, -30 * s, -6 * s);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#0e8f8a';
+        ctx.fillRect(-26 * s, -12 * s, 52 * s, 7 * s);
+        ctx.fillStyle = '#e2554a';
+        ctx.fillRect(-26 * s, -18 * s, 52 * s, 6 * s);
+        ctx.fillStyle = '#7a4a2c';
+        ctx.fillRect(-1.5 * s, -52 * s, 3 * s, 36 * s);
+        ctx.fillStyle = '#f3b21c';
+        ctx.beginPath();
+        ctx.moveTo(1 * s, -52 * s);
+        ctx.lineTo(20 * s, -38 * s);
+        ctx.lineTo(1 * s, -30 * s);
+        ctx.closePath();
         ctx.fill();
       } else if (o.kind === 'ramp') {
         ctx.fillStyle = '#2fb3a0';
@@ -700,7 +847,10 @@
 
     function draw() {
       sky();
+      hills();
+      gulls();
       sea();
+      shore();
       const sorted = state.things.slice().sort((a, b) => b.z - a.z);
       for (const r of state.rivals.slice().sort((a, b) => b.z - a.z)) drawRival(r);
       for (const o of sorted) drawThing(o);
@@ -718,6 +868,12 @@
       last = now;
       update(dt);
       draw();
+      // Opt-in debug hook (window.__raceDebug = true): lets an automated run
+      // check that the controls actually move the boat.
+      if (global.__raceDebug) {
+        global.__race = { x: Math.round(state.x), vx: Math.round(state.vx),
+          steer: state.steer, target: state.target, speed: Math.round(state.speed) };
+      }
     }
 
     function start() {
@@ -742,7 +898,15 @@
       stop,
       resize,
       reset,
-      setSteer(v) { state.steer = clamp(v, -1, 1); },
+      setSteer(v) {
+        state.steer = clamp(v, -1, 1);
+        if (v !== 0) state.target = null; // a button overrides a held finger
+      },
+      /** Absolute steering: aim for this lateral position (null to release). */
+      setTarget(x) {
+        state.target = x === null ? null : clamp(x, -LANE_HALF, LANE_HALF);
+      },
+      get lanes() { return LANE_HALF; },
       setBoost(on) { state.boosting = !!on; },
       jump() {
         if (state.running && state.air <= 0) { state.vy = 210; state.air = 1; }
