@@ -473,14 +473,18 @@
       state.className = 'state';
       state.textContent =
         e.status === 'done' ? '✓ সম্পন্ন'
-          : e.status === 'error' ? 'ব্যর্থ'
+          : e.status === 'error' ? `ব্যর্থ${e.errorCode ? ` (${e.errorCode})` : ''}`
             : e.status === 'uploading' ? `${e.pct || 0}%`
               : 'অপেক্ষা…';
 
       li.append(name, state);
       list.appendChild(li);
     }
-    const busy = entries.some((e) => e.status === 'pending' || e.status === 'uploading');
+    // "Busy" means the batch is actually running. Files that are merely
+    // queued ('pending') are exactly what the start button is for — counting
+    // them as busy left the button disabled before anything had started.
+    const busy = !!(adminEngine && adminEngine.running)
+      || entries.some((e) => e.status === 'uploading');
     const btn = $('#btnAdminUpload');
     if (btn) {
       btn.hidden = !entries.some((e) => e.status === 'pending' || e.status === 'error');
@@ -490,9 +494,12 @@
     if (hint && entries.length) {
       const done = entries.filter((e) => e.status === 'done').length;
       const failed = entries.filter((e) => e.status === 'error').length;
+      const waiting = entries.filter((e) => e.status === 'pending').length;
       hint.textContent = busy
         ? `${done}/${entries.length} শেষ…`
-        : failed
+        : waiting
+          ? `${waiting}টি ফাইল প্রস্তুত — "Upload শুরু করুন" চাপুন।`
+          : failed
           ? `${done} সফল, ${failed} ব্যর্থ।`
           : `${done}টি ফাইল Drive-এ জমা হয়েছে।`;
     }
@@ -509,18 +516,35 @@
       },
       getToken: () => token,
       getUploader: () => 'Admin',
-      onChange: (entries) => renderAdminUploads(entries),
-      onProgress: (entries) => renderAdminUploads(entries),
+      // The engine calls onChange with its whole state object and onProgress
+      // with nothing at all — never with a bare entries array. Read the list
+      // off the engine itself, the way the visitor page does.
+      onChange: () => renderAdminUploads(adminEngine ? adminEngine.entries : []),
+      onProgress: scheduleAdminRender,
     });
     return adminEngine;
   }
 
-  async function pickAdminFiles() {
-    await ensureAdminEngine();
+  // Chunk progress fires many times a second; one repaint per frame is plenty.
+  let adminRenderQueued = false;
+  function scheduleAdminRender() {
+    if (adminRenderQueued) return;
+    adminRenderQueued = true;
+    requestAnimationFrame(() => {
+      adminRenderQueued = false;
+      if (adminEngine) renderAdminUploads(adminEngine.entries);
+    });
+  }
+
+  function pickAdminFiles() {
+    // Open the picker inside the click itself. Awaiting a fetch first loses
+    // the user gesture, and Safari/iOS then silently refuses to show it.
     $('#adminFileInput').click();
+    ensureAdminEngine().catch(() => { /* retried when files arrive */ });
   }
 
   async function addAdminFiles(fileList) {
+    if (!fileList.length) return;
     const engine = await ensureAdminEngine();
     const chosen = $('#adminUploadCat').value;
     const res = engine.addFiles(fileList, { category: chosen });
@@ -1025,8 +1049,14 @@
     $('#btnAdminPick').addEventListener('click', pickAdminFiles);
     $('#btnAdminUpload').addEventListener('click', startAdminUpload);
     $('#adminFileInput').addEventListener('change', (ev) => {
-      addAdminFiles(ev.target.files);
+      // Copy the files out BEFORE clearing the input: clearing empties the
+      // live FileList, and addAdminFiles only reads it after an await.
+      const files = Array.from(ev.target.files || []);
       ev.target.value = '';
+      addAdminFiles(files).catch((err) => {
+        toast('ফাইল যোগ করা যায়নি — পেজ রিফ্রেশ করে আবার চেষ্টা করুন।', { bad: true });
+        console.error(err);
+      });
     });
 
     token = sessionStorage.getItem(TOKEN_KEY) || '';
