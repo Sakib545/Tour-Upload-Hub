@@ -224,3 +224,56 @@ test('a person can be renamed from the admin panel', async (t) => {
   // Renaming leaves the Drive folder alone: photos already filed stay put.
   assert.equal(site.personById(id).folder, 'রাকিব');
 });
+
+test('the gallery labels and filters photos by the person they were filed under', async (t) => {
+  const ctx = await start({ env: { TOUR_UPLOAD_PIN: '', FACE_SORT: 'true' } });
+  t.after(() => ctx.close());
+  const B = ctx.base;
+  const faces = require('../services/faces');
+  const site = require('../services/site');
+  for (const p of site.people) site.removePerson(p.id);
+
+  const token = await adminToken(B);
+  const person = (await (await fetch(B + '/api/admin/people', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ name: 'নাহিদ' }),
+  })).json()).person;
+  site.addDescriptor(person.id, fakeDescriptor(3));
+
+  const byName = {
+    'nahid.jpg': [{ descriptor: fakeDescriptor(3), score: 0.99 }],
+    'someone.jpg': [{ descriptor: fakeDescriptor(11), score: 0.99 }],
+  };
+  let current = null;
+  faces.setDescriberForTests(async () => byName[current] || []);
+
+  for (const name of Object.keys(byName)) {
+    current = name;
+    const res = await fetch(B + '/api/upload/chunk', {
+      method: 'POST',
+      headers: {
+        'X-Upload-Id': 'person_gal_' + name.replace(/\W/g, '').slice(0, 8), 'X-Offset': '0', 'X-Total': String(S),
+        'X-File-Name': encodeURIComponent(name), 'X-Mime': 'image/jpeg',
+      },
+      body: padTo(S, JPEG_PREFIX),
+    });
+    assert.equal(res.status, 200);
+    await faces.drain();
+  }
+
+  const { items } = await (await fetch(B + '/api/gallery')).json();
+  const mine = items.find((i) => i.name === 'nahid.jpg');
+  const other = items.find((i) => i.name === 'someone.jpg');
+
+  // The filed photo carries the person, so the gallery can offer "just mine".
+  assert.equal(mine.person, person.id);
+  assert.equal(mine.personName, 'নাহিদ');
+  // The unmatched one stays where it was and belongs to nobody.
+  assert.equal(other.person, null);
+  assert.equal(other.personName, null);
+
+  // And it is still listed and still downloadable after the move.
+  assert.equal((await fetch(B + mine.src)).status, 200);
+  assert.match((await fetch(B + mine.download)).headers.get('content-disposition') || '', /^attachment;/);
+});

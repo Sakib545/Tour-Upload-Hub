@@ -26,6 +26,7 @@
   let shown = [];        // what the current filter shows (lightbox order)
   let pageCfg = null;    // /api/config payload (category chips etc.)
   let filters = [];      // [{ id, label, count }] — category or photo/video chips
+  let people = [];       // [{ id: 'person:<id>', label, count }] — face-sorted
   let filter = 'all';
   let current = -1;
   let selecting = false;
@@ -167,6 +168,7 @@
     if (f === 'all') return true;
     if (f === 'photo') return !item.isVideo;
     if (f === 'video') return item.isVideo;
+    if (f.startsWith('person:')) return item.person === f.slice(7);
     return item.category === f;
   }
 
@@ -178,7 +180,7 @@
       if (filter === 'all') {
         status.textContent = 'এখনো কোনো ছবি নেই।';
       } else {
-        const chip = filters.find((x) => x.id === filter);
+        const chip = filters.concat(people).find((x) => x.id === filter);
         status.textContent = chip
           ? `"${chip.label}"-তে এখনো কিছু নেই।`
           : 'এই ধরনের এখনো কিছু নেই।';
@@ -206,6 +208,7 @@
       shown.forEach((item, i) => frag.appendChild(tileFor(item, i)));
     }
     grid.appendChild(frag);
+    refreshBulkButton();
   }
 
   function sectionHead(label, count) {
@@ -244,21 +247,46 @@
 
     $('#nAll').textContent = items.length;
     chipsDyn.textContent = '';
-    for (const f of filters) {
+    // Whoever face sorting has actually filed photos under gets a chip too, so
+    // "just my pictures" is one tap rather than a hunt through the whole wall.
+    const seen = new Map();
+    for (const item of items) {
+      if (!item.person) continue;
+      const entry = seen.get(item.person) || { name: item.personName || 'নাম নেই', count: 0 };
+      entry.count += 1;
+      seen.set(item.person, entry);
+    }
+    people = [...seen.entries()].map(([id, v]) => ({
+      id: `person:${id}`, label: v.name, count: v.count, isPerson: true,
+    })).sort((a, b) => b.count - a.count);
+
+    $('#nAll').textContent = items.length;
+    chipsDyn.textContent = '';
+    for (const f of filters.concat(people)) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'chip' + (filter === f.id ? ' is-on' : '');
+      b.className = 'chip' + (filter === f.id ? ' is-on' : '') + (f.isPerson ? ' chip-person' : '');
       b.dataset.filter = f.id;
       const span = document.createElement('span');
       span.className = 'chip-n';
       span.textContent = f.count;
-      b.appendChild(document.createTextNode(`${f.label} `));
+      b.appendChild(document.createTextNode(`${f.isPerson ? '👤 ' : ''}${f.label} `));
       b.appendChild(span);
       chipsDyn.appendChild(b);
     }
     for (const chip of $$('.chip[data-filter]')) {
       chip.classList.toggle('is-on', chip.dataset.filter === filter);
     }
+  }
+
+  function refreshBulkButton() {
+    const btn = $('#btnDownloadAll');
+    if (!btn) return;
+    const chip = filters.concat(people).find((x) => x.id === filter);
+    btn.hidden = selecting || !shown.length;
+    btn.textContent = chip && chip.isPerson
+      ? `⬇ ${chip.label}-এর সব (${shown.length})`
+      : `⬇ সব Download (${shown.length})`;
   }
 
   function setFilter(next) {
@@ -268,6 +296,7 @@
     }
     clearPicks();
     render();
+    refreshBulkButton();
   }
 
   // Chip clicks are delegated so dynamically-built category chips work too.
@@ -327,6 +356,12 @@
     }
     toast('Download শেষ — ফোনের Downloads ফোল্ডার দেখুন ✅');
   }
+
+  $('#btnDownloadAll').addEventListener('click', () => {
+    // Everything currently on screen — which, with a person chip selected, is
+    // exactly that person's folder.
+    downloadMany(shown.slice());
+  });
 
   btnDownload.addEventListener('click', () => {
     const list = shown.filter((it) => picked.has(it.id));

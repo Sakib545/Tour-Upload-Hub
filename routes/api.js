@@ -746,12 +746,17 @@ function categoryForFile(taggedCategory, mimeType) {
 }
 
 router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req, res) => {
+  // Photos filed under a person live in that person's folder; the listing must
+  // know those folders to include them and to label them.
+  await drive.ensurePeopleFolders(site.people).catch(() => {});
+
   const { files, truncated } = await drive.listFolderFiles({
     cap: cfg.galleryLimit,
     kinds: 'media',
   });
   // Mint one short-lived signed token per listing when the gallery is PIN-gated;
   // <img>/<video> cannot send headers, so media URLs carry it as ?gt=…
+  const people = site.people;
   const gated = cfg.pinEnabled && !state.settings.galleryPublic;
   const gt = gated ? galleryToken() : null;
   const q = gt ? `?gt=${encodeURIComponent(gt)}` : '';
@@ -760,6 +765,8 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
     const isImage = String(f.mimeType || '').startsWith('image/');
     const isVideo = String(f.mimeType || '').startsWith('video/');
     const cat = categoryForFile(meta.category, f.mimeType);
+    const personId = drive.personIdForParents(f.parents, people);
+    const person = personId ? people.find((p) => p.id === personId) : null;
     const base = `/api/gallery/file/${f.id}`;
     return {
       id: f.id,
@@ -770,6 +777,9 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
       size: Number(f.size) || 0,
       createdTime: f.createdTime || null,
       category: cat ? cat.id : null,
+      // Set once face sorting has filed the photo under someone.
+      person: personId,
+      personName: person ? person.name : null,
       categoryLabel: cat ? cat.label : null,
       uploader: meta.uploader,
       // Thumbnails are proxied: Drive's own thumbnailLink is not readable by a

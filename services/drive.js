@@ -314,6 +314,39 @@ async function resolveChildFolder(name, parentId) {
  * Folder for one person: <root>/<People>/<person>. Cached per name so a batch
  * of photos does not re-query Drive for every single file.
  */
+/**
+ * Resolve every enrolled person's folder without creating any. Listings need
+ * these ids for two reasons: a photo filed under someone must still appear in
+ * the gallery (allowedParents), and the gallery wants to label it with their
+ * name. Missing folders are cached as absent so a fresh boot does not re-query
+ * Drive for people who have no photos yet.
+ */
+async function ensurePeopleFolders(people) {
+  if (!cfg.faces.enabled || !Array.isArray(people) || !people.length) return;
+  let peopleRoot = folderIdCache.get(cfg.faces.peopleFolderName);
+  if (peopleRoot === undefined) {
+    peopleRoot = await findChildFolder(cfg.faces.peopleFolderName).catch(() => null);
+    folderIdCache.set(cfg.faces.peopleFolderName, peopleRoot);
+  }
+  if (!peopleRoot) return;
+  for (const person of people) {
+    const key = `person:${person.id}`;
+    if (folderIdCache.has(key)) continue;
+    const id = await findChildFolder(person.folder, peopleRoot).catch(() => null);
+    folderIdCache.set(key, id);
+  }
+}
+
+/** Which enrolled person's folder holds this file, if any. */
+function personIdForParents(parents, people) {
+  if (!Array.isArray(parents) || !parents.length) return null;
+  for (const person of people || []) {
+    const id = folderIdCache.get(`person:${person.id}`);
+    if (id && parents.includes(id)) return person.id;
+  }
+  return null;
+}
+
 async function personFolderId(personKey, personFolderName) {
   const key = `person:${personKey}`;
   const cached = folderIdCache.get(key);
@@ -425,6 +458,8 @@ async function folderIdForCategory(category, mimeType) {
 /** Every folder a gallery/admin file is allowed to live in. */
 function allowedParents() {
   const ids = new Set([cfg.google.folderId]);
+  // folderIdCache holds nulls for people with no folder yet; those are skipped
+  // by the truthy check below.
   // Every folder we have resolved: the category folders and, once face sorting
   // has run, the per-person folders too.
   for (const id of folderIdCache.values()) {
@@ -967,6 +1002,8 @@ module.exports = {
   listFilesInFolder,
   moveFile,
   personFolderId,
+  ensurePeopleFolders,
+  personIdForParents,
   downloadFile,
   readSettingsFile,
   writeSettingsFile,

@@ -1,33 +1,30 @@
-এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১৫টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
+এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১৯টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
 করে দিন — একই নামের ফাইল replace হবে — তারপর commit করে push করুন।
 কোনো ফাইল মুছতে হবে না।
 
+গ্যালারিতে ব্যক্তির ফোল্ডার
+  ছবিতে কার মুখ, সেই ফোল্ডারে গেলে গ্যালারিতে এখন তার নামের chip দেখা যায়
+  (👤 রাকিব ৫)। chip চাপলে শুধু তার ছবি, আর "⬇ রাকিব-এর সব (৫)" বাটনে
+  এক চাপে পুরো ফোল্ডার নামে।
+
+  ছবি কারও ফোল্ডারে না গেলে কেন যায়নি — Admin → People কার্ডের নিচে লেখা থাকে
+  (FACE_SORT বন্ধ / মডেল লোড হয়নি / নমুনা ছবি নেই / মুখ মেলেনি + দূরত্ব)।
+
 নতুন (৫টি)
-  public/game.html            মিনি গেম (/game) + চরিত্র বাছাই
-  public/js/game.js           ইঞ্জিন, রেন্ডারার, কন্ট্রোল, মুখের ছবি
-  public/js/game-ui.js        HUD, টাচ প্যাড, কীবোর্ড, picker
-  scripts/check-scene.js      hero দৃশ্যের transform সংঘর্ষের পরীক্ষা
-  test/21-game-page.test.js   গেম পেজের টেস্ট
+  public/game.html, public/js/game.js, public/js/game-ui.js   মিনি গেম
+  scripts/check-scene.js                                      দৃশ্যের পরীক্ষা
+  test/21-game-page.test.js                                   গেমের টেস্ট
 
-বদলানো (১০টি)
-  services/faces.js          প্রতিটি ফলাফলের নাম, হিসাব ও শেষ ২৪টির তালিকা
-  services/face-sorter.js    কেন সরানো হলো/হলো না তার কারণ ফেরত দেয়
-  public/admin.html          People কার্ড: ছবি, নামের ঘর, অবস্থার ব্লক
-  public/js/admin.js         ছবি, নাম বদলানো, কারণ দেখানো, countdown hint
-  public/css/app.css         keyframe ফিক্স + গেম, picker, People, log স্টাইল
-  public/index.html          home পেজে গেমের লিংক
-  server/app.js              /game রুট
-  package.json               npm run check-এ scene পরীক্ষা
-  test/20-face-sort.test.js  নাম বদলানোর টেস্ট
-  README.md                  বর্ণনা
-
-ছবি কারও ফোল্ডারে যাচ্ছে না কেন — Admin → People কার্ডের নিচে এখন লেখা থাকে:
-  • FACE_SORT বন্ধ
-  • মডেল লোড হয়নি (প্যাকেজ নেই)
-  • কারও নমুনা ছবি দেওয়া নেই
-  • মুখ আছে কিন্তু কারও সাথে মেলেনি (কত দূরত্বে, সেটাও)
-  • ছবিতে একাধিক মুখ = গ্রুপ ছবি, তাই সরানো হয়নি
+বদলানো (১৪টি)
+  services/faces.js, services/face-sorter.js   ফলাফলের কারণ ও হিসাব
+  services/drive.js                            person ফোল্ডার খোঁজা ও চেনা
+  routes/api.js                                gallery-তে person লেবেল
+  public/gallery.html, public/js/gallery.js    person chip + সব Download
+  public/admin.html, public/js/admin.js        ছবি, নাম, কারণ, countdown hint
+  public/css/app.css                           keyframe ফিক্স + সব নতুন স্টাইল
+  public/index.html, server/app.js             গেমের লিংক ও রুট
+  package.json, README.md, test/20-face-sort.test.js
 
 কপি করার পর:
-  npm test        → ৪২টি পাস হওয়ার কথা
+  npm test        → ৪৩টি পাস হওয়ার কথা
   npm run check

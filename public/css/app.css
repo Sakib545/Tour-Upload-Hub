@@ -1912,3 +1912,11 @@ body.page-game { min-height: 100vh; }
   overflow-wrap: anywhere;
 }
 .faces-log-item.is-ok { color: var(--ok); border-left-color: var(--ok); background: var(--ok-bg); }
+
+/* A person's chip carries their name, so it gets a warmer colour than a
+   category chip and never blends into the type filters beside it. */
+.chip.chip-person { border-color: rgba(249, 115, 22, 0.4); }
+.chip.chip-person.is-on {
+  background: linear-gradient(120deg, #f59e0b, #f43f5e);
+  border-color: transparent;
+}
