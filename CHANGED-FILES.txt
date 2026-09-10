@@ -2,13 +2,14 @@
 করে দিন — একই নামের ফাইল replace হবে — তারপর commit করে push করুন।
 কোনো ফাইল মুছতে হবে না।
 
-গ্যালারিতে ব্যক্তির ফোল্ডার
-  ছবিতে কার মুখ, সেই ফোল্ডারে গেলে গ্যালারিতে এখন তার নামের chip দেখা যায়
-  (👤 রাকিব ৫)। chip চাপলে শুধু তার ছবি, আর "⬇ রাকিব-এর সব (৫)" বাটনে
-  এক চাপে পুরো ফোল্ডার নামে।
+★ এবারের আসল ফিক্স — services/drive.js
+  ছবি ঠিকই শাকিলের ফোল্ডারে যাচ্ছিল, কিন্তু গ্যালারির তালিকায় Drive-এর কাছে
+  `parents` চাওয়া হচ্ছিল না। তাই কোন ফোল্ডারে আছে সেটা জানার উপায়ই ছিল না,
+  আর নামের chip কখনো আসত না। এক শব্দের ফিক্স + একটা regression টেস্ট।
 
-  ছবি কারও ফোল্ডারে না গেলে কেন যায়নি — Admin → People কার্ডের নিচে লেখা থাকে
-  (FACE_SORT বন্ধ / মডেল লোড হয়নি / নমুনা ছবি নেই / মুখ মেলেনি + দূরত্ব)।
+গ্যালারিতে ব্যক্তির ফোল্ডার
+  chip: 👤 শাকিল ৩ — চাপলে শুধু তার ছবি
+  বাটন: ⬇ শাকিল-এর সব (৩) — এক চাপে পুরো ফোল্ডার
 
 নতুন (৫টি)
   public/game.html, public/js/game.js, public/js/game-ui.js   মিনি গেম
@@ -16,15 +17,16 @@
   test/21-game-page.test.js                                   গেমের টেস্ট
 
 বদলানো (১৪টি)
-  services/faces.js, services/face-sorter.js   ফলাফলের কারণ ও হিসাব
-  services/drive.js                            person ফোল্ডার খোঁজা ও চেনা
-  routes/api.js                                gallery-তে person লেবেল
+  services/drive.js            ★ parents ফিল্ড + person ফোল্ডার খোঁজা
+  services/faces.js            ফলাফলের কারণ ও হিসাব
+  services/face-sorter.js      কেন সরানো হলো/হলো না
+  routes/api.js                gallery-তে person লেবেল
   public/gallery.html, public/js/gallery.js    person chip + সব Download
   public/admin.html, public/js/admin.js        ছবি, নাম, কারণ, countdown hint
-  public/css/app.css                           keyframe ফিক্স + সব নতুন স্টাইল
+  public/css/app.css           keyframe ফিক্স + নতুন স্টাইল
   public/index.html, server/app.js             গেমের লিংক ও রুট
   package.json, README.md, test/20-face-sort.test.js
 
 কপি করার পর:
-  npm test        → ৪৩টি পাস হওয়ার কথা
+  npm test        → ৪৪টি পাস হওয়ার কথা
   npm run check

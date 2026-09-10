@@ -688,7 +688,10 @@ function probeSession(sessionUri, total) {
 async function listFolderFiles({ cap = 5000, kinds = 'all', fields = '' } = {}) {
   const wanted =
     fields ||
-    'files(id,name,mimeType,size,createdTime,description,thumbnailLink,webViewLink),nextPageToken';
+    // `parents` is what tells the gallery which person's folder a photo sits
+    // in. Without it every item comes back unlabelled and the person chips
+    // never appear, however well the sorting worked.
+    'files(id,name,mimeType,size,createdTime,description,thumbnailLink,webViewLink,parents),nextPageToken';
   let mimeFilter = '';
   if (kinds === 'media') {
     mimeFilter = " and (mimeType contains 'image/' or mimeType contains 'video/')";

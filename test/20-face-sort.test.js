@@ -277,3 +277,29 @@ test('the gallery labels and filters photos by the person they were filed under'
   assert.equal((await fetch(B + mine.src)).status, 200);
   assert.match((await fetch(B + mine.download)).headers.get('content-disposition') || '', /^attachment;/);
 });
+
+test('a listing carries parents, or nothing can be labelled by person', async (t) => {
+  // Regression guard: the gallery labelled nothing for a while because the
+  // listing fields did not ask Drive for `parents`, so every photo looked
+  // unfiled however well the sorting had worked.
+  const ctx = await start({ env: { TOUR_UPLOAD_PIN: '' } });
+  t.after(() => ctx.close());
+  const drive = require('../services/drive');
+
+  const res = await fetch(ctx.base + '/api/upload/chunk', {
+    method: 'POST',
+    headers: {
+      'X-Upload-Id': 'parents_field_01', 'X-Offset': '0', 'X-Total': String(S),
+      'X-File-Name': encodeURIComponent('somewhere.jpg'), 'X-Mime': 'image/jpeg',
+    },
+    body: padTo(S, JPEG_PREFIX),
+  });
+  assert.equal(res.status, 200);
+
+  const { files } = await drive.listFolderFiles({ kinds: 'media', cap: 10 });
+  assert.ok(files.length, 'the upload is listed');
+  for (const f of files) {
+    assert.ok(Array.isArray(f.parents) && f.parents.length,
+      `${f.name} came back without parents`);
+  }
+});
