@@ -46,24 +46,44 @@ async function imageBytes(fileId) {
  * Sort one file. Returns 'moved' or 'skipped'; throws only on unexpected
  * failures, which the queue records and moves past.
  */
+/**
+ * Every outcome is named. "Nothing happened" is the least useful thing an
+ * automatic feature can report, and every one of these has a different fix:
+ * enrol somebody, enrol a better photo, or accept that a group shot stays put.
+ */
 async function sortFile({ fileId }) {
-  if (!cfg.faces.enabled) return 'skipped';
+  if (!cfg.faces.enabled) return { outcome: 'off' };
+
   const people = site.peopleWithDescriptors().filter((p) => (p.descriptors || []).length);
-  if (!people.length) return 'skipped';
+  if (!people.length) return { outcome: 'no_enrolments' };
 
   const got = await imageBytes(fileId);
-  if (!got) return 'skipped';
+  if (!got) return { outcome: 'unreadable' };
+  const name = got.meta.name || fileId;
+
+  if (!(await faces.init())) return { outcome: 'unavailable', name };
 
   const found = await faces.describeImage(got.buffer);
   // Exactly one face is the whole point: "single photos, filed by person".
-  if (found.length !== 1) return 'skipped';
+  if (!found.length) return { outcome: 'no_face', name };
+  if (found.length > 1) return { outcome: 'many_faces', name, faces: found.length };
 
   const hit = faces.matchPerson(found[0].descriptor, people);
-  if (!hit) return 'skipped';
+  if (!hit) {
+    // Say how close it got: a near miss is a threshold problem, a wide miss
+    // means this person was never enrolled.
+    let best = Infinity;
+    for (const person of people) {
+      for (const d of person.descriptors) {
+        best = Math.min(best, faces.distance(found[0].descriptor, d));
+      }
+    }
+    return { outcome: 'no_match', name, distance: Number(best.toFixed(2)) };
+  }
 
   const parents = Array.isArray(got.meta.parents) ? got.meta.parents : [];
   const target = await drive.personFolderId(hit.person.id, hit.person.folder);
-  if (parents.includes(target)) return 'skipped'; // already filed
+  if (parents.includes(target)) return { outcome: 'already', name, person: hit.person.name };
 
   await drive.moveFile(fileId, { from: parents[0] || cfg.google.folderId, to: target });
   logger.info('faces: photo filed under a person', {
@@ -71,7 +91,7 @@ async function sortFile({ fileId }) {
     person: hit.person.name,
     distance: Number(hit.distance.toFixed(3)),
   });
-  return 'moved';
+  return { outcome: 'moved', name, person: hit.person.name, distance: Number(hit.distance.toFixed(2)) };
 }
 
 /** Queue every photo already in Drive — used after enrolling a new face. */

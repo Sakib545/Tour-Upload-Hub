@@ -264,6 +264,18 @@ const queue = [];
 let working = false;
 let handler = null;
 const stats = { queued: 0, done: 0, moved: 0, skipped: 0, failed: 0 };
+// What happened to the last few photos, so the dashboard can explain itself.
+const recent = [];
+const REASONS = ['moved', 'no_face', 'many_faces', 'no_match', 'already',
+  'no_enrolments', 'unreadable', 'unavailable', 'off', 'error'];
+const tally = Object.fromEntries(REASONS.map((r) => [r, 0]));
+
+function record(entry) {
+  const outcome = entry && REASONS.includes(entry.outcome) ? entry.outcome : 'error';
+  tally[outcome] += 1;
+  recent.unshift({ ...entry, outcome, at: Date.now() });
+  if (recent.length > 24) recent.pop();
+}
 
 /** The worker that actually sorts one file; supplied by routes/api at boot. */
 function setHandler(fn) {
@@ -285,11 +297,14 @@ async function pump() {
     while (queue.length) {
       const job = queue.shift();
       try {
-        const outcome = await handler(job);
-        if (outcome === 'moved') stats.moved += 1;
+        const result = await handler(job);
+        const entry = typeof result === 'string' ? { outcome: result } : (result || {});
+        record(entry);
+        if (entry.outcome === 'moved') stats.moved += 1;
         else stats.skipped += 1;
       } catch (e) {
         stats.failed += 1;
+        record({ outcome: 'error', message: e.message });
         logger.warn('faces: could not sort a photo', { id: job && job.fileId, err: e.message });
       }
       stats.done += 1;
@@ -309,9 +324,14 @@ async function drain() {
 function status() {
   return {
     enabled: cfg.faces.enabled,
+    // `ready` separates "switched off" from "switched on but the model never
+    // loaded", which look identical from the outside and need opposite fixes.
+    ready: !!describer,
     pending: queue.length,
     working,
     lastError,
+    tally: { ...tally },
+    recent: recent.slice(0, 12),
     ...stats,
   };
 }

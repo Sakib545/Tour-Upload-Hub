@@ -667,13 +667,7 @@
     }
     $('#btnRescan').disabled = !enabled;
 
-    const st = data.status || {};
-    const bits = [];
-    if (st.pending) bits.push(`${st.pending}টি বাকি`);
-    if (st.moved) bits.push(`${st.moved}টি ছবি সরানো হয়েছে`);
-    if (st.failed) bits.push(`${st.failed}টি ব্যর্থ`);
-    if (st.lastError) bits.push(st.lastError);
-    $('#facesStatus').textContent = bits.join(' · ');
+    renderFaceStatus(data);
   }
 
   async function saveNameFor(id, name, input) {
@@ -705,6 +699,81 @@
       toast('Hero-র দল বদলানো হয়েছে।');
     } catch (err) {
       toast('বদলানো যায়নি।', { bad: true });
+    }
+  }
+
+  const REASON_TEXT = {
+    moved: (r) => `${r.name} → ${r.person} (মিল ${r.distance})`,
+    already: (r) => `${r.name} — আগেই ${r.person}-এর ফোল্ডারে আছে`,
+    no_face: (r) => `${r.name} — কোনো মুখ পাওয়া যায়নি`,
+    many_faces: (r) => `${r.name} — ${r.faces} জনের মুখ, তাই গ্রুপ ছবি ধরা হয়েছে`,
+    no_match: (r) => `${r.name} — মুখ আছে কিন্তু কারও সাথে মেলেনি (নিকটতম ${r.distance})`,
+    no_enrolments: () => 'কারও নমুনা ছবি দেওয়া নেই',
+    unreadable: (r) => `${r.name || 'একটি ফাইল'} — ছবিটি পড়া যায়নি`,
+    unavailable: () => 'Face recognition চালু হয়নি',
+    off: () => 'Face sorting বন্ধ',
+    error: (r) => `ত্রুটি: ${r.message || 'অজানা'}`,
+  };
+
+  /**
+   * The most confusing thing about an automatic feature is silence. This says
+   * which of the four possible reasons is stopping it, and shows what happened
+   * to the last few photos so a wrong guess is visible immediately.
+   */
+  function renderFaceStatus(data) {
+    const box = $('#facesStatus');
+    if (!box) return;
+    const st = data.status || {};
+    const people = data.people || [];
+    const enrolled = people.filter((p) => p.samples > 0).length;
+    box.textContent = '';
+
+    const line = (text, cls) => {
+      const p = document.createElement('p');
+      p.className = cls || 'muted-text';
+      p.style.margin = '4px 0';
+      p.textContent = text;
+      box.appendChild(p);
+    };
+
+    if (!st.enabled) {
+      line('Face sorting বন্ধ — Railway-তে FACE_SORT=true দিন।', 'warn-line');
+      return;
+    }
+    if (!st.ready) {
+      line('চালু আছে, কিন্তু মডেল লোড হয়নি — ' + (st.lastError || 'প্যাকেজ ইনস্টল আছে কিনা দেখুন (npm run faces:install)।'), 'warn-line');
+      return;
+    }
+    if (!enrolled) {
+      line(`${people.length} জন যোগ করা আছে, কিন্তু কারও নমুনা ছবি নেই — ছবি ছাড়া কাউকে চেনা যায় না।`, 'warn-line');
+      return;
+    }
+
+    const bits = [`${enrolled} জনের নমুনা ছবি আছে`];
+    if (st.pending) bits.push(`${st.pending}টি বাকি`);
+    if (st.moved) bits.push(`${st.moved}টি সরানো হয়েছে`);
+    if (st.failed) bits.push(`${st.failed}টি ব্যর্থ`);
+    line(bits.join(' · '));
+
+    const t = st.tally || {};
+    if (t.no_match || t.no_face || t.many_faces) {
+      const why = [];
+      if (t.no_match) why.push(`${t.no_match}টি ছবির মুখ কারও সাথে মেলেনি`);
+      if (t.no_face) why.push(`${t.no_face}টিতে মুখ পাওয়া যায়নি`);
+      if (t.many_faces) why.push(`${t.many_faces}টিতে একাধিক মুখ (গ্রুপ ছবি)`);
+      line(why.join(' · '));
+    }
+
+    if ((st.recent || []).length) {
+      const list = document.createElement('ul');
+      list.className = 'faces-log';
+      for (const r of st.recent) {
+        const li = document.createElement('li');
+        li.className = 'faces-log-item' + (r.outcome === 'moved' ? ' is-ok' : '');
+        li.textContent = (REASON_TEXT[r.outcome] || (() => r.outcome))(r);
+        list.appendChild(li);
+      }
+      box.appendChild(list);
     }
   }
 
@@ -769,6 +838,7 @@
   async function rescanFaces() {
     $('#btnRescan').disabled = true;
     $('#facesStatus').textContent = 'পুরনো ছবিগুলো সারিতে দেওয়া হচ্ছে…';
+    $('#btnRescan').disabled = true;
     try {
       const r = await apiAdmin('/api/admin/faces/rescan', { method: 'POST', body: {} });
       toast(`${r.queued}টি ছবি মিলিয়ে দেখা হচ্ছে…`);

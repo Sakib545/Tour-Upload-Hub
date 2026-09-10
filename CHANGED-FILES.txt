@@ -1,27 +1,32 @@
-এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১৩টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
+এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১৫টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
 করে দিন — একই নামের ফাইল replace হবে — তারপর commit করে push করুন।
 কোনো ফাইল মুছতে হবে না।
 
 নতুন (৫টি)
-  public/game.html            মিনি গেমের পেজ (/game) + চরিত্র বাছাই
+  public/game.html            মিনি গেম (/game) + চরিত্র বাছাই
   public/js/game.js           ইঞ্জিন, রেন্ডারার, কন্ট্রোল, মুখের ছবি
-  public/js/game-ui.js        HUD, টাচ প্যাড, কীবোর্ড, চরিত্র picker
-  scripts/check-scene.js      hero দৃশ্যের transform সংঘর্ষ ধরার পরীক্ষা
+  public/js/game-ui.js        HUD, টাচ প্যাড, কীবোর্ড, picker
+  scripts/check-scene.js      hero দৃশ্যের transform সংঘর্ষের পরীক্ষা
   test/21-game-page.test.js   গেম পেজের টেস্ট
 
-বদলানো (৮টি)
-  public/admin.html         People কার্ড: ছবি + নামের ঘর, countdown-এর অবস্থা
-  public/js/admin.js        ছবি দেখানো, নাম বদলানো, সারির গঠন
-  public/css/app.css        keyframe ফিক্স + গেম, picker, People সারির স্টাইল
-  public/index.html         home পেজে গেমের লিংক
-  server/app.js             /game রুট
-  package.json              npm run check-এ scene পরীক্ষা
-  test/20-face-sort.test.js নাম বদলানোর টেস্ট
-  README.md                 বর্ণনা
+বদলানো (১০টি)
+  services/faces.js          প্রতিটি ফলাফলের নাম, হিসাব ও শেষ ২৪টির তালিকা
+  services/face-sorter.js    কেন সরানো হলো/হলো না তার কারণ ফেরত দেয়
+  public/admin.html          People কার্ড: ছবি, নামের ঘর, অবস্থার ব্লক
+  public/js/admin.js         ছবি, নাম বদলানো, কারণ দেখানো, countdown hint
+  public/css/app.css         keyframe ফিক্স + গেম, picker, People, log স্টাইল
+  public/index.html          home পেজে গেমের লিংক
+  server/app.js              /game রুট
+  package.json               npm run check-এ scene পরীক্ষা
+  test/20-face-sort.test.js  নাম বদলানোর টেস্ট
+  README.md                  বর্ণনা
 
-Admin → People কার্ডে এখন প্রত্যেকের ছবি পাশে থাকে; ছবিতে ক্লিক করলেই নতুন
-নমুনা ছবি দেওয়া যায়, আর নামের ঘরে লিখে Enter চাপলে নাম সেভ হয়।
-নাম বদলালে Drive-এর ফোল্ডারের নাম বদলায় না — পুরনো ছবি যেখানে আছে সেখানেই থাকে।
+ছবি কারও ফোল্ডারে যাচ্ছে না কেন — Admin → People কার্ডের নিচে এখন লেখা থাকে:
+  • FACE_SORT বন্ধ
+  • মডেল লোড হয়নি (প্যাকেজ নেই)
+  • কারও নমুনা ছবি দেওয়া নেই
+  • মুখ আছে কিন্তু কারও সাথে মেলেনি (কত দূরত্বে, সেটাও)
+  • ছবিতে একাধিক মুখ = গ্রুপ ছবি, তাই সরানো হয়নি
 
 কপি করার পর:
   npm test        → ৪২টি পাস হওয়ার কথা
