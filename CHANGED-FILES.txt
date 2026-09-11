@@ -1,32 +1,29 @@
-এই zip-এ শুধু বদলানো ফাইলগুলো আছে (১৯টি)। রিপোর কাঠামো ঠিক রেখে উপরে কপি
-করে দিন — একই নামের ফাইল replace হবে — তারপর commit করে push করুন।
-কোনো ফাইল মুছতে হবে না।
+এই zip-এ origin/main-এর তুলনায় বদলানো সব ফাইল আছে (১৩টি)। রিপোর কাঠামো ঠিক
+রেখে উপরে কপি করে দিন — একই নামের ফাইল replace হবে — তারপর commit করে push
+করুন। কোনো ফাইল মুছতে হবে না।
 
-★ এবারের আসল ফিক্স — services/drive.js
-  ছবি ঠিকই শাকিলের ফোল্ডারে যাচ্ছিল, কিন্তু গ্যালারির তালিকায় Drive-এর কাছে
-  `parents` চাওয়া হচ্ছিল না। তাই কোন ফোল্ডারে আছে সেটা জানার উপায়ই ছিল না,
-  আর নামের chip কখনো আসত না। এক শব্দের ফিক্স + একটা regression টেস্ট।
+★★ Upload দ্রুত করা (এবারের মূল কাজ)
+  প্রতিটা chunk-এর আকার এখন আগের chunk কত দ্রুত গেল তা দেখে ঠিক হয় —
+  ধীর নেটে ছোট (drop হলে কম লস), দ্রুত নেটে বড় (কম round-trip)। পরের
+  chunk আগেই ডিস্ক থেকে পড়ে রেডি রাখে। ৩০MB ফাইলে request প্রায় অর্ধেক
+  (৪ → ২)। একসাথে কয়টা ফাইল যাবে সেটাও env দিয়ে বদলানো যায় (default ২)।
+    services/config.js, public/js/upload-engine.js, routes/api.js,
+    public/js/tour.js, public/js/admin.js, .env.example
 
-গ্যালারিতে ব্যক্তির ফোল্ডার
-  chip: 👤 শাকিল ৩ — চাপলে শুধু তার ছবি
-  বাটন: ⬇ শাকিল-এর সব (৩) — এক চাপে পুরো ফোল্ডার
+★ আগের turn-এর ৪টা ফিচারও এই zip-এ (origin-এ এখনো যায়নি):
+  📸 আমার ছবি খুঁজুন, ↗ শেয়ার, ♥ রিঅ্যাকশন, ▶ স্লাইডশো
+    routes/api.js, middleware/rateLimiters.js, public/gallery.html,
+    public/js/gallery.js, public/css/app.css,
+    test/22-find-me.test.js, test/23-find-me-off.test.js
 
-নতুন (৫টি)
-  public/game.html, public/js/game.js, public/js/game-ui.js   মিনি গেম
-  scripts/check-scene.js                                      দৃশ্যের পরীক্ষা
-  test/21-game-page.test.js                                   গেমের টেস্ট
-
-বদলানো (১৪টি)
-  services/drive.js            ★ parents ফিল্ড + person ফোল্ডার খোঁজা
-  services/faces.js            ফলাফলের কারণ ও হিসাব
-  services/face-sorter.js      কেন সরানো হলো/হলো না
-  routes/api.js                gallery-তে person লেবেল
-  public/gallery.html, public/js/gallery.js    person chip + সব Download
-  public/admin.html, public/js/admin.js        ছবি, নাম, কারণ, countdown hint
-  public/css/app.css           keyframe ফিক্স + নতুন স্টাইল
-  public/index.html, server/app.js             গেমের লিংক ও রুট
-  package.json, README.md, test/20-face-sort.test.js
+নতুন env (সব ঐচ্ছিক, .env.example-এ আছে):
+  UPLOAD_CHUNK_MB=24   (server ceiling; আগে ৮ ছিল)
+  UPLOAD_CHUNK_MIN_MB / MAX_MB / START_MB   (adaptive window)
+  UPLOAD_CONCURRENCY=2  (একসাথে কয়টা ফাইল)
 
 কপি করার পর:
-  npm test        → ৪৪টি পাস হওয়ার কথা
+  npm test        → ৪৬টি পাস হওয়ার কথা
   npm run check
+
+মনে রাখবেন: zip আপলোড ফাইল replace করে কিন্তু মোছে না। সম্ভব হলে
+git am /path/to/patch দিয়ে লাগানোই পরিষ্কার।

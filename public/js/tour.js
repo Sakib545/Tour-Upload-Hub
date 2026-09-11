@@ -797,6 +797,11 @@
         maxFileBytes: cfg.maxFileBytes,
         maxFilesPerUpload: cfg.maxFilesPerUpload,
         chunkBytes: cfg.chunkMB * 1024 * 1024,
+        // Adaptive chunk window + parallelism, from /api/config.
+        chunkMinMB: cfg.chunkMinMB,
+        chunkMaxMB: cfg.chunkMaxMB,
+        chunkStartMB: cfg.chunkStartMB,
+        uploadConcurrency: cfg.uploadConcurrency,
       },
       getToken,
       getUploader,

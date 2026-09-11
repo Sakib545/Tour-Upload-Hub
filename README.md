@@ -59,6 +59,19 @@ A private group-tour photo & video sharing website. Everyone on the tour opens o
   behind the boat, obstacles come at you down the channel, and the rival boats are named
   after the enrolled crew. Touch or keyboard, no login, best score kept locally.
 
+- **"আমার ছবি খুঁজুন"**: a visitor takes a selfie and the gallery returns the photos
+  their face appears in — no enrolment, no login. The selfie is compared once and never
+  stored. Needs FACE_SORT on.
+- **Share & react**: every photo has a share button (the OS share sheet on a phone —
+  WhatsApp, Messenger — or copy-link on desktop) and a ♥ that is remembered per device.
+- **Slideshow**: a ▶ button plays the current filter full-screen, pausing on videos.
+
+- **Faster uploads**: each chunk is sized from the measured speed of the last one — small
+  on a weak signal (a dropped chunk is cheap to resend), large on a strong one (fewer round
+  trips) — and the next chunk is read from disk while the current one is in flight. On a
+  30 MB file this roughly halves the number of requests versus the old fixed 8 MB. Tunable
+  with `UPLOAD_CHUNK_MIN/MAX/START_MB` and `UPLOAD_CONCURRENCY`.
+
 ## 1. Local setup
 
 Prerequisites: **Node.js ≥ 18**.

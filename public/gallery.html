@@ -35,6 +35,8 @@
     <div class="gallery-bar" id="galleryBar" hidden>
       <button type="button" class="chip is-on" id="chipAll" data-filter="all">সব <span class="chip-n" id="nAll"></span></button>
       <div class="chips-dyn" id="chipsDyn"></div>
+      <button type="button" class="chip" id="btnFindMe">📸 আমার ছবি খুঁজুন</button>
+      <button type="button" class="chip" id="btnSlideshow">▶ স্লাইডশো</button>
       <span class="bar-spacer"></span>
       <button type="button" class="btn btn-ghost" id="btnDownloadAll" hidden>⬇ সব Download</button>
       <button type="button" class="chip" id="btnSelect">নির্বাচন করুন</button>
@@ -45,6 +47,21 @@
     <div class="gallery-grid" id="gallerySkeleton" aria-hidden="true"></div>
     <div class="gallery-grid" id="galleryGrid"></div>
   </main>
+
+  <!-- "Find my photos": take a selfie, get your pictures -->
+  <div class="findme" id="findMe" hidden>
+    <div class="findme-card">
+      <button type="button" class="findme-close" id="findMeClose" aria-label="বন্ধ">✕</button>
+      <h2 id="findMeTitle">📸 আমার ছবি খুঁজুন</h2>
+      <p class="muted-text" id="findMeText">
+        নিজের একটা স্পষ্ট সেলফি দিন — আপনার মুখ যেসব ছবিতে আছে সেগুলো বের করে দেব।
+        ছবিটা কোথাও জমা হবে না।
+      </p>
+      <input type="file" id="findMeInput" accept="image/*" capture="user" hidden />
+      <button type="button" class="btn btn-primary btn-lg" id="findMePick">সেলফি তুলুন / বাছুন</button>
+      <div class="findme-result" id="findMeResult" hidden></div>
+    </div>
+  </div>
 
   <!-- Lightbox -->
   <div class="lightbox" id="lightbox" hidden>
@@ -59,6 +76,7 @@
     <div class="lb-caption" id="lbCaption"></div>
     <div class="lb-bar">
       <a class="btn btn-primary" id="lbDownload" download href="#">⬇ এই ফাইলটি Download করুন</a>
+      <button type="button" class="btn btn-ghost" id="lbShare">↗ শেয়ার করুন</button>
     </div>
   </div>
 

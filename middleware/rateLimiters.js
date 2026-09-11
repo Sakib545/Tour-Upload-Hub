@@ -67,4 +67,15 @@ const adminApi = rateLimit({
   handler: json429,
 });
 
-module.exports = { light, pinVerify, adminLogin, uploadChunks, adminApi, media };
+// Face search reads every photo through the recognition model, so it is far
+// heavier than a listing. A handful per few minutes is plenty for a guest.
+const faceSearch = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'RATE_LIMITED' },
+});
+
+module.exports = {
+  faceSearch, light, pinVerify, adminLogin, uploadChunks, adminApi, media };

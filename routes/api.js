@@ -428,10 +428,21 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
   const mime = String(req.get('x-mime') || '').slice(0, 200);
   const uploader = safeDecode(req.get('x-uploader') || '').slice(0, 60);
 
-  // A normal first chunk is exactly min(chunkBytes, total). Anything smaller for
-  // a multi-chunk file is "unusually tiny" and never warrants a Drive session.
-  const expected = Math.min(cfg.chunkBytes, total);
-  if (contentLength !== expected) {
+  // The browser now sizes chunks adaptively, so the first one is no longer a
+  // fixed value — but it must still be a plausible chunk. It has to carry
+  // enough bytes to sniff the magic number, must not exceed the whole file or
+  // the server ceiling, and, for a file bigger than one chunk, must be at
+  // least the minimum adaptive size so a trickle of tiny requests can never
+  // open a Drive session. Google also requires every non-final chunk to be a
+  // multiple of 256 KiB.
+  const minFirst = total <= cfg.chunkBytes ? total : cfg.chunkMinMB * 1024 * 1024;
+  const isFinal = contentLength === total;
+  const alignedOk = isFinal || contentLength % (256 * 1024) === 0;
+  if (
+    contentLength < Math.min(minFirst, sniff.PROBE_BYTES) ||
+    contentLength > Math.min(cfg.chunkBytes, total) ||
+    !alignedOk
+  ) {
     await drain(req);
     return fail(res, 400, 'BAD_REQUEST');
   }
@@ -791,6 +802,75 @@ router.get('/gallery', rl.light, noStore, requireGalleryAuth, asyncH(async (req,
   });
   res.json({ items, truncated });
 }));
+
+/**
+ * "Find my photos": a visitor takes a selfie, and we return the gallery items
+ * whose single face matches it — no enrolment, no login. The selfie is used
+ * for one comparison and never stored; only its 128-number descriptor lives
+ * for the length of the request.
+ *
+ * This is a heavier call than a normal listing (it reads every photo's
+ * thumbnail through the recognition model), so it has its own tighter limiter
+ * and refuses when face recognition is switched off.
+ */
+router.post(
+  '/gallery/find-me',
+  rl.faceSearch,
+  requireGalleryAuth,
+  express.raw({ type: 'image/*', limit: '12mb' }),
+  asyncH(async (req, res) => {
+    if (!cfg.faces.enabled) return fail(res, 400, 'FACES_DISABLED');
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return fail(res, 400, 'NO_IMAGE');
+    if (!(await faces.init())) return fail(res, 503, 'FACES_UNAVAILABLE');
+
+    const selfie = await faces.describeImage(req.body);
+    if (!selfie.length) return res.json({ ok: false, code: 'NO_FACE' });
+    // The clearest face in the selfie (biggest box) is the person asking.
+    const me = selfie.slice().sort((a, b) =>
+      (b.box.width * b.box.height) - (a.box.width * a.box.height))[0].descriptor;
+
+    await drive.ensurePeopleFolders(site.people).catch(() => {});
+    const { files } = await drive.listFolderFiles({ cap: cfg.galleryLimit, kinds: 'media' });
+    const gated = cfg.pinEnabled && !state.settings.galleryPublic;
+    const gt = gated ? galleryToken() : null;
+    const q = gt ? `?gt=${encodeURIComponent(gt)}` : '';
+
+    // Halfway between the auto-sort threshold and the point where strangers
+    // start creeping in. Measured on real photos: same person 0-0.45,
+    // different people 0.55+, so 0.52 catches an off-angle selfie of yourself
+    // without pulling in someone else.
+    const limit = Math.min(0.52, cfg.faces.threshold + 0.02);
+    const matches = [];
+    for (const f of files) {
+      if (!String(f.mimeType || '').startsWith('image/')) continue;
+      let bytes = null;
+      try {
+        const thumb = f.thumbnailLink
+          ? await drive.fetchThumbnail(f.thumbnailLink, cfg.faces.workingWidth)
+          : null;
+        bytes = thumb ? thumb.buffer : await drive.downloadFile(f.id);
+      } catch (e) { continue; }
+      if (!bytes) continue;
+      let found;
+      try { found = await faces.describeImage(bytes); } catch (e) { continue; }
+      let best = Infinity;
+      for (const face of found) best = Math.min(best, faces.distance(me, face.descriptor));
+      if (best <= limit) {
+        const base = `/api/gallery/file/${f.id}`;
+        matches.push({
+          id: f.id,
+          name: f.name,
+          distance: Number(best.toFixed(3)),
+          thumb: f.thumbnailLink ? `${base}/thumb${q}` : null,
+          src: `${base}/content${q}`,
+          download: `${base}/content${q}${q ? '&' : '?'}download=1`,
+        });
+      }
+    }
+    matches.sort((a, b) => a.distance - b.distance);
+    res.json({ ok: true, count: matches.length, items: matches });
+  })
+);
 
 /* Small, cacheable preview image — keeps the grid light on mobile data. */
 router.get('/gallery/file/:id/thumb', rl.media, requireGalleryAuth, asyncH(async (req, res) => {

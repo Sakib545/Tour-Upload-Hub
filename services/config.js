@@ -73,7 +73,18 @@ const cfg = {
   maxFileBytes: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240) * 1024 * 1024,
   maxFileSizeMB: num(env.MAX_FILE_SIZE_MB, 2048, 1, 10240),
   maxFilesPerUpload: num(env.MAX_FILES_PER_UPLOAD, 50, 1, 500),
-  chunkBytes: num(env.UPLOAD_CHUNK_MB, 8, 1, 64) * 1024 * 1024,
+  // The largest chunk the server will accept in one request. The browser sends
+  // smaller ones on a slow link and works up towards this on a fast one, so a
+  // generous ceiling helps fast connections without hurting slow ones.
+  chunkBytes: num(env.UPLOAD_CHUNK_MB, 24, 1, 96) * 1024 * 1024,
+  // The window the browser adapts within (must stay <= chunkBytes).
+  chunkMinMB: num(env.UPLOAD_CHUNK_MIN_MB, 4, 1, 32),
+  chunkMaxMB: num(env.UPLOAD_CHUNK_MAX_MB, 24, 2, 96),
+  chunkStartMB: num(env.UPLOAD_CHUNK_START_MB, 8, 1, 48),
+  // The adaptive window is reconciled against the ceiling below, in
+  // publicConfig, so a small UPLOAD_CHUNK_MB can never invert min > max.
+  // How many files upload at once. Small hosts should leave this at 2.
+  uploadConcurrency: num(env.UPLOAD_CONCURRENCY, 2, 1, 4),
   galleryLimit: num(env.GALLERY_LIMIT, 300, 1, 5000),
 
   // ── Abuse protection (uploads) ─────────────────────────────
@@ -175,7 +186,22 @@ function publicConfig(state, site) {
     categories: cfg.google.separateMediaFolders
       ? cats.map((c) => ({ id: c.id, label: c.label, media: c.media }))
       : [],
-    chunkMB: cfg.chunkBytes / (1024 * 1024),
+    ...(() => {
+      // The ceiling wins. Clamp the whole window under it and keep the order
+      // min <= start <= max, whatever the individual env values were, so the
+      // browser can never receive an inverted range.
+      const ceil = cfg.chunkBytes / (1024 * 1024);
+      const max = Math.max(1, Math.min(cfg.chunkMaxMB, ceil));
+      const min = Math.max(1, Math.min(cfg.chunkMinMB, max));
+      const start = Math.max(min, Math.min(cfg.chunkStartMB, max));
+      return {
+        chunkMB: ceil,
+        chunkMinMB: min,
+        chunkMaxMB: max,
+        chunkStartMB: start,
+      };
+    })(),
+    uploadConcurrency: cfg.uploadConcurrency,
     maxFileBytes: cfg.maxFileBytes,
     maxFilesPerUploadBytesLabel: `${cfg.maxFileSizeMB} MB`,
   };

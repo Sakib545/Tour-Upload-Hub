@@ -320,9 +320,35 @@
       let offset = 0;
       let zeroProgress = 0;
 
+      // Adaptive chunk size. Each chunk pays one round-trip, so a fast link
+      // wants big chunks (fewer trips) and a slow one wants small chunks (less
+      // to resend after a drop). We start in the middle and let the measured
+      // throughput of each chunk pull the next size up or down, within the
+      // server-backed window from /api/config.
+      //
+      // When the adaptive window is not configured (older callers, tests), the
+      // size stays fixed at chunkBytes and behaves exactly as before.
+      const MB = 1024 * 1024;
+      const GRAIN = 256 * 1024; // Google requires 256 KiB-aligned chunks
+      const align = (n) => Math.max(GRAIN, Math.floor(n / GRAIN) * GRAIN);
+      const adaptive = !!(cfg.chunkMinMB && cfg.chunkMaxMB);
+      const minChunk = adaptive ? align(cfg.chunkMinMB * MB) : cfg.chunkBytes;
+      const maxChunk = adaptive ? Math.max(minChunk, align(Math.min(cfg.chunkMaxMB * MB, cfg.chunkBytes))) : cfg.chunkBytes;
+      let chunkSize = adaptive
+        ? Math.min(Math.max(align((cfg.chunkStartMB || 8) * MB), minChunk), maxChunk)
+        : cfg.chunkBytes;
+
+      // Slice ahead: the browser reads the next chunk from disk while the
+      // current one is in flight, so no round-trip is spent waiting on I/O.
+      let pending = e.file.slice(0, Math.min(chunkSize, e.size));
+
       while (offset < e.size) {
-        const end = Math.min(offset + cfg.chunkBytes, e.size);
-        const chunk = e.file.slice(offset, end);
+        const end = Math.min(offset + chunkSize, e.size);
+        const chunk = pending;
+        // Kick off reading the *next* slice now, before we await this one.
+        const nextEnd = Math.min(end + chunkSize, e.size);
+        pending = end < e.size ? e.file.slice(end, nextEnd) : null;
+        const startedAt = (global.performance || Date).now();
         const headers = {
           'X-Upload-Id': e.uploadId,
           'X-Offset': String(offset),
@@ -359,8 +385,27 @@
         } else {
           next = end; // legacy fallback (server always echoes received/done)
         }
-        if (next === offset) continue; // resend the same chunk (no progress yet)
+        if (next === offset) {
+          // No progress: resend, and re-slice since the size may have shifted.
+          pending = e.file.slice(offset, Math.min(offset + chunkSize, e.size));
+          continue;
+        }
         zeroProgress = 0;
+
+        // Tune the next chunk from how fast this one moved.
+        const moved = next - offset;
+        const secs = ((global.performance || Date).now() - startedAt) / 1000;
+        if (adaptive && secs > 0 && moved > 0) {
+          const bps = moved / secs;
+          // Aim for a chunk that takes ~4s: long enough to amortise the
+          // round-trip, short enough that one drop is cheap to redo.
+          const target = align(Math.round(bps * 4));
+          chunkSize = Math.max(minChunk, Math.min(maxChunk, target));
+          // Re-slice the prefetched chunk if the new size changed the end.
+          const wantEnd = Math.min(next + chunkSize, e.size);
+          if (next < e.size) pending = e.file.slice(next, wantEnd);
+        }
+
         offset = next;
         e.sent = offset;
         e.pct = Math.min(100, Math.round((offset / e.size) * 100));
@@ -410,9 +455,11 @@
       throw lastErr;
     }
 
-    /* ── Scheduler: up to 2 files in parallel ───────────────── */
+    /* ── Scheduler: files in parallel (server-configured) ────── */
 
-    const PARALLEL = 2;
+    // Kept modest on purpose: a small host pays RAM and CPU per concurrent
+    // file, and face sorting may be running alongside. The server caps this.
+    const PARALLEL = Math.max(1, Math.min(4, (cfg && cfg.uploadConcurrency) || 2));
 
     function start() {
       if (state.running) return false;

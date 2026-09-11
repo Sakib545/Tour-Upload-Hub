@@ -14,6 +14,33 @@
   const stage = $('#lbStage');
   const captionEl = $('#lbCaption');
   const lbDownload = $('#lbDownload');
+  const lbShare = $('#lbShare');
+
+  /** Absolute URL to the file, for sharing. */
+  function shareUrl(item) {
+    return new URL(item.src, location.origin).href;
+  }
+
+  /**
+   * Share via the OS sheet (WhatsApp, Messenger, …) when the browser offers it,
+   * otherwise copy the link. Every phone this is used on has Web Share; the
+   * copy path is the desktop fallback.
+   */
+  async function shareItem(item) {
+    const url = shareUrl(item);
+    const data = { title: 'Tour Memories', text: 'এই ছবিটা দেখুন', url };
+    try {
+      if (navigator.share) { await navigator.share(data); return; }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // the user closed the sheet
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('লিংক কপি হয়েছে — WhatsApp-এ পেস্ট করুন।');
+    } catch (e) {
+      window.open(url, '_blank');
+    }
+  }
   const pinGate = $('#pinGate');
   const pinForm = $('#pinForm');
   const pinInput = $('#pinInput');
@@ -147,6 +174,26 @@
     dl.textContent = '⬇';
     dl.addEventListener('click', (ev) => ev.stopPropagation());
     tile.appendChild(dl);
+
+    const share = document.createElement('button');
+    share.className = 'g-share';
+    share.title = 'শেয়ার করুন';
+    share.textContent = '↗';
+    share.addEventListener('click', (ev) => { ev.stopPropagation(); shareItem(item); });
+    tile.appendChild(share);
+
+    const heart = document.createElement('button');
+    heart.className = 'g-like' + (liked(item.id) ? ' is-on' : '');
+    heart.title = 'পছন্দ';
+    heart.textContent = '♥';
+    heart.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      heart.classList.toggle('is-on', toggleLike(item.id));
+      if (heart.classList.contains('is-on')) {
+        heart.classList.remove('pop'); void heart.offsetWidth; heart.classList.add('pop');
+      }
+    });
+    tile.appendChild(heart);
 
     const check = document.createElement('span');
     check.className = 'g-check';
@@ -336,6 +383,128 @@
     clearPicks();
   });
 
+  /* ── Find my photos ───────────────────────────────────────── */
+
+  const findMe = $('#findMe');
+
+  /* Reactions live per device: no accounts, no server writes, and the little
+     hearts still make the group compare whose photo did best. */
+  const LIKES_KEY = 'tourLikes';
+  let likes = {};
+  try { likes = JSON.parse(localStorage.getItem(LIKES_KEY) || '{}'); } catch (e) { likes = {}; }
+  function liked(id) { return !!likes[id]; }
+  function toggleLike(id) {
+    if (likes[id]) delete likes[id]; else likes[id] = 1;
+    try { localStorage.setItem(LIKES_KEY, JSON.stringify(likes)); } catch (e) { /* private mode */ }
+    return !!likes[id];
+  }
+
+  function openFindMe() {
+    $('#findMeResult').hidden = true;
+    $('#findMeResult').innerHTML = '';
+    $('#findMeText').hidden = false;
+    $('#findMePick').hidden = false;
+    findMe.hidden = false;
+  }
+  function closeFindMe() { findMe.hidden = true; }
+
+  async function runFindMe(file) {
+    if (!file) return;
+    $('#findMeText').hidden = true;
+    $('#findMePick').hidden = true;
+    const box = $('#findMeResult');
+    box.hidden = false;
+    box.innerHTML = '<div class="findme-spinner"></div><p class="muted-text">মুখ মিলিয়ে দেখা হচ্ছে…</p>';
+
+    let data;
+    try {
+      const token = sessionStorage.getItem(PIN_KEY) || '';
+      const res = await fetch('/api/gallery/find-me', {
+        method: 'POST',
+        headers: {
+          'Content-Type': file.type || 'image/jpeg',
+          ...(token ? { 'X-Upload-Token': token } : {}),
+        },
+        body: file,
+      });
+      data = await res.json();
+      if (!res.ok) {
+        box.innerHTML = `<p class="muted-text">${
+          res.status === 429 ? 'একটু পরে আবার চেষ্টা করুন।' : 'এখন খোঁজা যাচ্ছে না।'
+        }</p>`;
+        resetFindMe();
+        return;
+      }
+    } catch (e) {
+      box.innerHTML = '<p class="muted-text">নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।</p>';
+      resetFindMe();
+      return;
+    }
+
+    if (!data.ok && data.code === 'NO_FACE') {
+      box.innerHTML = '<p class="muted-text">সেলফিতে মুখ পাওয়া যায়নি — স্পষ্ট একটা ছবি দিন।</p>';
+      resetFindMe();
+      return;
+    }
+    if (!data.count) {
+      box.innerHTML = '<p class="muted-text">আপনার মুখ আছে এমন কোনো ছবি পাওয়া গেল না।</p>';
+      resetFindMe();
+      return;
+    }
+
+    box.innerHTML = '';
+    const head = document.createElement('p');
+    head.innerHTML = `<b>${bnNum(data.count)}টি ছবি</b> পাওয়া গেছে`;
+    box.appendChild(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'findme-grid';
+    for (const item of data.items) {
+      const tile = document.createElement('div');
+      tile.className = 'g-item';
+      if (item.thumb) {
+        const img = document.createElement('img');
+        img.src = item.thumb; img.alt = '';
+        tile.appendChild(img);
+      }
+      tile.addEventListener('click', () => window.open(item.download, '_blank'));
+      grid.appendChild(tile);
+    }
+    box.appendChild(grid);
+
+    const actions = document.createElement('div');
+    actions.className = 'findme-actions';
+    const dl = document.createElement('button');
+    dl.className = 'btn btn-primary';
+    dl.textContent = `⬇ সবগুলো Download (${bnNum(data.count)})`;
+    dl.addEventListener('click', () => downloadMany(data.items));
+    const again = document.createElement('button');
+    again.className = 'btn btn-ghost';
+    again.textContent = 'অন্য সেলফি';
+    again.addEventListener('click', openFindMe);
+    actions.append(dl, again);
+    box.appendChild(actions);
+  }
+
+  function resetFindMe() {
+    const retry = document.createElement('button');
+    retry.className = 'btn btn-ghost';
+    retry.style.marginTop = '12px';
+    retry.textContent = 'আবার চেষ্টা করুন';
+    retry.addEventListener('click', openFindMe);
+    $('#findMeResult').appendChild(retry);
+  }
+
+  $('#btnFindMe').addEventListener('click', openFindMe);
+  $('#btnSlideshow').addEventListener('click', startSlideshow);
+  $('#findMeClose').addEventListener('click', closeFindMe);
+  $('#findMePick').addEventListener('click', () => $('#findMeInput').click());
+  $('#findMeInput').addEventListener('change', (ev) => {
+    runFindMe(ev.target.files && ev.target.files[0]);
+    ev.target.value = '';
+  });
+  findMe.addEventListener('click', (ev) => { if (ev.target === findMe) closeFindMe(); });
+
   /**
    * Browsers throttle bursts of downloads, so files are pulled one at a time
    * with a short gap. The visitor sees the progress in a toast.
@@ -435,11 +604,33 @@
 
     lbDownload.href = item.download;
     lbDownload.setAttribute('download', item.name);
+    if (lbShare) lbShare.onclick = () => shareItem(item);
 
     const parts = [item.name];
     if (item.uploader) parts.push(`— ${item.uploader}`);
     if (item.size) parts.push(`(${fmtBytes(item.size)})`);
     captionEl.textContent = parts.join(' ');
+  }
+
+  /* Slideshow: step through the current filter, one photo every few seconds,
+     pausing on videos so they can play out. */
+  let slideTimer = null;
+  function startSlideshow() {
+    if (!shown.length) return;
+    openLightbox(current >= 0 ? current : 0);
+    document.body.classList.add('is-slideshow');
+    const tick = () => {
+      const item = shown[current];
+      const wait = item && item.isVideo ? 9000 : 3500;
+      slideTimer = setTimeout(() => { step(1); tick(); }, wait);
+    };
+    clearTimeout(slideTimer);
+    tick();
+  }
+  function stopSlideshow() {
+    clearTimeout(slideTimer);
+    slideTimer = null;
+    document.body.classList.remove('is-slideshow');
   }
 
   function openLightbox(index) {
@@ -451,6 +642,7 @@
   }
 
   function closeLightbox() {
+    stopSlideshow();
     lightbox.hidden = true;
     stage.textContent = '';
     document.body.style.overflow = '';
@@ -526,6 +718,8 @@
     }
     rebuildFilters();
     bar.hidden = false;
+    // The selfie search only works when face recognition is switched on.
+    $('#btnFindMe').hidden = !(pageCfg && pageCfg.faceSortEnabled);
     refreshDownloadBtn();
     render();
   }
