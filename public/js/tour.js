@@ -552,7 +552,8 @@
     el.pinError.hidden = !message;
     if (message) el.pinError.textContent = message;
     el.pinInput.value = '';
-    el.pinInput.focus();
+    // Keep the public countdown in view instead of scrolling to the PIN gate.
+    el.pinInput.focus({ preventScroll: true });
   }
 
   async function submitPin(ev) {
@@ -720,6 +721,8 @@
   }
 
   function startCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = null;
     const start = cfg.tourStartAt ? new Date(cfg.tourStartAt) : null;
     const end = cfg.tourEndAt ? new Date(cfg.tourEndAt) : null;
     if ((!start || isNaN(start)) && (!end || isNaN(end))) return;
@@ -732,14 +735,21 @@
         clearInterval(countdownTimer);
         countdownTimer = null;
       }
+      return keepGoing;
     };
-    tick();
-    if (countdownTimer) clearInterval(countdownTimer);
-    countdownTimer = setInterval(tick, 1000);
+    const resume = () => {
+      if (tick() && !document.hidden && !countdownTimer) {
+        countdownTimer = setInterval(tick, 1000);
+      }
+    };
+    resume();
 
     // A background tab does not need a running clock; catch up on return.
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && countdownTimer) tick();
+      if (document.hidden) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      } else resume();
     });
   }
 
