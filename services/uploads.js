@@ -2,6 +2,7 @@
 
 const logger = require('../utils/logger');
 const { cfg } = require('./config');
+const dedupe = require('./dedupe');
 
 /**
  * Registry of in-flight chunked upload sessions.
@@ -60,6 +61,7 @@ function create(id, meta, cancel, release) {
     total: meta.total,
     name: meta.name,
     mimeType: meta.mimeType,
+    sig: meta.sig || '',
     uploader: meta.uploader || '',
     ip: meta.ip || '',
     sessionUri: meta.sessionUri || '',
@@ -117,6 +119,11 @@ function complete(id, { fileId, name, total } = {}) {
     try { s.release(); } catch (e) { /* ignore */ }
   }
   sessions.delete(id);
+  // The bytes are durably in Drive: record the content signature so the next
+  // upload of the same file is answered as a duplicate instead of stored twice.
+  if (s && s.sig && fileId) {
+    try { dedupe.remember(s.sig, { fileId, name: finalName }); } catch (e) { /* ignore */ }
+  }
   // Drive has confirmed the file is complete, so a tombstone is always left —
   // even when the 201 body carried no file id. A re-sent final chunk (lost
   // final response) is then answered instead of forcing a full-file restart.

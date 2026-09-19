@@ -101,20 +101,25 @@ function escapeDriveQuery(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-/** Pack uploader metadata into the Drive file `description` field. */
-function encodeDescription({ uploader = '', originalName = '', at = null, category = '' } = {}) {
+/**
+ * Pack uploader metadata into the Drive file `description` field.
+ * `s` is the content signature used for duplicate detection — keeping it here
+ * means the duplicate index survives a redeploy with no extra storage.
+ */
+function encodeDescription({ uploader = '', originalName = '', at = null, category = '', sig = '' } = {}) {
   const safe = JSON.stringify({
     u: String(uploader || '').slice(0, 60),
     n: String(originalName || '').slice(0, 200),
     a: at || new Date().toISOString(),
     c: String(category || '').slice(0, 24),
+    s: String(sig || '').slice(0, 64),
   });
   return safe.length <= 1024 ? safe : safe.slice(0, 1020) + '"}' ;
 }
 
 /** Parse uploader metadata back out of a Drive `description` value. */
 function parseDescription(desc) {
-  if (!desc) return { uploader: '', originalName: '', at: null, category: '' };
+  if (!desc) return { uploader: '', originalName: '', at: null, category: '', sig: '' };
   try {
     const j = JSON.parse(desc);
     return {
@@ -122,9 +127,10 @@ function parseDescription(desc) {
       originalName: typeof j.n === 'string' ? j.n : '',
       at: typeof j.a === 'string' ? j.a : null,
       category: typeof j.c === 'string' ? j.c : '',
+      sig: typeof j.s === 'string' ? j.s : '',
     };
   } catch (e) {
-    return { uploader: '', originalName: '', at: null, category: '' };
+    return { uploader: '', originalName: '', at: null, category: '', sig: '' };
   }
 }
 

@@ -362,6 +362,9 @@ body.page-home .container { padding-bottom: 180px; }
   line-height: 1.35;
 }
 .st-done { color: var(--ok); }
+/* Already in the folder: stored, but nothing was sent — muted, not alarming. */
+.st-dup { color: var(--muted); }
+.file-row.is-dup { opacity: .78; }
 .st-error { color: var(--danger); }
 .st-wait { color: var(--muted); }
 .st-uploading { color: var(--brand-1); font-variant-numeric: tabular-nums; }

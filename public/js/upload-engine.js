@@ -55,6 +55,62 @@
     return { ok: true };
   }
 
+  /* ── Content signature (duplicate detection) ─────────────── */
+
+  // Only the head and tail of a file are hashed, never the whole thing: a
+  // 300 MB video would otherwise have to be read into memory on a phone just
+  // to find out it was already uploaded. Head + tail + exact byte size is
+  // enough to tell two real camera files apart.
+  const SIG_EDGE = 256 * 1024;
+
+  function toHex(buf) {
+    const b = new Uint8Array(buf);
+    let out = '';
+    for (let i = 0; i < b.length; i++) out += b[i].toString(16).padStart(2, '0');
+    return out;
+  }
+
+  /** Last-resort signature when WebCrypto is unavailable (http:// origins). */
+  function weakSig(file) {
+    const seed = [file.name || '', file.size || 0, file.lastModified || 0].join('|');
+    // FNV-1a, 32 bits twice with different offsets -> 16 hex chars.
+    const fnv = (str, h) => {
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+      }
+      return h >>> 0;
+    };
+    const a = fnv(seed, 0x811c9dc5).toString(16).padStart(8, '0');
+    const b = fnv(seed + '#2', 0x01000193).toString(16).padStart(8, '0');
+    return a + b;
+  }
+
+  /**
+   * SHA-256 over: first 256 KB + last 256 KB + the byte size.
+   * Resolves to '' when the file cannot be read — the caller then simply
+   * uploads without duplicate detection rather than failing.
+   */
+  async function fileSignature(file) {
+    try {
+      const subtle = global.crypto && global.crypto.subtle;
+      if (!subtle || typeof file.slice !== 'function') return weakSig(file);
+      const head = await file.slice(0, Math.min(SIG_EDGE, file.size)).arrayBuffer();
+      const tail = file.size > SIG_EDGE * 2
+        ? await file.slice(file.size - SIG_EDGE).arrayBuffer()
+        : new ArrayBuffer(0);
+      const sizeTag = new TextEncoder().encode('|' + file.size);
+      const joined = new Uint8Array(head.byteLength + tail.byteLength + sizeTag.length);
+      joined.set(new Uint8Array(head), 0);
+      joined.set(new Uint8Array(tail), head.byteLength);
+      joined.set(sizeTag, head.byteLength + tail.byteLength);
+      const digest = await subtle.digest('SHA-256', joined);
+      return toHex(digest);
+    } catch (e) {
+      try { return weakSig(file); } catch (e2) { return ''; }
+    }
+  }
+
   function createUploadEngine({ cfg, getToken, getUploader, onChange, onProgress }) {
     const state = {
       entries: [],   // {id,name,size,type,status,pct,sent,errorCode,attempts,url,uploadId,file}
@@ -129,6 +185,11 @@
           attempts: 0,
           url: null,
           uploadId: null,
+          sig: null,          // filled in before the file is sent
+          prechecked: false,  // the batch precheck has covered this one
+          duplicate: false,   // true when the same file is already in Drive
+          duplicateOf: '',    // name it was stored under
+          dupLeaderId: null,  // the copy in this batch it is waiting on
         });
       }
       state.entries.push(...added);
@@ -252,6 +313,142 @@
       return promise;
     }
 
+    // Signatures already accounted for in this session: everything that
+    // finished (or was skipped) during this visit. It catches the very common
+    // "picked the same photo twice in one batch" case without a round trip.
+    const seenSigs = new Map(); // sig -> stored display name
+
+    // Duplicate detection is opt-in per caller (the page turns it on) and is
+    // never allowed to hold an upload back: if the answer has not arrived in
+    // PRECHECK_TIMEOUT_MS the file is simply sent, and the server's own check
+    // still catches the duplicate before a Drive session is opened.
+    const dedupeOn = !!(cfg && cfg.dedupe);
+    const PRECHECK_TIMEOUT_MS = 4000;
+
+    async function apiPrecheck(sigs) {
+      if (typeof fetch !== 'function') return {};
+      let timer = null;
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      try {
+        const req = fetch('/api/upload/precheck', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Upload-Token': getToken() || '',
+          },
+          body: JSON.stringify({ sigs }),
+          signal: ctl ? ctl.signal : undefined,
+        });
+        const timeout = new Promise((resolve) => {
+          timer = setTimeout(() => {
+            if (ctl) { try { ctl.abort(); } catch (e) { /* ignore */ } }
+            resolve(null);
+          }, PRECHECK_TIMEOUT_MS);
+        });
+        const res = await Promise.race([req, timeout]);
+        if (!res || !res.ok) return {};
+        const data = await res.json().catch(() => ({}));
+        return (data && data.known) || {};
+      } catch (e) {
+        return {}; // duplicate detection is best-effort, never a blocker
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+
+    /**
+     * Decide whether this file is already in the tour folder.
+     * Returns the stored name when it is a duplicate, otherwise null.
+     */
+    async function duplicateName(e) {
+      if (!dedupeOn) return null;
+      if (!e.sig) e.sig = await fileSignature(e.file);
+      if (!e.sig) return null;
+      if (seenSigs.has(e.sig)) return seenSigs.get(e.sig) || e.name;
+      // start() normally asks about the whole batch in one request; only a
+      // file that missed that round trips to the server on its own.
+      if (e.prechecked) return null;
+      const known = await apiPrecheck([e.sig]);
+      const hit = known[e.sig];
+      if (!hit) return null;
+      seenSigs.set(e.sig, hit.name || e.name);
+      return hit.name || e.name;
+    }
+
+    /**
+     * Ask about the whole queue in ONE request before any worker starts.
+     * Fifty photos used to mean fifty precheck calls; now it means one.
+     * Files already known to Drive are settled here and never enter a worker.
+     */
+    async function prefetchDuplicates(entries) {
+      if (!dedupeOn || !entries.length) return;
+      const bySig = new Map(); // sig -> entries sharing it
+      for (const e of entries) {
+        if (!e.sig) e.sig = await fileSignature(e.file);
+        if (!e.sig) continue;
+        if (!bySig.has(e.sig)) bySig.set(e.sig, []);
+        bySig.get(e.sig).push(e);
+      }
+      const sigs = Array.from(bySig.keys()).filter((sig) => !seenSigs.has(sig));
+      const known = sigs.length ? await apiPrecheck(sigs) : {};
+      for (const [sig, group] of bySig) {
+        for (const e of group) e.prechecked = true;
+        const hit = known[sig] || (seenSigs.has(sig) ? { name: seenSigs.get(sig) } : null);
+        if (hit) {
+          seenSigs.set(sig, hit.name || group[0].name);
+          // Every copy of a file already in Drive is settled — including two
+          // copies of it in this same batch.
+          for (const e of group) {
+            if (e.status === 'pending') markDuplicate(e, hit.name || e.name);
+          }
+          continue;
+        }
+        // Not in Drive, but the visitor picked the same file more than once
+        // (easy to do in a phone gallery). One of them uploads; the rest wait
+        // on it. `dupLeaderId` is what lets them come back if it fails.
+        if (group.length > 1) {
+          const leader = group[0];
+          for (const e of group.slice(1)) {
+            if (e.status !== 'pending') continue;
+            e.dupLeaderId = leader.id;
+            markDuplicate(e, leader.name);
+          }
+        }
+      }
+    }
+
+    /**
+     * The file another entry was waiting on did not make it. Put those copies
+     * back in the queue — one of them now has to carry the content.
+     */
+    function reviveFollowers(leaderId) {
+      let revived = false;
+      for (const e of state.entries) {
+        if (e.dupLeaderId !== leaderId || !e.duplicate) continue;
+        e.dupLeaderId = null;
+        e.duplicate = false;
+        e.duplicateOf = '';
+        e.status = 'pending';
+        e.claimed = false;
+        e.pct = 0;
+        e.sent = 0;
+        revived = true;
+      }
+      if (revived) notify();
+    }
+
+    /** Mark an entry as "already uploaded" without sending a single byte. */
+    function markDuplicate(e, storedName) {
+      e.status = 'done';
+      e.duplicate = true;
+      e.duplicateOf = storedName || e.name;
+      e.pct = 100;
+      e.sent = e.size;
+      e.errorCode = null;
+      if (e.url) { try { URL.revokeObjectURL(e.url); e.url = null; } catch (err) { /* ignore */ } }
+      notify();
+    }
+
     function apiCancel(uploadId) {
       try {
         return fetch('/api/upload/cancel', {
@@ -276,11 +473,19 @@
       e.pct = 0;
       e.sent = 0;
       notify();
-      uploadFile(e).then(
+      // Ask first, send second: an already-uploaded file costs one small
+      // request instead of its whole size over mobile data.
+      duplicateName(e).then((dupName) => {
+        if (dupName) { markDuplicate(e, dupName); return null; }
+        return uploadFile(e);
+      }).then(
         () => {
+          // Reached both by a real upload and by markDuplicate() above —
+          // settling twice is harmless and keeps one exit path.
           e.status = 'done';
           e.pct = 100;
           e.sent = e.size;
+          if (e.sig && !seenSigs.has(e.sig)) seenSigs.set(e.sig, e.duplicateOf || e.name);
           // Revoke the preview only after Drive confirmed the file.
           if (e.url) { try { URL.revokeObjectURL(e.url); e.url = null; } catch (err) { /* ignore */ } }
           notify();
@@ -291,6 +496,9 @@
           e.status = 'error';
           e.errorCode = (err && err.code) || 'FAILED';
           notify();
+          // Copies of this file that stood down must not be left claiming
+          // success for content that never reached Drive.
+          reviveFollowers(e.id);
         }
       );
     }
@@ -358,11 +566,19 @@
           'X-Uploader': encodeURIComponent(uploader),
           // single / group / video — which Drive sub-folder this file belongs in.
           'X-Category': String(e.category || ''),
+          'X-File-Sig': e.sig || '',
           'X-Upload-Token': getToken() || '',
         };
         const result = await sendChunkRetry(e, chunk, headers, offset);
 
         if (result && result.done) {
+          if (result.duplicate) {
+            // The server found the same content already stored (two phones
+            // racing, or a client that skipped the precheck).
+            e.duplicate = true;
+            e.duplicateOf = (result.file && result.file.name) || e.name;
+            if (e.sig) seenSigs.set(e.sig, e.duplicateOf);
+          }
           offset = e.size;
           e.sent = e.size;
           e.pct = 100;
@@ -467,8 +683,8 @@
       // eligible when retry() puts it back to 'pending', so counting it here
       // would spin up a worker with nothing to do and fire a spurious
       // "batch finished" (with its banner) straight away.
-      const pending = state.entries.filter((e) => e.status === 'pending');
-      if (!pending.length) return false;
+      const queued = state.entries.filter((e) => e.status === 'pending');
+      if (!queued.length) return false;
       state.running = true;
       state.finished = false;
       notify();
@@ -491,12 +707,21 @@
         }
       };
 
-      // run min(PARALLEL, pending) workers
-      const workers = [];
-      for (let i = 0; i < Math.min(PARALLEL, pending.length); i++) {
-        workers.push(worker());
-      }
-      Promise.all(workers).then(() => {
+      const runBatch = async () => {
+        // One duplicate question for the whole queue, before any bytes move.
+        // A failure here is swallowed inside prefetchDuplicates — the batch
+        // then uploads exactly as it would have without the feature.
+        await prefetchDuplicates(queued);
+        // Anything settled as a duplicate is no longer pending.
+        const left = state.entries.filter((e) => e.status === 'pending');
+        const workers = [];
+        for (let i = 0; i < Math.min(PARALLEL, left.length); i++) {
+          workers.push(worker());
+        }
+        await Promise.all(workers);
+      };
+
+      runBatch().then(() => {
         state.running = false;
         state.finished = true;
         for (const e of state.entries) delete e.claimed;
@@ -515,6 +740,7 @@
       e.attempts = 0;
       e.uploadId = null;
       e.claimed = false;
+      e.prechecked = false;
       notify();
     }
 

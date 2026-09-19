@@ -106,6 +106,7 @@
   const STATUS_TEXT = {
     pending: 'অপেক্ষা…',
     done: 'সম্পন্ন',
+    duplicate: 'আগেই আপলোড হয়েছে',
     error: '',
   };
 
@@ -307,6 +308,7 @@
     updateCatLine(entry, cached);
 
     row.classList.toggle('is-done', entry.status === 'done');
+    row.classList.toggle('is-dup', entry.status === 'done' && !!entry.duplicate);
     row.classList.toggle('is-error', entry.status === 'error');
     row.classList.toggle('is-uploading', entry.status === 'uploading');
 
@@ -333,10 +335,14 @@
       status.textContent = STATUS_TEXT.pending;
     } else if (entry.status === 'done') {
       if (!cached.doneShown) {
-        status.className = 'file-status st-done';
+        // A duplicate is a success, not an error — the photo IS in the folder,
+        // it just did not need sending again.
+        status.className = entry.duplicate ? 'file-status st-dup' : 'file-status st-done';
         status.textContent = '';
         status.appendChild(checkMark('tick'));
-        status.appendChild(document.createTextNode(STATUS_TEXT.done));
+        status.appendChild(document.createTextNode(
+          entry.duplicate ? STATUS_TEXT.duplicate : STATUS_TEXT.done
+        ));
         cached.doneShown = true;
       }
     } else if (entry.status === 'error') {
@@ -462,12 +468,20 @@
     const bad = entries.filter((e) => e.status === 'error').length;
 
     if (bad === 0) {
-      const n = entries.length;
-      const photos = entries.filter((e) => e.type !== 'video').length;
+      const skipped = entries.filter((e) => e.status === 'done' && e.duplicate).length;
+      const fresh = entries.filter((e) => e.status === 'done' && !e.duplicate);
+      const n = fresh.length;
+      const photos = fresh.filter((e) => e.type !== 'video').length;
       const videos = n - photos;
-      const where = videos
-        ? `${photos}টি ছবি ও ${videos}টি ভিডিও আলাদা ফোল্ডারে জমা হয়েছে`
-        : `${n}টি ছবি Drive-এ জমা হয়েছে`;
+      let where;
+      if (!n) {
+        where = `সব ফাইল আগেই Drive-এ ছিল — নতুন করে কিছু পাঠাতে হয়নি`;
+      } else {
+        where = videos
+          ? `${photos}টি ছবি ও ${videos}টি ভিডিও আলাদা ফোল্ডারে জমা হয়েছে`
+          : `${n}টি ছবি Drive-এ জমা হয়েছে`;
+        if (skipped) where += `, ${skipped}টি আগেই ছিল`;
+      }
       celebrate();
       showBanner(
         'ok big',
@@ -815,6 +829,8 @@
         chunkMaxMB: cfg.chunkMaxMB,
         chunkStartMB: cfg.chunkStartMB,
         uploadConcurrency: cfg.uploadConcurrency,
+        // Skip files that are already in the Drive folder.
+        dedupe: true,
       },
       getToken,
       getUploader,

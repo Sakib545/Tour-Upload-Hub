@@ -47,6 +47,10 @@ drive.verifyAccess().then(async (r) => {
   require('../services/faces').init().then((ok) => {
     if (ok) logger.info('faces: sorting is on');
   });
+  // Same idea for duplicate detection: build the signature index now, in the
+  // background, so the first visitor's precheck is answered from memory
+  // instead of waiting on a full Drive listing.
+  require('../services/dedupe').ensureIndex().catch(() => { /* best effort */ });
 });
 
 function shutdown(signal) {

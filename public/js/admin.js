@@ -472,7 +472,7 @@
       const state = document.createElement('span');
       state.className = 'state';
       state.textContent =
-        e.status === 'done' ? '✓ সম্পন্ন'
+        e.status === 'done' ? (e.duplicate ? '✓ আগেই আপলোড হয়েছে' : '✓ সম্পন্ন')
           : e.status === 'error' ? `ব্যর্থ${e.errorCode ? ` (${e.errorCode})` : ''}`
             : e.status === 'uploading' ? `${e.pct || 0}%`
               : 'অপেক্ষা…';
@@ -517,6 +517,8 @@
         chunkMaxMB: adminCfg.chunkMaxMB,
         chunkStartMB: adminCfg.chunkStartMB,
         uploadConcurrency: adminCfg.uploadConcurrency,
+        // Skip files that are already in the Drive folder.
+        dedupe: true,
       },
       getToken: () => token,
       getUploader: () => 'Admin',

@@ -10,6 +10,7 @@ const uploads = require('../services/uploads');
 const reservations = require('../services/reservations');
 const drive = require('../services/drive');
 const faces = require('../services/faces');
+const dedupe = require('../services/dedupe');
 const sanitize = require('../utils/sanitize');
 const sniff = require('../utils/sniff');
 const { safeEqual } = require('../utils/tokens');
@@ -454,6 +455,25 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     return fail(res, status, v.code);
   }
 
+  // Duplicate detection. The client normally asks /upload/precheck first and
+  // never sends these bytes at all; this is the backstop for clients that did
+  // not (and for two phones racing with the same photo). It runs before any
+  // Drive session is opened, so a duplicate costs nothing but this one chunk.
+  const sig = dedupe.cleanSig(req.get('x-file-sig'));
+  if (sig) {
+    let known = null;
+    try { known = await dedupe.lookup(sig); } catch (e) { known = null; }
+    if (known) {
+      await drain(req);
+      logger.info('upload: duplicate skipped', { id, name: v.fileName, existing: known.name });
+      return sendJson(res, 200, {
+        done: true,
+        duplicate: true,
+        file: { id: known.fileId, name: known.name || v.fileName, size: total },
+      });
+    }
+  }
+
   // Abuse caps BEFORE any Drive session or buffering.
   const cap = uploads.capacityOk(ip);
   if (!cap.ok) {
@@ -522,6 +542,7 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
     uploader,
     originalName: v.fileName,
     category: category ? category.id : '',
+    sig,
   });
 
   let sessionUri;
@@ -552,6 +573,7 @@ async function beginNewFile(req, res, { id, total, contentLength, ip }) {
       uploader,
       ip,
       sessionUri,
+      sig,
     },
     // cancel: best-effort abort of the Drive session + release the filename.
     async () => {
@@ -629,6 +651,30 @@ router.post('/upload/chunk', rl.uploadChunks, requireUploadAuth, asyncH(async (r
   }
 
   await sendChunkToDrive({ clientReq: req, stream: req, res, entry, id, offset, contentLength });
+}));
+
+/* ── Public: has this file been uploaded already? ─────────────── */
+
+/**
+ * The client sends the content signatures of the files it is about to upload
+ * and gets back the ones already sitting in the tour folder. Signatures only —
+ * no bytes, no file names — so this stays a tiny request even for a 50-file
+ * batch, and an already-uploaded 200 MB video is never sent twice.
+ */
+router.post('/upload/precheck', rl.light, requireUploadAuth, asyncH(async (req, res) => {
+  const raw = (req.body && req.body.sigs) || [];
+  if (!Array.isArray(raw)) return fail(res, 400, 'BAD_REQUEST');
+  if (raw.length > 200) return fail(res, 400, 'BAD_REQUEST');
+  let known = {};
+  try {
+    known = await dedupe.lookupMany(raw);
+  } catch (e) {
+    known = {}; // never block an upload over duplicate bookkeeping
+  }
+  // Only the stored display name goes back — enough for "আগেই আপলোড হয়েছে".
+  const out = {};
+  for (const [sig, v] of Object.entries(known)) out[sig] = { name: v.name || '' };
+  res.json({ known: out });
 }));
 
 /* ── Public: cancel an upload ─────────────────────────────────── */
