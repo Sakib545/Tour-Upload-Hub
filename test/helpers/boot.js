@@ -82,6 +82,8 @@ const MP4_PREFIX = Buffer.concat([
   Buffer.from([0x00, 0x00, 0x00, 0x18]),
   Buffer.from('ftypisom', 'latin1'),
 ]);
+// DNG = TIFF container: "II", version 42 (little-endian).
+const DNG_PREFIX = Buffer.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]);
 const EXE_PREFIX = Buffer.from('MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00');
 const HTML_PREFIX = Buffer.from('<!DOCTYPE html><html><head></head><body>hi</body></html>');
 
@@ -92,4 +94,4 @@ function padTo(len, prefix) {
   return buf;
 }
 
-module.exports = { start, DEFAULTS, JPEG_PREFIX, PNG_PREFIX, HEIC_PREFIX, MP4_PREFIX, EXE_PREFIX, HTML_PREFIX, padTo };
+module.exports = { start, DEFAULTS, JPEG_PREFIX, PNG_PREFIX, HEIC_PREFIX, DNG_PREFIX, MP4_PREFIX, EXE_PREFIX, HTML_PREFIX, padTo };

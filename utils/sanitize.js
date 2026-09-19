@@ -15,6 +15,9 @@ const EXT_MIME = {
   heic: ['image/heic', 'image/heif'],
   heif: ['image/heic', 'image/heif'],
   bmp: ['image/bmp'],
+  // Adobe DNG (camera / drone RAW). Phones and desktops report it
+  // inconsistently, so every MIME seen in the wild is accepted.
+  dng: ['image/x-adobe-dng', 'image/dng', 'image/tiff', 'image/x-dng'],
   mp4: ['video/mp4'],
   mov: ['video/quicktime', 'video/mp4'],
   m4v: ['video/x-m4v', 'video/mp4'],

@@ -382,6 +382,9 @@
   function makeThumbUrl(entry) {
     if (entry.type === 'video') return;
     if (entry.url) return;
+    // Browsers can't decode RAW — an object URL would only give a broken
+    // <img>, so fall back to the generic file icon instead.
+    if (/\.dng$/i.test(entry.name || '')) return;
     try { entry.url = URL.createObjectURL(entry.file); } catch (e) { /* ignore */ }
   }
 

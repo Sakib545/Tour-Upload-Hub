@@ -25,7 +25,7 @@
 
 (function (global) {
   const ALLOWED = {
-    jpg: 1, jpeg: 1, png: 1, webp: 1, gif: 1, heic: 1, heif: 1, bmp: 1,
+    jpg: 1, jpeg: 1, png: 1, webp: 1, gif: 1, heic: 1, heif: 1, bmp: 1, dng: 1,
     mp4: 1, mov: 1, m4v: 1, '3gp': 1, '3g2': 1,
   };
 

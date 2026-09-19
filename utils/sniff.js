@@ -83,6 +83,18 @@ function sniffPrefix(ext, buf) {
       if (buf.length >= 2 && buf[0] === 0x42 && buf[1] === 0x4d) return { ok: true };
       return { ok: false, code: 'INVALID_FILE_CONTENT' };
 
+    case 'dng': {
+      // DNG is a TIFF container: "II" + 42 (little-endian) or "MM" + 42
+      // (big-endian). Some large DNGs use BigTIFF (version 43).
+      if (buf.length < 8) return { ok: false, code: 'INVALID_FILE_CONTENT' };
+      const le = buf[0] === 0x49 && buf[1] === 0x49;
+      const be = buf[0] === 0x4d && buf[1] === 0x4d;
+      if (!le && !be) return { ok: false, code: 'INVALID_FILE_CONTENT' };
+      const version = le ? buf.readUInt16LE(2) : buf.readUInt16BE(2);
+      if (version === 42 || version === 43) return { ok: true };
+      return { ok: false, code: 'INVALID_FILE_CONTENT' };
+    }
+
     case 'heic':
     case 'heif': {
       if (buf.length < 12 || asciiAt(buf, 4, 4) !== 'ftyp') {

@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  start, JPEG_PREFIX, PNG_PREFIX, HEIC_PREFIX, MP4_PREFIX, EXE_PREFIX, HTML_PREFIX, padTo,
+  start, JPEG_PREFIX, PNG_PREFIX, HEIC_PREFIX, DNG_PREFIX, MP4_PREFIX, EXE_PREFIX, HTML_PREFIX, padTo,
 } = require('./helpers/boot');
 
 async function chunkReq(base, opts) {
@@ -61,12 +61,22 @@ test('file signatures: disguised executables/html rejected, valid formats accept
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.done, true);
 
+  // 6b. Valid DNG -> completes (phones often send an empty mime)
+  r = await chunkReq(B, { id: 'magic_dng_00001', total: S, name: 'raw.dng', mime: '', body: padTo(S, DNG_PREFIX) });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.done, true);
+
+  // 6c. A .dng that is not really TIFF -> rejected
+  r = await chunkReq(B, { id: 'magic_dngbad001', total: S, name: 'fake.dng', mime: '', body: padTo(S, EXE_PREFIX) });
+  assert.equal(r.status, 415);
+  assert.equal(r.data.error, 'INVALID_FILE_CONTENT');
+
   // 7. Valid MP4 -> completes
   r = await chunkReq(B, { id: 'magic_mp4_00001', total: S, name: 'clip.mp4', mime: 'video/mp4', body: padTo(S, MP4_PREFIX) });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.done, true);
 
   const files = ctx.mock.state.files();
-  assert.equal(files.length, 3);
-  assert.deepEqual(files.map((f) => f.name).sort(), ['clip.mp4', 'img.heic', 'pic.png']);
+  assert.equal(files.length, 4);
+  assert.deepEqual(files.map((f) => f.name).sort(), ['clip.mp4', 'img.heic', 'pic.png', 'raw.dng']);
 });
